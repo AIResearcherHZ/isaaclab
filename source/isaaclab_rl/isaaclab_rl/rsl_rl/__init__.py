@@ -20,4 +20,5 @@ from .exporter import export_policy_as_jit, export_policy_as_onnx
 from .rl_cfg import *
 from .rnd_cfg import RslRlRndCfg
 from .symmetry_cfg import RslRlSymmetryCfg
+from .torque_recorder import TorqueRecorder
 from .vecenv_wrapper import RslRlVecEnvWrapper

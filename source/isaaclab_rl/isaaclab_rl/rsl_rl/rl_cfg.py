@@ -223,6 +223,18 @@ class RslRlBaseRunnerCfg:
     If regex expression, the latest (alphabetical order) matching file will be loaded.
     """
 
+    enable_torque_recording: bool = False
+    """Whether to enable torque recording during training/inference. Default is False.
+
+    When enabled, you can press ',' to start recording and '.' to stop and save the torque data.
+    """
+
+    torque_recording_dir: str = "torque_logs"
+    """Directory to save torque recordings. Default is "torque_logs"."""
+
+    torque_recording_env_id: int = 0
+    """Environment ID to record torque data from. Default is 0 (first environment)."""
+
 
 @configclass
 class RslRlOnPolicyRunnerCfg(RslRlBaseRunnerCfg):

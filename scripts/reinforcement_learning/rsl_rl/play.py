@@ -34,6 +34,16 @@ parser.add_argument(
     help="Use the pre-trained checkpoint from Nucleus.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+# torque recording arguments
+parser.add_argument(
+    "--enable_torque_recording", action="store_true", default=False, help="Enable torque recording during inference."
+)
+parser.add_argument(
+    "--torque_recording_dir", type=str, default="torque_logs", help="Directory to save torque recordings."
+)
+parser.add_argument(
+    "--torque_recording_env_id", type=int, default=0, help="Environment ID to record torque data from."
+)
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -135,7 +145,22 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
 
     # wrap around environment for rsl-rl
-    env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+    # use command line arguments to override config if provided
+    enable_torque_recording = args_cli.enable_torque_recording or getattr(agent_cfg, "enable_torque_recording", False)
+    torque_recording_dir = args_cli.torque_recording_dir if args_cli.enable_torque_recording else getattr(
+        agent_cfg, "torque_recording_dir", "torque_logs"
+    )
+    torque_recording_env_id = (
+        args_cli.torque_recording_env_id if args_cli.enable_torque_recording else getattr(agent_cfg, "torque_recording_env_id", 0)
+    )
+
+    env = RslRlVecEnvWrapper(
+        env,
+        clip_actions=agent_cfg.clip_actions,
+        enable_torque_recording=enable_torque_recording,
+        torque_recording_dir=torque_recording_dir,
+        torque_recording_env_id=torque_recording_env_id,
+    )
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
