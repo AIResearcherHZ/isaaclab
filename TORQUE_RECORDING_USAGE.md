@@ -167,18 +167,21 @@ class G1FlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 ## 注意事项
 
-1. **性能影响**：录制过程会占用少量CPU资源，但不会显著影响训练/推理性能
-2. **存储空间**：长时间录制会产生较大的数据文件，建议录制关键片段
-3. **环境要求**：需要安装 `pynput`、`matplotlib` 和 `rich` 库
-4. **多环境**：默认只记录第一个环境（env_id=0）的数据，可通过 `torque_recording_env_id` 修改
-5. **终端显示**：使用 `rich` 库提供美观的终端界面，特别适合服务器环境使用
+1. **自动录制**：程序启动后立即开始录制，无需手动操作
+2. **录制时长**：默认录制5秒，可通过 `--torque_recording_duration` 参数自定义
+3. **性能影响**：录制过程会占用少量CPU资源，但不会显著影响训练/推理性能
+4. **存储空间**：长时间录制会产生较大的数据文件，建议设置合理的录制时长
+5. **环境要求**：需要安装 `matplotlib` 和 `rich` 库
+6. **多环境**：默认只记录第一个环境（env_id=0）的数据，可通过 `torque_recording_env_id` 修改
+7. **终端显示**：使用 `rich` 库提供美观的终端界面，特别适合服务器环境使用
+8. **Ctrl+C保存**：任何时候按 Ctrl+C 退出都会自动保存已录制的数据
 
 ## 依赖安装
 
 如果缺少依赖，请安装：
 
 ```bash
-pip install pynput matplotlib rich
+pip install matplotlib rich
 ```
 
 ## 故障排除
