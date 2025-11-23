@@ -11,6 +11,8 @@ from rsl_rl.env import VecEnv
 
 from isaaclab.envs import DirectRLEnv, ManagerBasedRLEnv
 
+from .torque_recorder import TorqueRecorder
+
 
 class RslRlVecEnvWrapper(VecEnv):
     """Wraps around Isaac Lab environment for the RSL-RL library
@@ -24,7 +26,14 @@ class RslRlVecEnvWrapper(VecEnv):
         https://github.com/leggedrobotics/rsl_rl/blob/master/rsl_rl/env/vec_env.py
     """
 
-    def __init__(self, env: ManagerBasedRLEnv | DirectRLEnv, clip_actions: float | None = None):
+    def __init__(
+        self,
+        env: ManagerBasedRLEnv | DirectRLEnv,
+        clip_actions: float | None = None,
+        enable_torque_recording: bool = False,
+        torque_recording_dir: str = "torque_logs",
+        torque_recording_env_id: int = 0,
+    ):
         """Initializes the wrapper.
 
         Note:
@@ -33,6 +42,9 @@ class RslRlVecEnvWrapper(VecEnv):
         Args:
             env: The environment to wrap around.
             clip_actions: The clipping value for actions. If ``None``, then no clipping is done.
+            enable_torque_recording: Whether to enable torque recording functionality.
+            torque_recording_dir: Directory to save torque recordings.
+            torque_recording_env_id: Environment ID to record (default: 0).
 
         Raises:
             ValueError: When the environment is not an instance of :class:`ManagerBasedRLEnv` or :class:`DirectRLEnv`.
@@ -62,6 +74,21 @@ class RslRlVecEnvWrapper(VecEnv):
 
         # modify the action space to the clip range
         self._modify_action_space()
+
+        # initialize torque recorder if enabled
+        self.torque_recorder = None
+        if enable_torque_recording:
+            # get the robot articulation from the environment
+            if hasattr(self.unwrapped, "scene") and hasattr(self.unwrapped.scene, "robot"):
+                robot = self.unwrapped.scene["robot"]
+                self.torque_recorder = TorqueRecorder(
+                    articulation=robot,
+                    save_dir=torque_recording_dir,
+                    env_id=torque_recording_env_id,
+                    enable=True,
+                )
+            else:
+                print("[Warning] Cannot find robot in scene. Torque recording disabled.")
 
         # reset at the start since the RSL-RL runner does not call reset
         self.env.reset()
@@ -155,6 +182,9 @@ class RslRlVecEnvWrapper(VecEnv):
             actions = torch.clamp(actions, -self.clip_actions, self.clip_actions)
         # record step information
         obs_dict, rew, terminated, truncated, extras = self.env.step(actions)
+        # record torque data if enabled
+        if self.torque_recorder is not None:
+            self.torque_recorder.record_step()
         # compute dones for compatibility with RSL-RL
         dones = (terminated | truncated).to(dtype=torch.long)
         # move time out information to the extras dict
@@ -165,6 +195,9 @@ class RslRlVecEnvWrapper(VecEnv):
         return TensorDict(obs_dict, batch_size=[self.num_envs]), rew, dones, extras
 
     def close(self):  # noqa: D102
+        # close torque recorder if exists
+        if self.torque_recorder is not None:
+            self.torque_recorder.close()
         return self.env.close()
 
     """
