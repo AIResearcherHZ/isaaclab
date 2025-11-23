@@ -169,8 +169,18 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
-        # 终止条件：躯干接触地面即终止
-        self.terminations.base_contact.params["sensor_cfg"].body_names = "torso_link"
+        # 终止条件：躯干、双臂、髋关节接触地面即终止
+        self.terminations.base_contact.params["sensor_cfg"].body_names = [
+            "torso_link",  # 躯干
+            ".*_shoulder_pitch_link",  # 肩部pitch关节
+            ".*_shoulder_roll_link",  # 肩部roll关节
+            ".*_shoulder_yaw_link",  # 肩部yaw关节
+            ".*_elbow_link",  # 肘部
+            ".*_wrist_roll_link",  # 腕部roll
+            ".*_wrist_yaw_link",  # 腕部yaw
+            ".*_wrist_pitch_link",  # 腕部pitch
+            ".*_hip_pitch_link",  # 髋部pitch
+        ]
 
 
 @configclass
