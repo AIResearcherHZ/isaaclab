@@ -44,6 +44,9 @@ parser.add_argument(
 parser.add_argument(
     "--torque_recording_env_id", type=int, default=0, help="Environment ID to record torque data from."
 )
+parser.add_argument(
+    "--torque_recording_duration", type=float, default=5.0, help="Recording duration in seconds (default: 5.0)."
+)
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args

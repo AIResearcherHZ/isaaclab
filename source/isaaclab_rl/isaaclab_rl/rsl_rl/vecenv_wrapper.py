@@ -33,6 +33,7 @@ class RslRlVecEnvWrapper(VecEnv):
         enable_torque_recording: bool = False,
         torque_recording_dir: str = "torque_logs",
         torque_recording_env_id: int = 0,
+        torque_recording_duration: float = 5.0,
     ):
         """Initializes the wrapper.
 
@@ -45,6 +46,7 @@ class RslRlVecEnvWrapper(VecEnv):
             enable_torque_recording: Whether to enable torque recording functionality.
             torque_recording_dir: Directory to save torque recordings.
             torque_recording_env_id: Environment ID to record (default: 0).
+            torque_recording_duration: Recording duration in seconds (default: 5.0).
 
         Raises:
             ValueError: When the environment is not an instance of :class:`ManagerBasedRLEnv` or :class:`DirectRLEnv`.
