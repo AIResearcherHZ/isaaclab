@@ -2,6 +2,7 @@ git clone https://github.com/AIResearcherHZ/isaaclab.git
 git clone https://github.com/AIResearcherHZ/robot_lab.git
 git clone --recurse-submodules https://github.com/AIResearcherHZ/HOVER
 
+
 软链接：
 ln -s /home/xhz/isaacsim _isaac_sim
 
@@ -9,9 +10,21 @@ URDF-USD转换：
 ./isaaclab.sh -p scripts/tools/convert_urdf.py /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.urdf /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.usd --merge-joints
 ./isaaclab.sh -p scripts/tools/convert_urdf.py /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.urdf /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd --merge-joints
 
+
+MJCF-USD转换：
+./isaaclab.sh -p scripts/tools/convert_mjcf.py /home/xhz/桌面/assets/Taks_T1/Taks_T1.xml /home/xhz/桌面/assets/Taks_T1/Taks_T1.usd
+./isaaclab.sh -p scripts/tools/convert_mjcf.py /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.xml /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd --merge-joints
+
+
 宇树G1步态训练(/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/g1/flat_env_cfg.py)：
 
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Velocity-Flat-G1-v0 --num_envs 12288 --headless
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-G1-Play-v0 --num_envs 1 --enable_torque_recording --torque_recording_dir logs/my_torque_data --torque_recording_env_id 0
 ./isaaclab.sh -p -m tensorboard.main --logdir=/root/IsaacLab/logs/rsl_rl/g1_flat
 
+
+Taks_T1步态训练：
+
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Velocity-Flat-Taks_T1-v0 --num_envs 12288 --headless
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-Taks_T1-Play-v0 --num_envs 1 --enable_torque_recording --torque_recording_dir logs/my_torque_data --torque_recording_env_id 0
+./isaaclab.sh -p -m tensorboard.main --logdir=/root/IsaacLab/logs/rsl_rl/Taks_T1_flat
