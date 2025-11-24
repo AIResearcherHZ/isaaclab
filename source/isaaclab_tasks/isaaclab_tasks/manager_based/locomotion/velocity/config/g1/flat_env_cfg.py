@@ -37,6 +37,7 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
 
+@configclass
 class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
     def __post_init__(self) -> None:
         # 调用父类的后置初始化以确保基础配置有效
@@ -50,3 +51,6 @@ class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
         # 移除试验中对机器人的随机推动事件
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+
+        # 启用场景查询支持,用于碰撞检测和射线投射等功能
+        self.sim.enable_scene_query_support = True

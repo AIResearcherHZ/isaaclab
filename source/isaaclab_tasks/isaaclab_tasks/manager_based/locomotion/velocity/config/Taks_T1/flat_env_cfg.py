@@ -1,7 +1,7 @@
-from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
 from .rough_env_cfg import TaksT1RoughEnvCfg
+
 
 @configclass
 class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
@@ -18,6 +18,8 @@ class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
         # 取消地形课程机制，因为地形固定为平坦
         self.curriculum.terrain_levels = None
 
+
+@configclass
 class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
     def __post_init__(self) -> None:
         # 调用父类的后置初始化以确保基础配置有效
@@ -31,3 +33,6 @@ class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
         # 移除试验中对机器人的随机推动事件
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+
+        # 启用场景查询支持,用于碰撞检测和射线投射等功能
+        self.sim.enable_scene_query_support = True
