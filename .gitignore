@@ -8,11 +8,11 @@
 **/*.dmp
 **/.thumbs
 
-# No USD files allowed in the repo
-**/*.usd
-**/*.usda
-**/*.usdc
-**/*.usdz
+# Exception: Allow USD files in Taks_T1 robot folder
+!source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/**/*.usd
+!source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/**/*.usda
+!source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/**/*.usdc
+!source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/**/*.usdz
 
 # Python
 .DS_Store
