@@ -14,7 +14,6 @@ from isaaclab.assets.articulation import ArticulationCfg
 # Configuration
 ##
 
-
 TAKS_T1_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path="source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd",
