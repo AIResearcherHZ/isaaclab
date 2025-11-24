@@ -4,7 +4,7 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 
 @configclass
-class TaksT1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     # 每个环境每个 rollout 收集的时间步数量（采样长度）
     num_steps_per_env = 24
     # 最大训练轮数
@@ -45,7 +45,7 @@ class TaksT1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class TaksT1FlatPPORunnerCfg(TaksT1RoughPPORunnerCfg):
+class G1FlatPPORunnerCfg(G1RoughPPORunnerCfg):
     def __post_init__(self):
         # 调用父类的后初始化以确保所有配置被正确继承与处理
         super().__post_init__()
