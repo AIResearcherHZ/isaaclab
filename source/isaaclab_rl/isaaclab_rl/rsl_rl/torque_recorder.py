@@ -80,6 +80,9 @@ class TorqueRecorder:
         self.recording_start_time = time.time()
         self.has_saved = False
 
+        # 计算需要录制的步数（基于仿真时间）
+        self.target_steps = int(recording_duration / dt)
+
         # Rich控制台
         self.console = Console()
 
@@ -108,9 +111,8 @@ class TorqueRecorder:
         if not self.enable or not self.is_recording:
             return
 
-        # 检查是否达到录制时长
-        elapsed_time = time.time() - self.recording_start_time
-        if elapsed_time >= self.recording_duration:
+        # 检查是否达到录制步数（基于仿真时间）
+        if len(self.recorded_data) >= self.target_steps:
             if not self.has_saved:
                 self.is_recording = False
                 self._save_data()
@@ -217,7 +219,8 @@ class TorqueRecorder:
 
         config_table.add_row("环境ID:", str(self.env_id))
         config_table.add_row("关节数:", str(self.num_joints))
-        config_table.add_row("录制时长:", f"{self.recording_duration}秒")
+        config_table.add_row("录制时长:", f"{self.recording_duration}秒 ({self.target_steps}步)")
+        config_table.add_row("时间步长:", f"{self.dt}秒")
         config_table.add_row("保存目录:", self.save_dir)
 
         # 组合面板
