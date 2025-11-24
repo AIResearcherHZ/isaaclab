@@ -12,7 +12,7 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     # 模型保存间隔（每 n 次迭代保存一次）
     save_interval = 50
     # 实验名称，用于日志/检查点组织
-    experiment_name = "Taks_T1_rough"
+    experiment_name = "g1_rough"
     # 观测组配置：定义 policy 和 critic 使用的观测集合
     obs_groups = {
         "policy": ["policy"],  # policy 使用 "policy" 观测组
@@ -51,9 +51,9 @@ class G1FlatPPORunnerCfg(G1RoughPPORunnerCfg):
         super().__post_init__()
 
         # 平坦地形版本训练迭代次数减半，因任务简单
-        self.max_iterations = 2000
+        self.max_iterations = 1500
         # 实验名称更新，用于区分不同训练场景的日志/模型
-        self.experiment_name = "Taks_T1_flat"
+        self.experiment_name = "g1_flat"
         # 平坦环境下使用更小的网络规模以降低计算开销
         self.policy.actor_hidden_dims = [256, 128, 128]
         self.policy.critic_hidden_dims = [256, 128, 128]
