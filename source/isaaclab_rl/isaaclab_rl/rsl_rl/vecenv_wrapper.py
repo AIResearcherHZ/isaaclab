@@ -62,6 +62,7 @@ class RslRlVecEnvWrapper(VecEnv):
         # initialize the wrapper
         self.env = env
         self.clip_actions = clip_actions
+        self.torque_recording_duration = torque_recording_duration
 
         # store information required by wrapper
         self.num_envs = self.unwrapped.num_envs
@@ -81,16 +82,27 @@ class RslRlVecEnvWrapper(VecEnv):
         self.torque_recorder = None
         if enable_torque_recording:
             # get the robot articulation from the environment
-            if hasattr(self.unwrapped, "scene") and hasattr(self.unwrapped.scene, "robot"):
-                robot = self.unwrapped.scene["robot"]
-                self.torque_recorder = TorqueRecorder(
-                    articulation=robot,
-                    save_dir=torque_recording_dir,
-                    env_id=torque_recording_env_id,
-                    enable=True,
-                )
-            else:
-                print("[Warning] Cannot find robot in scene. Torque recording disabled.")
+            try:
+                if hasattr(self.unwrapped, "scene"):
+                    robot = self.unwrapped.scene["robot"]
+                    # get the environment step time
+                    env_dt = self.unwrapped.step_dt if hasattr(self.unwrapped, "step_dt") else 0.02
+                    self.torque_recorder = TorqueRecorder(
+                        articulation=robot,
+                        save_dir=torque_recording_dir,
+                        env_id=torque_recording_env_id,
+                        recording_duration=torque_recording_duration,
+                        dt=env_dt,
+                        enable=True,
+                    )
+                    print(f"[INFO] Torque recording enabled for environment {torque_recording_env_id}")
+                    print(f"[INFO] Recording duration: {torque_recording_duration} seconds")
+                    print(f"[INFO] Environment step dt: {env_dt} seconds")
+                    print(f"[INFO] Saving torque data to: {torque_recording_dir}")
+                else:
+                    print("[Warning] Cannot find scene in environment. Torque recording disabled.")
+            except (KeyError, AttributeError) as e:
+                print(f"[Warning] Cannot find robot in scene: {e}. Torque recording disabled.")
 
         # reset at the start since the RSL-RL runner does not call reset
         self.env.reset()

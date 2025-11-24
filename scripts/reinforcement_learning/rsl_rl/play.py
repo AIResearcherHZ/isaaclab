@@ -156,6 +156,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     torque_recording_env_id = (
         args_cli.torque_recording_env_id if args_cli.enable_torque_recording else getattr(agent_cfg, "torque_recording_env_id", 0)
     )
+    torque_recording_duration = (
+        args_cli.torque_recording_duration if args_cli.enable_torque_recording else getattr(agent_cfg, "torque_recording_duration", 5.0)
+    )
 
     env = RslRlVecEnvWrapper(
         env,
@@ -163,6 +166,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         enable_torque_recording=enable_torque_recording,
         torque_recording_dir=torque_recording_dir,
         torque_recording_env_id=torque_recording_env_id,
+        torque_recording_duration=torque_recording_duration,
     )
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")

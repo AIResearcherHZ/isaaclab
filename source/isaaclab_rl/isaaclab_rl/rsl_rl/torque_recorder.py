@@ -9,15 +9,23 @@ from __future__ import annotations
 
 import os
 import time
+import warnings
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+
+# 配置 matplotlib 使用支持中文的字体
+matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'Bitstream Vera Sans']
+matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+
+# 抑制中文字体警告
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation
@@ -39,6 +47,7 @@ class TorqueRecorder:
         env_id: int = 0,
         enable: bool = True,
         recording_duration: float = 5.0,
+        dt: float = 0.02,
     ):
         """初始化扭矩记录器
 
@@ -48,12 +57,14 @@ class TorqueRecorder:
             env_id: 要记录的环境ID（默认为0，即第一个环境）
             enable: 是否启用记录功能
             recording_duration: 录制时长（秒），默认5秒
+            dt: 仿真时间步长（秒），默认0.02秒
         """
         self.articulation = articulation
         self.save_dir = save_dir
         self.env_id = env_id
         self.enable = enable
         self.recording_duration = recording_duration
+        self.dt = dt
 
         # 获取关节名称
         self.joint_names = articulation.data.joint_names
@@ -66,7 +77,7 @@ class TorqueRecorder:
         self.start_time = None
         self.recording_start_time = time.time()
         self.has_saved = False
-        
+
         # Rich控制台
         self.console = Console()
 
@@ -80,14 +91,14 @@ class TorqueRecorder:
         """保存数据"""
         if self.has_saved or len(self.recorded_data) == 0:
             return
-        
+
         self.has_saved = True
         data_points = len(self.recorded_data)
         duration = self.timestamps[-1] if self.timestamps else 0
-        
+
         self.console.print("\n[bold yellow]💾 正在保存数据...[/bold yellow]")
         self.console.print(f"[cyan]数据点数: {data_points} | 时长: {duration:.2f}秒[/cyan]")
-        
+
         self._save_and_plot()
 
     def record_step(self):
@@ -111,7 +122,7 @@ class TorqueRecorder:
             self.start_time = 0.0
             timestamp = 0.0
         else:
-            timestamp = len(self.recorded_data) * self.articulation._sim_dt
+            timestamp = len(self.recorded_data) * self.dt
 
         self.timestamps.append(timestamp)
         self.recorded_data.append(applied_torque.copy())
@@ -189,7 +200,7 @@ class TorqueRecorder:
         plot_file = os.path.join(self.save_dir, f"{base_filename}.png")
         plt.savefig(plot_file, dpi=150, bbox_inches='tight')
         self.console.print(f"[bold green]✅ 图形已保存:[/bold green] [cyan]{plot_file}[/cyan]")
-        
+
         # 显示数据统计
         self._display_statistics(data_array)
 
@@ -201,30 +212,30 @@ class TorqueRecorder:
         config_table = Table(show_header=False, box=None, padding=(0, 2))
         config_table.add_column(style="bold magenta")
         config_table.add_column(style="white")
-        
+
         config_table.add_row("环境ID:", str(self.env_id))
         config_table.add_row("关节数:", str(self.num_joints))
         config_table.add_row("录制时长:", f"{self.recording_duration}秒")
         config_table.add_row("保存目录:", self.save_dir)
-        
+
         # 组合面板
         panel_content = Table.grid(padding=1)
         panel_content.add_row("[bold white]⚙️  配置信息[/bold white]")
         panel_content.add_row(config_table)
         panel_content.add_row("")
         panel_content.add_row("[bold yellow]🔴 自动录制中... (Ctrl+C 退出时自动保存)[/bold yellow]")
-        
+
         panel = Panel(
             panel_content,
             title="[bold green]🎬 扭矩记录器已启动[/bold green]",
             border_style="green",
             padding=(1, 2)
         )
-        
+
         self.console.print("\n")
         self.console.print(panel)
         self.console.print("\n")
-    
+
     def _display_statistics(self, data_array):
         """显示数据统计信息"""
         stats_table = Table(title="📊 扭矩数据统计", show_header=True, header_style="bold magenta")
@@ -233,13 +244,13 @@ class TorqueRecorder:
         stats_table.add_column("最大值 (N·m)", justify="right", style="red")
         stats_table.add_column("最小值 (N·m)", justify="right", style="blue")
         stats_table.add_column("标准差 (N·m)", justify="right", style="yellow")
-        
+
         for i, joint_name in enumerate(self.joint_names):
             mean_val = np.mean(data_array[:, i])
             max_val = np.max(data_array[:, i])
             min_val = np.min(data_array[:, i])
             std_val = np.std(data_array[:, i])
-            
+
             stats_table.add_row(
                 joint_name,
                 f"{mean_val:.2f}",
@@ -247,11 +258,11 @@ class TorqueRecorder:
                 f"{min_val:.2f}",
                 f"{std_val:.2f}"
             )
-        
+
         self.console.print("\n")
         self.console.print(stats_table)
         self.console.print("\n")
-    
+
     def close(self):
         """关闭记录器"""
         if self.enable:
