@@ -114,3 +114,40 @@ def stand_still_joint_deviation_l1(
     command = env.command_manager.get_command(command_name)
     # Penalize motion when command is nearly zero.
     return mdp.joint_deviation_l1(env, asset_cfg) * (torch.norm(command[:, :2], dim=1) < command_threshold)
+
+
+def gait_symmetry(env, sensor_cfg: SceneEntityCfg) -> torch.Tensor:
+    """奖励双脚步态对称性,鼓励左右脚接触时间平衡."""
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    contact_time = contact_sensor.data.current_contact_time[:, sensor_cfg.body_ids]
+
+    # 假设body_ids[0]是左脚, body_ids[1]是右脚
+    if contact_time.shape[1] >= 2:
+        left_contact = contact_time[:, 0]
+        right_contact = contact_time[:, 1]
+        # 计算接触时间差异,差异越小奖励越高
+        time_diff = torch.abs(left_contact - right_contact)
+        reward = torch.exp(-time_diff / 0.1)  # 使用指数核函数
+        return reward
+    return torch.zeros(env.num_envs, device=env.device)
+
+
+def stand_still_when_zero_command(
+    env, command_name: str, command_threshold: float = 0.1, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """当命令接近零时,奖励机器人保持静止和稳定."""
+    command = env.command_manager.get_command(command_name)
+    asset = env.scene[asset_cfg.name]
+
+    # 检查命令是否接近零
+    is_zero_command = torch.norm(command[:, :3], dim=1) < command_threshold
+
+    # 奖励低速度(保持静止)
+    lin_vel = torch.norm(asset.data.root_lin_vel_w[:, :2], dim=1)
+    ang_vel = torch.abs(asset.data.root_ang_vel_w[:, 2])
+
+    # 速度越小奖励越高
+    stillness_reward = torch.exp(-lin_vel / 0.1) * torch.exp(-ang_vel / 0.1)
+
+    # 只在零命令时应用奖励
+    return stillness_reward * is_zero_command.float()

@@ -67,15 +67,14 @@ class TaksT1Rewards(RewardsCfg):
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
-    # 肩部关节偏差惩罚：仅约束肩部roll和yaw，允许pitch自然摆动
+    # 肩部关节偏差惩罚：减小权重,允许肩部更自由运动以平衡
     joint_deviation_shoulders = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.05,
+        weight=-0.025,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
                 joint_names=[
-                    ".*_shoulder_roll_joint",
                     ".*_shoulder_yaw_joint",
                 ],
             )
@@ -98,14 +97,14 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 腰部关节偏差惩罚：保持躯干稳定，减少由腰部引起的晃动
+    # 腰部关节偏差惩罚：减小waist_pitch的约束,允许其自然调整以平衡
     joint_deviation_waist = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"])},
+        weight=-0.05,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
     )
 
-    # 颈部关节偏差惩罚：大幅增加权重以保持头部稳定，消除抖动
+    # 颈部关节偏差惩罚：大幅增加权重以保持头部稳定,消除抖动
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.15,
@@ -123,6 +122,20 @@ class TaksT1Rewards(RewardsCfg):
     base_ang_vel_xy = RewTerm(
         func=mdp.ang_vel_xy_l2,
         weight=-0.1,
+    )
+
+    # 步态对称性奖励：鼓励双脚接触时间平衡,减少"烫脚"现象
+    gait_symmetry = RewTerm(
+        func=mdp.gait_symmetry,
+        weight=0.1,
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
+    )
+
+    # 静止奖励：无命令时保持静止和自稳定
+    stand_still = RewTerm(
+        func=mdp.stand_still_when_zero_command,
+        weight=0.2,
+        params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
 
