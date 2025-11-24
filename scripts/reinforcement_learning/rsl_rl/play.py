@@ -250,8 +250,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
         if args_cli.keyboard:
             # camera follow for keyboard control
-            if hasattr(env.unwrapped, 'scene') and 'robot' in env.unwrapped.scene:
-                robot = env.unwrapped.scene["robot"]
+            if hasattr(env.unwrapped, 'scene') and hasattr(env.unwrapped.scene, 'robot'):
+                robot = env.unwrapped.scene.robot
                 if hasattr(robot, 'data') and hasattr(robot.data, 'root_pos_w'):
                     root_pos = robot.data.root_pos_w[0].cpu().numpy()
                     if hasattr(env.unwrapped.sim, 'set_camera_view'):

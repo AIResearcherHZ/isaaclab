@@ -145,6 +145,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.push_robot.interval_range_s = (8.0, 12.0)
 
         # 增加基座质量随机化
+        self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
         self.events.add_base_mass.params["mass_distribution_params"] = (-8.0, 8.0)
 
         # 增加关节初始位置的随机化范围
@@ -169,6 +170,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         }
 
         # 保留质心随机化以增加动力学多样性
+        self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
         self.events.base_com.params["com_range"] = {"x": (-0.08, 0.08), "y": (-0.08, 0.08), "z": (-0.02, 0.02)}
 
         # 奖励权重进一步细调
