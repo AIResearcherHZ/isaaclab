@@ -34,6 +34,7 @@ parser.add_argument(
     help="Use the pre-trained checkpoint from Nucleus.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+parser.add_argument("--keyboard", action="store_true", default=False, help="Whether to use keyboard.")
 # torque recording arguments
 parser.add_argument(
     "--enable_torque_recording", action="store_true", default=False, help="Enable torque recording during inference."
@@ -73,6 +74,7 @@ import torch
 
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
+from isaaclab.devices import Se2Keyboard, Se2KeyboardCfg
 from isaaclab.envs import (
     DirectMARLEnv,
     DirectMARLEnvCfg,
@@ -80,6 +82,7 @@ from isaaclab.envs import (
     ManagerBasedRLEnvCfg,
     multi_agent_to_single_agent,
 )
+from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
@@ -127,6 +130,25 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # set the log directory for the environment (works for all environment types)
     env_cfg.log_dir = log_dir
+
+    # configure keyboard control if enabled
+    controller = None
+    if args_cli.keyboard:
+        env_cfg.scene.num_envs = 1
+        if hasattr(env_cfg, 'terminations'):
+            env_cfg.terminations.time_out = None
+        if hasattr(env_cfg, 'commands') and hasattr(env_cfg.commands, 'base_velocity'):
+            env_cfg.commands.base_velocity.debug_vis = False
+            config = Se2KeyboardCfg(
+                v_x_sensitivity=env_cfg.commands.base_velocity.ranges.lin_vel_x[1],
+                v_y_sensitivity=env_cfg.commands.base_velocity.ranges.lin_vel_y[1],
+                omega_z_sensitivity=env_cfg.commands.base_velocity.ranges.ang_vel_z[1],
+            )
+            controller = Se2Keyboard(config)
+            # override velocity commands observation with keyboard input
+            env_cfg.observations.policy.velocity_commands = ObsTerm(
+                func=lambda env: torch.tensor(controller.advance(), dtype=torch.float32).unsqueeze(0).to(env.device),
+            )
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
@@ -225,6 +247,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
             # Exit the play loop after recording one video
             if timestep == args_cli.video_length:
                 break
+
+        if args_cli.keyboard:
+            # camera follow for keyboard control
+            if hasattr(env.unwrapped, 'scene') and 'robot' in env.unwrapped.scene:
+                robot = env.unwrapped.scene["robot"]
+                if hasattr(robot, 'data') and hasattr(robot.data, 'root_pos_w'):
+                    root_pos = robot.data.root_pos_w[0].cpu().numpy()
+                    if hasattr(env.unwrapped.sim, 'set_camera_view'):
+                        env.unwrapped.sim.set_camera_view(root_pos + [3.0, 3.0, 2.0], root_pos)
 
         # time delay for real-time evaluation
         sleep_time = dt - (time.time() - start_time)
