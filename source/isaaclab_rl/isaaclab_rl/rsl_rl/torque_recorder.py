@@ -20,12 +20,14 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-# 配置 matplotlib 使用支持中文的字体
+# 配置 matplotlib
+matplotlib.use('Agg')  # 使用非交互式后端
 matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'Bitstream Vera Sans']
 matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
-# 抑制中文字体警告
+# 抑制所有字体相关警告
 warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
+warnings.filterwarnings('ignore', message='.*Glyph.*missing from font.*')
 
 if TYPE_CHECKING:
     from isaaclab.assets import Articulation
@@ -172,8 +174,8 @@ class TorqueRecorder:
         for i in range(num_joints):
             ax = axes[i]
             ax.plot(timestamps, data_array[:, i], linewidth=1.5)
-            ax.set_xlabel('时间 (s)', fontsize=10)
-            ax.set_ylabel('扭矩 (N·m)', fontsize=10)
+            ax.set_xlabel('Time (s)', fontsize=10)
+            ax.set_ylabel('Torque (N·m)', fontsize=10)
             ax.set_title(f'{self.joint_names[i]}', fontsize=12, fontweight='bold')
             ax.grid(True, alpha=0.3)
 
@@ -183,7 +185,7 @@ class TorqueRecorder:
             min_val = np.min(data_array[:, i])
             ax.text(
                 0.02, 0.98,
-                f'均值: {mean_val:.2f}\n最大: {max_val:.2f}\n最小: {min_val:.2f}',
+                f'Mean: {mean_val:.2f}\nMax: {max_val:.2f}\nMin: {min_val:.2f}',
                 transform=ax.transAxes,
                 verticalalignment='top',
                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),

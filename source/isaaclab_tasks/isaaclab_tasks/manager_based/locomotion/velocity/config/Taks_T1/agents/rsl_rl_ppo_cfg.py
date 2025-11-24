@@ -2,6 +2,7 @@ from isaaclab.utils import configclass
 
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
 
+
 @configclass
 class TaksT1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     # 每个环境每个 rollout 收集的时间步数量（采样长度）
@@ -12,6 +13,11 @@ class TaksT1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     save_interval = 50
     # 实验名称，用于日志/检查点组织
     experiment_name = "Taks_T1_rough"
+    # 观测组配置：定义 policy 和 critic 使用的观测集合
+    obs_groups = {
+        "policy": ["policy"],  # policy 使用 "policy" 观测组
+        "critic": ["policy"],  # critic 也使用 "policy" 观测组
+    }
     # 策略网络配置：使用 PPO 的 Actor-Critic 结构
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,  # 随机初始化动作扰动标准差

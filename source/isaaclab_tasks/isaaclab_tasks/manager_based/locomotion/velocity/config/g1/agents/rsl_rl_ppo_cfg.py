@@ -2,8 +2,9 @@ from isaaclab.utils import configclass
 
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
 
+
 @configclass
-class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class TaksT1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     # 每个环境每个 rollout 收集的时间步数量（采样长度）
     num_steps_per_env = 24
     # 最大训练轮数
@@ -11,7 +12,12 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     # 模型保存间隔（每 n 次迭代保存一次）
     save_interval = 50
     # 实验名称，用于日志/检查点组织
-    experiment_name = "g1_rough"
+    experiment_name = "Taks_T1_rough"
+    # 观测组配置：定义 policy 和 critic 使用的观测集合
+    obs_groups = {
+        "policy": ["policy"],  # policy 使用 "policy" 观测组
+        "critic": ["policy"],  # critic 也使用 "policy" 观测组
+    }
     # 策略网络配置：使用 PPO 的 Actor-Critic 结构
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,  # 随机初始化动作扰动标准差
@@ -39,15 +45,15 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class G1FlatPPORunnerCfg(G1RoughPPORunnerCfg):
+class TaksT1FlatPPORunnerCfg(TaksT1RoughPPORunnerCfg):
     def __post_init__(self):
         # 调用父类的后初始化以确保所有配置被正确继承与处理
         super().__post_init__()
 
         # 平坦地形版本训练迭代次数减半，因任务简单
-        self.max_iterations = 1500
+        self.max_iterations = 2000
         # 实验名称更新，用于区分不同训练场景的日志/模型
-        self.experiment_name = "g1_flat"
+        self.experiment_name = "Taks_T1_flat"
         # 平坦环境下使用更小的网络规模以降低计算开销
         self.policy.actor_hidden_dims = [256, 128, 128]
         self.policy.critic_hidden_dims = [256, 128, 128]
