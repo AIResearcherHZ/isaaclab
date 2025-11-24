@@ -32,21 +32,21 @@ class TaksT1Rewards(RewardsCfg):
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
-    # 站立时抬脚时间奖励：鼓励双脚抬起一定时间，改善步态
+    # 站立时抬脚时间奖励：鼓励双脚抬起一定时间，改善步态，提高阈值以鼓励更高的抬脚
     feet_air_time = RewTerm(
         func=mdp.feet_air_time_positive_biped,
         weight=0.25,
         params={
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "threshold": 0.4,
+            "threshold": 0.5,
         },
     )
 
-    # 脚滑动惩罚：检测接触点并惩罚脚底滑动行为
+    # 脚滑动惩罚：检测接触点并惩罚脚底滑动行为，增加权重以减少滑动
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.1,
+        weight=-0.2,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -67,24 +67,22 @@ class TaksT1Rewards(RewardsCfg):
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
-    # 手臂关节偏差惩罚：减少上肢不必要摆动，保持干净的动作
-    joint_deviation_arms = RewTerm(
+    # 肩部关节偏差惩罚：仅约束肩部roll和yaw，允许pitch自然摆动
+    joint_deviation_shoulders = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.05,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
                 joint_names=[
-                    ".*_shoulder_pitch_joint",
                     ".*_shoulder_roll_joint",
                     ".*_shoulder_yaw_joint",
-                    ".*_elbow_joint",
                 ],
             )
         },
     )
 
-    # 手腕关节偏差惩罚：避免末端执行器因无谓动作引起不稳定
+    # 手腕关节偏差惩罚：保持手腕稳定
     joint_deviation_wrists = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.05,
@@ -107,11 +105,24 @@ class TaksT1Rewards(RewardsCfg):
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"])},
     )
 
-    # 颈部关节偏差惩罚：保持头部稳定
+    # 颈部关节偏差惩罚：大幅增加权重以保持头部稳定，消除抖动
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.05,
+        weight=-0.15,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_yaw_joint", "neck_roll_joint", "neck_pitch_joint"])},
+    )
+
+    # 新增：膝关节角度惩罚，鼓励直膝行走（膝关节接近默认位置即伸直状态）
+    knee_joint_pos = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.15,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_knee_joint"])},
+    )
+
+    # 新增：上半身角速度惩罚，减少头部和躯干的晃动
+    base_ang_vel_xy = RewTerm(
+        func=mdp.ang_vel_xy_l2,
+        weight=-0.1,
     )
 
 
@@ -129,37 +140,50 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 高度扫描器指向机器人的躯干，用于动态仿真时采集高度信息
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/torso_link"
 
-        # 随机化事件配置：取消推人事件和附加质量事件
-        self.events.push_robot = None
-        self.events.add_base_mass = None
-        # 重置关节角度的范围固定为 1，全范围固定一致
-        self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
-        # 仅在躯干施加外力
+        # 随机化事件配置：增加域随机化以提高鲁棒性
+        # 保留推人事件，增加扰动自稳定训练
+        self.events.push_robot.params["velocity_range"] = {"x": (-0.8, 0.8), "y": (-0.8, 0.8)}
+        self.events.push_robot.interval_range_s = (8.0, 12.0)
+
+        # 增加基座质量随机化
+        self.events.add_base_mass.params["mass_distribution_params"] = (-8.0, 8.0)
+
+        # 增加关节初始位置的随机化范围
+        self.events.reset_robot_joints.params["position_range"] = (0.8, 1.2)
+
+        # 在躯干施加随机外力和扭矩，增强扰动抗性
         self.events.base_external_force_torque.params["asset_cfg"].body_names = ["torso_link"]
-        # 重置底座时只允许位置略微改变但速度保持为零
+        self.events.base_external_force_torque.params["force_range"] = (-5.0, 5.0)
+        self.events.base_external_force_torque.params["torque_range"] = (-2.0, 2.0)
+
+        # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
             "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
             "velocity_range": {
-                "x": (0.0, 0.0),
-                "y": (0.0, 0.0),
-                "z": (0.0, 0.0),
-                "roll": (0.0, 0.0),
-                "pitch": (0.0, 0.0),
-                "yaw": (0.0, 0.0),
+                "x": (-0.3, 0.3),
+                "y": (-0.3, 0.3),
+                "z": (-0.1, 0.1),
+                "roll": (-0.2, 0.2),
+                "pitch": (-0.2, 0.2),
+                "yaw": (-0.3, 0.3),
             },
         }
-        self.events.base_com = None
+
+        # 保留质心随机化以增加动力学多样性
+        self.events.base_com.params["com_range"] = {"x": (-0.08, 0.08), "y": (-0.08, 0.08), "z": (-0.02, 0.02)}
 
         # 奖励权重进一步细调
         self.rewards.lin_vel_z_l2.weight = 0.0
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
-        self.rewards.action_rate_l2.weight = -0.005
-        self.rewards.dof_acc_l2.weight = -1.25e-7
+        self.rewards.action_rate_l2.weight = -0.01
+        self.rewards.dof_acc_l2.weight = -5.0e-8
         self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
         )
-        self.rewards.dof_torques_l2.weight = -1.5e-7
+
+        # 适度惩罚腿部扭矩,但不过度限制
+        self.rewards.dof_torques_l2.weight = -1.0e-7
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
         )

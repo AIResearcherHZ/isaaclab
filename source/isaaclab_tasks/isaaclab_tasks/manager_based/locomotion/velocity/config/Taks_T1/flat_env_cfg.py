@@ -18,25 +18,6 @@ class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
         # 取消地形课程机制，因为地形固定为平坦
         self.curriculum.terrain_levels = None
 
-        # 奖励函数配置部分
-        self.rewards.track_ang_vel_z_exp.weight = 1.0
-        self.rewards.lin_vel_z_l2.weight = -0.2
-        self.rewards.action_rate_l2.weight = -0.005
-        self.rewards.dof_acc_l2.weight = -1.0e-7
-        self.rewards.feet_air_time.weight = 0.75
-        # 将抬脚时间阈值设置为 0.4 秒
-        self.rewards.feet_air_time.params["threshold"] = 0.4
-        self.rewards.dof_torques_l2.weight = -2.0e-6
-        # 仅针对特定的关节名称（髋部与膝部）应用扭矩惩罚
-        self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
-            "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
-        )
-        # 命令空间限制配置：限制线速度和角速度范围
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
-        self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
-
-
 class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
     def __post_init__(self) -> None:
         # 调用父类的后置初始化以确保基础配置有效
