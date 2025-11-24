@@ -140,7 +140,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 高度扫描器指向机器人的躯干，用于动态仿真时采集高度信息
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/torso_link"
 
-        # 随机化事件配置：增加域随机化以提高鲁棒性
         # 保留推人事件，增加扰动自稳定训练
         self.events.push_robot.params["velocity_range"] = {"x": (-0.8, 0.8), "y": (-0.8, 0.8)}
         self.events.push_robot.interval_range_s = (8.0, 12.0)
