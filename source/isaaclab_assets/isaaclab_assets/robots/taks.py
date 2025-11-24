@@ -22,7 +22,7 @@ from isaaclab.assets.articulation import ArticulationCfg
 
 TAKS_T1_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="/home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd",
+        usd_path="source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

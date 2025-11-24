@@ -13,7 +13,7 @@ URDF-USD转换：
 
 MJCF-USD转换：
 ./isaaclab.sh -p scripts/tools/convert_mjcf.py /home/xhz/桌面/assets/Taks_T1/Taks_T1.xml /home/xhz/桌面/assets/Taks_T1/Taks_T1.usd
-./isaaclab.sh -p scripts/tools/convert_mjcf.py /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.xml /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd --merge-joints
+./isaaclab.sh -p scripts/tools/convert_mjcf.py /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.xml /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd
 
 
 宇树G1步态训练(/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/g1/flat_env_cfg.py)：
