@@ -1,8 +1,3 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
-#
-# SPDX-License-Identifier: BSD-3-Clause
-
 """Configuration for Taks_T1 robot.
 
 The following configurations are available:
@@ -74,20 +69,20 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_knee_joint": 20.0,
             },
             stiffness={
-                ".*_hip_yaw_joint": 100.0,
+                ".*_hip_yaw_joint": 80.0,
                 ".*_hip_roll_joint": 100.0,
-                ".*_hip_pitch_joint": 100.0,
-                ".*_knee_joint": 200.0,
+                ".*_hip_pitch_joint": 80.0,
+                ".*_knee_joint": 150.0,
             },
             damping={
-                ".*_hip_yaw_joint": 2.5,
-                ".*_hip_roll_joint": 2.5,
-                ".*_hip_pitch_joint": 2.5,
-                ".*_knee_joint": 5.0,
+                ".*_hip_yaw_joint": 4.0,
+                ".*_hip_roll_joint": 4.0,
+                ".*_hip_pitch_joint": 4.0,
+                ".*_knee_joint": 6.0,
             },
             armature={
-                ".*_hip_.*": 0.03,
-                ".*_knee_joint": 0.03,
+                ".*_hip_.*": 0.05,
+                ".*_knee_joint": 0.05,
             },
             saturation_effort=180.0,
         ),
@@ -95,12 +90,12 @@ TAKS_T1_CFG = ArticulationCfg(
         "feet": DCMotorCfg(
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
             stiffness={
-                ".*_ankle_pitch_joint": 20.0,
-                ".*_ankle_roll_joint": 20.0,
+                ".*_ankle_pitch_joint": 15.0,
+                ".*_ankle_roll_joint": 15.0,
             },
             damping={
-                ".*_ankle_pitch_joint": 0.2,
-                ".*_ankle_roll_joint": 0.1,
+                ".*_ankle_pitch_joint": 1.0,
+                ".*_ankle_roll_joint": 0.8,
             },
             effort_limit={
                 ".*_ankle_pitch_joint": 50.0,
@@ -110,7 +105,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_ankle_pitch_joint": 37.0,
                 ".*_ankle_roll_joint": 37.0,
             },
-            armature=0.03,
+            armature=0.05,
             saturation_effort=80.0,
         ),
         # 腰部关节配置
@@ -131,14 +126,14 @@ TAKS_T1_CFG = ArticulationCfg(
                 "waist_pitch_joint": 37.0,
             },
             stiffness={
-                "waist_yaw_joint": 5000.0,
-                "waist_roll_joint": 5000.0,
-                "waist_pitch_joint": 5000.0,
+                "waist_yaw_joint": 500.0,
+                "waist_roll_joint": 500.0,
+                "waist_pitch_joint": 500.0,
             },
             damping={
-                "waist_yaw_joint": 5.0,
-                "waist_roll_joint": 5.0,
-                "waist_pitch_joint": 5.0,
+                "waist_yaw_joint": 10.0,
+                "waist_roll_joint": 10.0,
+                "waist_pitch_joint": 10.0,
             },
             armature=0.001,
         ),
@@ -165,9 +160,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_wrist_pitch_joint": 22.0,
                 ".*_wrist_yaw_joint": 22.0,
             },
-            stiffness=3000.0,
-            damping=10.0,
-            armature=0.001,
+            stiffness=200.0,
+            damping=15.0,
+            armature=0.01,
         ),
         # 颈部关节配置
         "neck": ImplicitActuatorCfg(
@@ -178,7 +173,7 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=3.0,
             velocity_limit_sim=15.71,
-            stiffness=1000.0,
+            stiffness=100.0,
             damping=5.0,
             armature=0.001,
         ),
