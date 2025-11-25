@@ -46,7 +46,7 @@ class TaksT1Rewards(RewardsCfg):
     # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.1,
+        weight=-0.25,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -70,21 +70,21 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.20,
+        weight=-0.15,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
     # 腰部关节偏差惩罚：保持躯干稳定，减少由腰部引起的晃动
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names="waist_pitch_joint")},
     )
     
     # 手臂关节偏差惩罚：减少上肢不必要摆动，保持干净的动作
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -99,17 +99,10 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 步态对称性奖励
-    gait_symmetry = RewTerm(
-        func=mdp.gait_symmetry,
-        weight=0.05,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
-    )
-
     # 静止奖励
     stand_still = RewTerm(
         func=mdp.stand_still_when_zero_command,
-        weight=0.5,
+        weight=0.1,
         params={"command_name": "base_velocity", "command_threshold": 0.05},
     )
 
@@ -130,7 +123,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 保留推人事件，增加扰动自稳定训练
         self.events.push_robot.params["velocity_range"] = {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}
-        self.events.push_robot.interval_range_s = (5.0, 10.0)
+        self.events.push_robot.interval_range_s = (0.0, 5.0)
 
         # 增加基座质量随机化
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
@@ -141,16 +134,22 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_external_force_torque.params["force_range"] = (-2.5, 2.5)
         self.events.base_external_force_torque.params["torque_range"] = (-1.0, 1.0)
 
+        # 重置机器人关节时增加随机性
+        self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
+        self.events.reset_robot_joints.params["velocity_range"] = (1.0, 1.0)
+        self.events.reset_robot_joints.params["acceleration_range"] = (1.0, 1.0)
+        self.events.reset_robot_joints.params["torque_range"] = (1.0, 1.0)
+        
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
             "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
             "velocity_range": {
-                "x": (-0.1, 0.1),
-                "y": (-0.1, 0.1),
-                "z": (-0.1, 0.1),
-                "roll": (-0.1, 0.1),
-                "pitch": (-0.1, 0.1),
-                "yaw": (-0.1, 0.1),
+                "x": (-0.05, 0.05),
+                "y": (-0.05, 0.05),
+                "z": (-0.05, 0.05),
+                "roll": (-0.05, 0.05),
+                "pitch": (-0.05, 0.05),
+                "yaw": (-0.05, 0.05),
             },
         }
 
@@ -160,9 +159,12 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None
-        self.rewards.flat_orientation_l2.weight = -1.0
+        self.rewards.flat_orientation_l2.weight = -1.2
         self.rewards.action_rate_l2.weight = -0.01
-        self.rewards.dof_acc_l2.weight = -1.5e-7
+        self.rewards.dof_acc_l2.weight = -1.25e-7
+        self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
+            "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
+        )
 
         # 适度惩罚腿部扭矩,但不过度限制
         self.rewards.dof_torques_l2.weight = 0.0
