@@ -49,6 +49,18 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_pitch_joint",
                 ".*_knee_joint",
             ],
+            effort_limit={
+                ".*_hip_yaw_joint": 88.0,
+                ".*_hip_roll_joint": 88.0,
+                ".*_hip_pitch_joint": 88.0,
+                ".*_knee_joint": 139.0,
+            },
+            velocity_limit={
+                ".*_hip_yaw_joint": 32.0,
+                ".*_hip_roll_joint": 32.0,
+                ".*_hip_pitch_joint": 32.0,
+                ".*_knee_joint": 20.0,
+            },
             stiffness={
                 ".*_hip_yaw_joint": 100.0,
                 ".*_hip_roll_joint": 100.0,
@@ -65,6 +77,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_.*": 0.03,
                 ".*_knee_joint": 0.03,
             },
+            saturation_effort=180.0,
         ),
         # 脚踝关节配置
         "feet": DCMotorCfg(
@@ -77,7 +90,16 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_ankle_pitch_joint": 0.2,
                 ".*_ankle_roll_joint": 0.1,
             },
+            effort_limit={
+                ".*_ankle_pitch_joint": 50.0,
+                ".*_ankle_roll_joint": 50.0,
+            },
+            velocity_limit={
+                ".*_ankle_pitch_joint": 37.0,
+                ".*_ankle_roll_joint": 37.0,
+            },
             armature=0.03,
+            saturation_effort=80.0,
         ),
         # 腰部关节配置
         "waist": ImplicitActuatorCfg(
@@ -99,7 +121,7 @@ TAKS_T1_CFG = ArticulationCfg(
             armature=0.001,
         ),
         # 手臂关节配置 - 使用DC电机模型实现自然摆动
-        "arms": DCMotorCfg(
+        "arms": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_shoulder_pitch_joint",
                 ".*_shoulder_roll_joint",
