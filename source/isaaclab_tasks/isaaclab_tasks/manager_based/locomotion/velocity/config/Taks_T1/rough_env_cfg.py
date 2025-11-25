@@ -102,8 +102,15 @@ class TaksT1Rewards(RewardsCfg):
     # 静止奖励
     stand_still = RewTerm(
         func=mdp.stand_still_when_zero_command,
-        weight=0.1,
+        weight=1.0,
         params={"command_name": "base_velocity", "command_threshold": 0.05},
+    )
+
+    # 关节速度惩罚 - 抑制高频振荡
+    joint_vel_l2 = RewTerm(
+        func=mdp.joint_vel_l2,
+        weight=-0.01,
+        params={"asset_cfg": SceneEntityCfg("robot")},
     )
 
 
@@ -159,15 +166,15 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None
-        self.rewards.flat_orientation_l2.weight = -1.2
-        self.rewards.action_rate_l2.weight = -0.01
+        self.rewards.flat_orientation_l2.weight = -1.0
+        self.rewards.action_rate_l2.weight = -0.025
         self.rewards.dof_acc_l2.weight = -1.25e-7
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
         )
 
-        # 适度惩罚腿部扭矩,但不过度限制
-        self.rewards.dof_torques_l2.weight = 0.0
+        # 启用扭矩惩罚以减少振荡
+        self.rewards.dof_torques_l2.weight = -1.0e-5
 
         # 命令空间线速度与角速度设置
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)

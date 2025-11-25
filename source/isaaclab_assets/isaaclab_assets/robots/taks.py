@@ -7,7 +7,7 @@ The following configurations are available:
 """
 
 import isaaclab.sim as sim_utils
-from isaaclab.actuators import ImplicitActuatorCfg
+from isaaclab.actuators import DCMotorCfg, ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 
 ##
@@ -35,7 +35,7 @@ TAKS_T1_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.73),
+        pos=(0.0, 0.0, 0.74),
         rot=(0.7071, 0, 0, 0.7071),
         joint_pos={
             ".*_elbow_joint": 1.56,  # 肘关节初始位置设为自然下垂状态
@@ -52,43 +52,58 @@ TAKS_T1_CFG = ArticulationCfg(
     soft_joint_pos_limit_factor=0.99,
     actuators={
         # 腿部关节配置 - 扭矩来自URDF/XML
-        "legs": ImplicitActuatorCfg(
+        "legs": DCMotorCfg(
             joint_names_expr=[
                 ".*_hip_yaw_joint",
                 ".*_hip_roll_joint",
                 ".*_hip_pitch_joint",
                 ".*_knee_joint",
             ],
-            effort_limit_sim={
+            effort_limit={
                 ".*_hip_yaw_joint": 97.0,
                 ".*_hip_roll_joint": 97.0,
                 ".*_hip_pitch_joint": 120.0,
                 ".*_knee_joint": 120.0,
             },
+            velocity_limit={
+                ".*_hip_yaw_joint": 32.0,
+                ".*_hip_roll_joint": 32.0,
+                ".*_hip_pitch_joint": 32.0,
+                ".*_knee_joint": 20.0,
+            },
             stiffness={
-                ".*_hip_yaw_joint": 200.0,
-                ".*_hip_roll_joint": 200.0,
-                ".*_hip_pitch_joint": 300.0,
-                ".*_knee_joint": 300.0,
+                ".*_hip_yaw_joint": 100.0,
+                ".*_hip_roll_joint": 100.0,
+                ".*_hip_pitch_joint": 100.0,
+                ".*_knee_joint": 200.0,
             },
             damping={
-                ".*_hip_yaw_joint": 5.0,
-                ".*_hip_roll_joint": 5.0,
-                ".*_hip_pitch_joint": 5.0,
+                ".*_hip_yaw_joint": 2.5,
+                ".*_hip_roll_joint": 2.5,
+                ".*_hip_pitch_joint": 2.5,
                 ".*_knee_joint": 5.0,
             },
             armature={
-                ".*_hip_.*": 0.001,
-                ".*_knee_joint": 0.001,
+                ".*_hip_.*": 0.03,
+                ".*_knee_joint": 0.03,
             },
+            saturation_effort=100.0,
         ),
         # 脚踝关节配置 - 扭矩来自URDF/XML: 27 Nm
-        "feet": ImplicitActuatorCfg(
-            effort_limit_sim=27,
+        "feet": DCMotorCfg(
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
-            stiffness=200.0,
-            damping=2.0,
-            armature=0.001,
+            effort_limit=27.0,
+            velocity_limit=37.0,
+            stiffness={
+                ".*_ankle_pitch_joint": 20.0,
+                ".*_ankle_roll_joint": 20.0,
+            },
+            damping={
+                ".*_ankle_pitch_joint": 0.2,
+                ".*_ankle_roll_joint": 0.1,
+            },
+            armature=0.03,
+            saturation_effort=27.0,
         ),
         # 腰部关节配置 - 扭矩来自URDF/XML: 97 Nm
         "waist": ImplicitActuatorCfg(
@@ -98,9 +113,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 "waist_pitch_joint",
             ],
             effort_limit_sim=97,
-            stiffness=50.0,
+            stiffness=200.0,
             damping=5.0,
-            armature=0.001,
+            armature=0.01,
         ),
         # 手臂关节配置 - 扭矩来自URDF/XML: 27 Nm
         "arms": ImplicitActuatorCfg(
@@ -111,11 +126,11 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_elbow_joint",
             ],
             effort_limit_sim=27,
-            stiffness=500.0,
-            damping=5.0,
+            stiffness=40.0,
+            damping=10.0,
             armature={
-                ".*_shoulder_.*": 0.001,
-                ".*_elbow_joint": 0.001,
+                ".*_shoulder_.*": 0.01,
+                ".*_elbow_joint": 0.01,
             },
         ),
         # 手腕关节配置 - 扭矩来自URDF/XML: 7 Nm
@@ -126,9 +141,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_wrist_yaw_joint",
             ],
             effort_limit_sim=7,
-            stiffness=300.0,
+            stiffness=20.0,
             damping=5.0,
-            armature=0.001,
+            armature=0.01,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 3 Nm
         "neck": ImplicitActuatorCfg(
@@ -140,7 +155,7 @@ TAKS_T1_CFG = ArticulationCfg(
             effort_limit_sim=3,
             stiffness=5.0,
             damping=1.0,
-            armature=0.001,
+            armature=0.01,
         ),
     },
 )
