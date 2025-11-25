@@ -39,14 +39,14 @@ class TaksT1Rewards(RewardsCfg):
         params={
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "threshold": 0.4,
+            "threshold": 0.5,
         },
     )
 
     # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.25,
+        weight=-0.2,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -56,22 +56,15 @@ class TaksT1Rewards(RewardsCfg):
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
     dof_pos_limits = RewTerm(
         func=mdp.joint_pos_limits,
-        weight=-0.5,
+        weight=-1.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"])},
     )
 
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
-    )
-
-    # 腰部关节偏差惩罚
-    joint_deviation_waist = RewTerm(
-        func=mdp.joint_deviation_l1,
         weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
     # 颈部关节偏差惩罚 - 保持头部稳定
@@ -84,24 +77,31 @@ class TaksT1Rewards(RewardsCfg):
     # 步态对称性奖励
     gait_symmetry = RewTerm(
         func=mdp.gait_symmetry,
-        weight=0.25,
+        weight=0.2,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
     )
 
     # 静止奖励
     stand_still = RewTerm(
         func=mdp.stand_still_when_zero_command,
-        weight=0.2,
+        weight=0.1,
         params={"command_name": "base_velocity", "command_threshold": 0.05},
     )
 
-    # 手臂摆动奖励 - 鼓励手臂自然摆动以平衡下肢惯量
-    arm_swing = RewTerm(
-        func=mdp.arm_swing_reward,
-        weight=0.1,
+    # 手臂关节偏差惩罚 - 让手臂保持默认位置，自然下垂
+    joint_deviation_arms = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.05,
         params={
-            "command_name": "base_velocity",
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint", ".*_elbow_joint"]),
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_shoulder_pitch_joint",
+                    ".*_shoulder_roll_joint",
+                    ".*_shoulder_yaw_joint",
+                    ".*_elbow_joint",
+                ],
+            )
         },
     )
 
