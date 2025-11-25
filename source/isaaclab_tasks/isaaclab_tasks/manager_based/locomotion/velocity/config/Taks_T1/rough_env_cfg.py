@@ -160,8 +160,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         )
 
         # 命令空间线速度与角速度设置
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
+        self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
         # 终止条件：躯干、双臂、髋关节接触地面即终止
@@ -199,7 +199,7 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
 
         # 强制机器人始终向前移动，不产生横向速度变动
         self.commands.base_velocity.ranges.lin_vel_x = (1.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
+        self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)
 
