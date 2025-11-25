@@ -144,8 +144,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 重置机器人关节时增加随机性
         self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
         self.events.reset_robot_joints.params["velocity_range"] = (1.0, 1.0)
-        self.events.reset_robot_joints.params["acceleration_range"] = (1.0, 1.0)
-        self.events.reset_robot_joints.params["torque_range"] = (1.0, 1.0)
         
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
