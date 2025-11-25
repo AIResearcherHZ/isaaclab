@@ -51,9 +51,9 @@ class TaksT1FlatPPORunnerCfg(TaksT1RoughPPORunnerCfg):
         super().__post_init__()
 
         # 平坦地形版本训练迭代次数减半，因任务简单
-        self.max_iterations = 2000
+        self.max_iterations = 1500
         # 实验名称更新，用于区分不同训练场景的日志/模型
         self.experiment_name = "Taks_T1_flat"
         # 平坦环境下使用更小的网络规模以降低计算开销
-        self.policy.actor_hidden_dims = [256, 128, 128]
-        self.policy.critic_hidden_dims = [256, 128, 128]
+        self.policy.actor_hidden_dims = [512, 256, 128]
+        self.policy.critic_hidden_dims = [512, 256, 128]
