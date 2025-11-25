@@ -13,26 +13,26 @@ from isaaclab_assets import TAKS_T1_CFG  # isort: skip
 
 @configclass
 class TaksT1Rewards(RewardsCfg):
-    """定义用于 MDP 训练中的所有奖励项。"""
+    """定义用于 MDP 训练中的奖励项。"""
 
-    # 终止惩罚：如果任务终止则应用大的负奖励
+    # 终止惩罚
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
 
-    # 追踪线速度奖励：基于期望命令，在机器人局部参考系中沿 XY 平面追踪目标速度
+    # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
         weight=1.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
-    # 追踪角速度奖励：鼓励机器人控制自身偏航角速率去匹配命令
+    # 追踪角速度奖励
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
         weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
-    # 站立时抬脚时间奖励：鼓励双脚抬起一定时间，改善步态，提高阈值以鼓励更高的抬脚
+    # 抬脚时间奖励
     feet_air_time = RewTerm(
         func=mdp.feet_air_time_positive_biped,
         weight=0.25,
@@ -43,7 +43,7 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 脚滑动惩罚：检测接触点并惩罚脚底滑动行为，增加权重以减少滑动
+    # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
         weight=-0.2,
@@ -53,89 +53,55 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
-    dof_pos_limits = RewTerm(
-        func=mdp.joint_pos_limits,
-        weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"])},
-    )
-
-    # 髋部偏差细则：使非关键关节保持较接近默认位置，避免不必要摆动
+    # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
-    # 肩部关节偏差惩罚：减小权重,允许肩部更自由运动以平衡
-    joint_deviation_shoulders = RewTerm(
-        func=mdp.joint_deviation_l1,
-        weight=-0.025,
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    ".*_shoulder_yaw_joint",
-                ],
-            )
-        },
-    )
-
-    # 手腕关节偏差惩罚：保持手腕稳定
-    joint_deviation_wrists = RewTerm(
-        func=mdp.joint_deviation_l1,
-        weight=-0.05,
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    ".*_wrist_roll_joint",
-                    ".*_wrist_pitch_joint",
-                    ".*_wrist_yaw_joint",
-                ],
-            )
-        },
-    )
-
-    # 腰部关节偏差惩罚：减小waist_pitch的约束,允许其自然调整以平衡
+    # 腰部关节偏差惩罚
     joint_deviation_waist = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.05,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
     )
 
-    # 颈部关节偏差惩罚：大幅增加权重以保持头部稳定,消除抖动
+    # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.15,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_yaw_joint", "neck_roll_joint", "neck_pitch_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
-    # 新增：膝关节角度惩罚，鼓励直膝行走（膝关节接近默认位置即伸直状态）
-    knee_joint_pos = RewTerm(
-        func=mdp.joint_deviation_l1,
-        weight=-0.15,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_knee_joint"])},
-    )
-
-    # 新增：上半身角速度惩罚，减少头部和躯干的晃动
+    # 上半身角速度惩罚
     base_ang_vel_xy = RewTerm(
         func=mdp.ang_vel_xy_l2,
         weight=-0.1,
     )
 
-    # 步态对称性奖励：鼓励双脚接触时间平衡,减少"烫脚"现象
+    # 步态对称性奖励
     gait_symmetry = RewTerm(
         func=mdp.gait_symmetry,
         weight=0.1,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
     )
 
-    # 静止奖励：无命令时保持静止和自稳定
+    # 静止奖励
     stand_still = RewTerm(
         func=mdp.stand_still_when_zero_command,
         weight=0.2,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
+    )
+
+    # 手臂摆动奖励 - 鼓励手臂自然摆动以平衡下肢惯量
+    arm_swing = RewTerm(
+        func=mdp.arm_swing_reward,
+        weight=0.05,
+        params={
+            "command_name": "base_velocity",
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint", ".*_elbow_joint"]),
+        },
     )
 
 
@@ -204,7 +170,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 命令空间线速度与角速度设置
         self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
         # 终止条件：躯干、双臂、髋关节接触地面即终止
@@ -242,7 +208,7 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
 
         # 强制机器人始终向前移动，不产生横向速度变动
         self.commands.base_velocity.ranges.lin_vel_x = (1.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)
 

@@ -151,3 +151,25 @@ def stand_still_when_zero_command(
 
     # 只在零命令时应用奖励
     return stillness_reward * is_zero_command.float()
+
+
+def arm_swing_reward(
+    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """奖励手臂自然摆动以平衡下肢惯量."""
+    command = env.command_manager.get_command(command_name)
+    asset = env.scene[asset_cfg.name]
+
+    # 获取手臂关节速度
+    arm_vel = torch.abs(asset.data.joint_vel[:, asset_cfg.joint_ids])
+
+    # 计算手臂摆动幅度 - 使用L1范数
+    swing_magnitude = torch.sum(arm_vel, dim=1)
+
+    # 限制最大奖励,避免过度摆动
+    swing_reward = torch.clamp(swing_magnitude, max=5.0)
+
+    # 只在有运动命令时奖励手臂摆动
+    is_moving = torch.norm(command[:, :2], dim=1) > 0.1
+
+    return swing_reward * is_moving.float()
