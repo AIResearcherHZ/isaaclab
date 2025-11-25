@@ -14,7 +14,7 @@ from isaaclab_assets import TAKS_T1_CFG  # isort: skip
 @configclass
 class TaksT1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的奖励项。"""
-
+    lin_vel_z_l2 = None
     # 终止惩罚
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-250.0)
 
@@ -35,7 +35,7 @@ class TaksT1Rewards(RewardsCfg):
     # 抬脚时间奖励
     feet_air_time = RewTerm(
         func=mdp.feet_air_time_positive_biped,
-        weight=0.5,
+        weight=0.25,
         params={
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
@@ -63,14 +63,14 @@ class TaksT1Rewards(RewardsCfg):
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.05,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
@@ -91,7 +91,7 @@ class TaksT1Rewards(RewardsCfg):
     # 静止奖励
     stand_still = RewTerm(
         func=mdp.stand_still_when_zero_command,
-        weight=0.1,
+        weight=0.5,
         params={"command_name": "base_velocity", "command_threshold": 0.05},
     )
 
@@ -142,13 +142,9 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None
-        self.rewards.lin_vel_z_l2.weight = 0.0
         self.rewards.flat_orientation_l2.weight = -1.0
         self.rewards.action_rate_l2.weight = -0.01
         self.rewards.dof_acc_l2.weight = -1.5e-7
-        self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(
-            "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
-        )
 
         # 适度惩罚腿部扭矩,但不过度限制
         self.rewards.dof_torques_l2.weight = 0.0
