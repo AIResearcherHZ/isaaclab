@@ -28,7 +28,7 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪角速度奖励
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -70,7 +70,7 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.15,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
@@ -111,20 +111,17 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/torso_link"
 
         # 保留推人事件，增加扰动自稳定训练
-        self.events.push_robot.params["velocity_range"] = {"x": (-0.8, 0.8), "y": (-0.8, 0.8)}
-        self.events.push_robot.interval_range_s = (8.0, 12.0)
+        self.events.push_robot.params["velocity_range"] = {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}
+        self.events.push_robot.interval_range_s = (5.0, 10.0)
 
         # 增加基座质量随机化
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
-        self.events.add_base_mass.params["mass_distribution_params"] = (-8.0, 8.0)
-
-        # 增加关节初始位置的随机化范围
-        self.events.reset_robot_joints.params["position_range"] = (0.8, 1.2)
+        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
 
         # 在躯干施加随机外力和扭矩，增强扰动抗性
         self.events.base_external_force_torque.params["asset_cfg"].body_names = ["torso_link"]
-        self.events.base_external_force_torque.params["force_range"] = (-5.0, 5.0)
-        self.events.base_external_force_torque.params["torque_range"] = (-2.0, 2.0)
+        self.events.base_external_force_torque.params["force_range"] = (-2.5, 2.5)
+        self.events.base_external_force_torque.params["torque_range"] = (-1.0, 1.0)
 
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
@@ -141,23 +138,20 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 保留质心随机化以增加动力学多样性
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
-        self.events.base_com.params["com_range"] = {"x": (-0.08, 0.08), "y": (-0.08, 0.08), "z": (-0.02, 0.02)}
+        self.events.base_com.params["com_range"] = {"x": (-0.05, 0.05), "y": (-0.05, 0.05), "z": (-0.02, 0.02)}
 
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None
         self.rewards.lin_vel_z_l2.weight = 0.0
         self.rewards.flat_orientation_l2.weight = -1.0
         self.rewards.action_rate_l2.weight = -0.01
-        self.rewards.dof_acc_l2.weight = -1.25e-7
+        self.rewards.dof_acc_l2.weight = -1.5e-7
         self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
         )
 
         # 适度惩罚腿部扭矩,但不过度限制
-        self.rewards.dof_torques_l2.weight = -1.0e-7
-        self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
-            "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
-        )
+        self.rewards.dof_torques_l2.weight = 0.0
 
         # 命令空间线速度与角速度设置
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
