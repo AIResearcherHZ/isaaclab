@@ -16,7 +16,7 @@ class TaksT1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的奖励项。"""
 
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-250.0)
 
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
@@ -28,25 +28,25 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪角速度奖励
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.0,
+        weight=1.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 抬脚时间奖励
     feet_air_time = RewTerm(
         func=mdp.feet_air_time_positive_biped,
-        weight=0.25,
+        weight=0.5,
         params={
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "threshold": 0.6,
+            "threshold": 0.4,
         },
     )
 
     # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.2,
+        weight=-0.25,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -84,7 +84,7 @@ class TaksT1Rewards(RewardsCfg):
     # 步态对称性奖励
     gait_symmetry = RewTerm(
         func=mdp.gait_symmetry,
-        weight=0.2,
+        weight=0.05,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
     )
 

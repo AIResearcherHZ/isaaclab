@@ -35,7 +35,7 @@ TAKS_T1_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.75),
+        pos=(0.0, 0.0, 0.74),
         rot=(0.7071, 0, 0, 0.7071),
         joint_pos={
             ".*_elbow_joint": 1.568,  # 肘关节初始位置设为自然下垂状态
