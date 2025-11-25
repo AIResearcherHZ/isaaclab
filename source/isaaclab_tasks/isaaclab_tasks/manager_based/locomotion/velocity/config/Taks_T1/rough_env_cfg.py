@@ -198,7 +198,7 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
             self.scene.terrain.terrain_generator.curriculum = False
 
         # 强制机器人始终向前移动，不产生横向速度变动
-        self.commands.base_velocity.ranges.lin_vel_x = (1.0, 1.0)
+        self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
         self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)
