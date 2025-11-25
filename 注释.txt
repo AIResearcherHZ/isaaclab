@@ -1,5 +1,5 @@
 git clone https://github.com/AIResearcherHZ/isaaclab.git
-git clone https://github.com/AIResearcherHZ/robot_lab.git
+git clone https://github.com/AIResearcherHZ/GMR.git
 git clone --recurse-submodules https://github.com/AIResearcherHZ/HOVER
 
 服务器VNC：
