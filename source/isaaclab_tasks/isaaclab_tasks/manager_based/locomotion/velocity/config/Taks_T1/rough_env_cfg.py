@@ -1,3 +1,4 @@
+from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
@@ -14,9 +15,8 @@ from isaaclab_assets import TAKS_T1_CFG  # isort: skip
 @configclass
 class TaksT1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的奖励项。"""
-    lin_vel_z_l2 = None
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-250.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
 
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
@@ -46,7 +46,7 @@ class TaksT1Rewards(RewardsCfg):
     # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.25,
+        weight=-0.1,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -98,19 +98,65 @@ class TaksT1Rewards(RewardsCfg):
             )
         },
     )
-
-    # 静止奖励
-    stand_still = RewTerm(
-        func=mdp.stand_still_when_zero_command,
-        weight=1.0,
-        params={"command_name": "base_velocity", "command_threshold": 0.05},
+    
+    # 步态对称性奖励 - 鼓励左右脚交替接触
+    gait_symmetry = RewTerm(
+        func=mdp.gait_symmetry,
+        weight=0.1,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+        },
+    )
+    
+    # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
+    double_support_penalty = RewTerm(
+        func=mdp.double_support_time_penalty,
+        weight=-0.1,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "max_double_support_time": 0.4,
+        },
+    )
+    
+    # 膝关节过度弯曲惩罚 - 防止蹲姿
+    knee_bend_penalty = RewTerm(
+        func=mdp.knee_bend_penalty,
+        weight=-0.05,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=".*_knee_joint"),
+            "max_bend_angle": 0.78,
+        },
     )
 
-    # 关节速度惩罚 - 抑制高频振荡
-    joint_vel_l2 = RewTerm(
-        func=mdp.joint_vel_l2,
-        weight=-0.01,
-        params={"asset_cfg": SceneEntityCfg("robot")},
+    # 单脚支撑奖励 - 鼓励正常迈步
+    single_leg_stance = RewTerm(
+        func=mdp.single_leg_stance_reward,
+        weight=0.1,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "command_name": "base_velocity",
+        },
+    )
+
+    # 双脚交替接触奖励 - 鼓励一脚着地一脚离地
+    feet_alternating = RewTerm(
+        func=mdp.feet_alternating_contact,
+        weight=0.05,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "command_name": "base_velocity",
+        },
+    )
+
+    # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
+    stand_still_joint_deviation = RewTerm(
+        func=mdp.stand_still_joint_deviation_l1,
+        weight=-0.1,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.06,
+            "asset_cfg": SceneEntityCfg("robot"),
+        },
     )
 
 
@@ -162,6 +208,27 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
         self.events.base_com.params["com_range"] = {"x": (-0.05, 0.05), "y": (-0.05, 0.05), "z": (-0.02, 0.02)}
 
+        # ========== 地面摩擦力域随机化 ==========
+        # 机器人脚部摩擦力随机化
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*_ankle_roll_link")
+        self.events.physics_material.params["static_friction_range"] = (-0.2, 0.6)
+        self.events.physics_material.params["dynamic_friction_range"] = (-0.2, 0.6)
+        self.events.physics_material.params["restitution_range"] = (0.0, 0.1)
+        self.events.physics_material.params["num_buckets"] = 64
+
+        # 地面摩擦力随机化 - 通过新增事件
+        self.events.ground_physics_material = EventTerm(
+            func=mdp.randomize_rigid_body_material,
+            mode="startup",
+            params={
+                "asset_cfg": SceneEntityCfg("terrain"),
+                "static_friction_range": (-0.2, 0.6),
+                "dynamic_friction_range": (-0.2, 0.6),
+                "restitution_range": (0.0, 0.1),
+                "num_buckets": 64,
+            },
+        )
+
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
@@ -186,13 +253,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             ".*_shoulder_pitch_link",  # 肩部pitch关节
             ".*_shoulder_roll_link",  # 肩部roll关节
             ".*_shoulder_yaw_link",  # 肩部yaw关节
-            ".*_elbow_link",  # 肘部
-            ".*_wrist_pitch_link",  # 腕部pitch
-            ".*_wrist_roll_link",  # 腕部roll
-            ".*_wrist_yaw_link",  # 腕部yaw
-            ".*_hip_pitch_link",  # 髋部pitch
-            ".*_hip_roll_link",  # 髋部roll
-            ".*_hip_yaw_link",  # 髋部yaw
         ]
 
 
