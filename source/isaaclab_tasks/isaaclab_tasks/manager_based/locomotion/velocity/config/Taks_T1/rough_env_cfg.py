@@ -1,4 +1,3 @@
-from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
@@ -209,25 +208,12 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["com_range"] = {"x": (-0.05, 0.05), "y": (-0.05, 0.05), "z": (-0.02, 0.02)}
 
         # ========== 地面摩擦力域随机化 ==========
-        # 机器人脚部摩擦力随机化
+        # 机器人脚部摩擦力随机化 (摩擦力必须 >= 0)
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*_ankle_roll_link")
-        self.events.physics_material.params["static_friction_range"] = (-0.2, 0.6)
-        self.events.physics_material.params["dynamic_friction_range"] = (-0.2, 0.6)
+        self.events.physics_material.params["static_friction_range"] = (0.6, 1.2)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.4, 1.0)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.1)
         self.events.physics_material.params["num_buckets"] = 64
-
-        # 地面摩擦力随机化 - 通过新增事件
-        self.events.ground_physics_material = EventTerm(
-            func=mdp.randomize_rigid_body_material,
-            mode="startup",
-            params={
-                "asset_cfg": SceneEntityCfg("terrain"),
-                "static_friction_range": (-0.2, 0.6),
-                "dynamic_friction_range": (-0.2, 0.6),
-                "restitution_range": (0.0, 0.1),
-                "num_buckets": 64,
-            },
-        )
 
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None

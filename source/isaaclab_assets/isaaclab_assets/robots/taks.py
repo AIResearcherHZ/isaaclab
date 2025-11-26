@@ -113,7 +113,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 "waist_pitch_joint",
             ],
             effort_limit_sim=97,
-            stiffness=200.0,
+            stiffness=3000.0,
             damping=5.0,
             armature=0.01,
         ),
@@ -126,7 +126,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_elbow_joint",
             ],
             effort_limit_sim=27,
-            stiffness=40.0,
+            stiffness=1000.0,
             damping=10.0,
             armature={
                 ".*_shoulder_.*": 0.01,
@@ -142,7 +142,7 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=7,
             stiffness=20.0,
-            damping=5.0,
+            damping=2.0,
             armature=0.01,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 3 Nm
