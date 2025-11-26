@@ -62,7 +62,7 @@ class TaksT1Rewards(RewardsCfg):
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.15,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
@@ -76,14 +76,14 @@ class TaksT1Rewards(RewardsCfg):
     # 腰部关节偏差惩罚：保持躯干稳定，减少由腰部引起的晃动
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names="waist_pitch_joint")},
+        weight=-0.2,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
     
     # 手臂关节偏差惩罚：减少上肢不必要摆动，保持干净的动作
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.15,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -150,7 +150,7 @@ class TaksT1Rewards(RewardsCfg):
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
     stand_still_joint_deviation = RewTerm(
         func=mdp.stand_still_joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.2,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.06,
@@ -221,11 +221,11 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.action_rate_l2.weight = -0.025
         self.rewards.dof_acc_l2.weight = -1.25e-7
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
-            "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
+            "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*", "waist_.*", ".*_shoulder_.*"]
         )
 
         # 启用扭矩惩罚以减少振荡
-        self.rewards.dof_torques_l2.weight = -1.0e-5
+        self.rewards.dof_torques_l2.weight = -1.25e-5
 
         # 命令空间线速度与角速度设置
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
