@@ -230,27 +230,33 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "pose_range": {
+                "x": (-0.1, 0.1),
+                "y": (-0.1, 0.1),
+                "z": (-0.1, 0.1),
+                "roll": (-0.1, 0.1),
+                "pitch": (-0.1, 0.1),
+                "yaw": (-0.2, 0.2),
+            },
             "velocity_range": {
-                "x": (-0.05, 0.05),
-                "y": (-0.05, 0.05),
-                "z": (-0.05, 0.05),
-                "roll": (-0.05, 0.05),
-                "pitch": (-0.05, 0.05),
-                "yaw": (-0.05, 0.05),
+                "x": (-0.5, 0.5),
+                "y": (-0.5, 0.5),
+                "z": (-0.2, 0.2),
+                "roll": (-0.52, 0.52),
+                "pitch": (-0.52, 0.52),
+                "yaw": (-0.78, 0.78),
             },
         }
 
         # 保留质心随机化以增加动力学多样性
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
-        self.events.base_com.params["com_range"] = {"x": (-0.05, 0.05), "y": (-0.05, 0.05), "z": (-0.02, 0.02)}
+        self.events.base_com.params["com_range"] = {"x": (-0.025, 0.025), "y": (-0.05, 0.05), "z": (-0.05, 0.05)}
 
-        # ========== 地面摩擦力域随机化 ==========
-        # 机器人脚部摩擦力随机化 (摩擦力必须 >= 0)
-        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*_ankle_roll_link")
-        self.events.physics_material.params["static_friction_range"] = (0.6, 1.2)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.4, 1.0)
-        self.events.physics_material.params["restitution_range"] = (0.0, 0.1)
+        # 机器人摩擦力随机化 (摩擦力必须 >= 0)
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        self.events.physics_material.params["static_friction_range"] = (0.3, 1.6)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.3, 1.2)
+        self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
         # 奖励权重进一步细调
