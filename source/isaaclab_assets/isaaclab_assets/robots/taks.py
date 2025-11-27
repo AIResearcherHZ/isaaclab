@@ -38,7 +38,7 @@ TAKS_T1_CFG = ArticulationCfg(
         pos=(0.0, 0.0, 0.74),
         rot=(0.7071, 0, 0, 0.7071),
         joint_pos={
-            ".*_elbow_joint": 1.56,  # 肘关节初始位置设为自然下垂状态
+            ".*_elbow_joint": 1.56,
             "waist_pitch_joint": 0.08,
             "left_shoulder_roll_joint": 0.20,
             "right_shoulder_roll_joint": -0.20,
