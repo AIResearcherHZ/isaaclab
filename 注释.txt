@@ -28,7 +28,14 @@ MJCF-USD转换：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-G1-Play-v0 --num_envs 1 --keyboard
 扭矩录制：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-G1-Play-v0 --num_envs 1 --enable_torque_recording --torque_recording_dir logs/my_torque_data --torque_recording_env_id 0 --torque_recording_duration 5.0 --headless
-
+断点重训：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --experiment_name g1_flat \
+  --num_envs 15000 \
+  --resume \
+  --headless
+  
 
 Taks_T1步态训练（/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/Taks_T1）：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Velocity-Flat-Taks_T1-v0 --num_envs 15000 --headless
@@ -38,3 +45,10 @@ Taks_T1步态训练（/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manage
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-Taks_T1-Play-v0 --num_envs 1 --keyboard
 扭矩录制：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-Taks_T1-Play-v0 --num_envs 1 --enable_torque_recording --torque_recording_dir logs/my_torque_data --torque_recording_env_id 0 --torque_recording_duration 5.0 --headless
+断点重训：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --experiment_name Taks_T1_flat \
+  --num_envs 15000 \
+  --resume \
+  --headless
