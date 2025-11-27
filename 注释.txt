@@ -1,6 +1,8 @@
 git clone https://github.com/AIResearcherHZ/isaaclab.git
+git clone https://github.com/AIResearcherHZ/whole_body_tracking.git
 git clone https://github.com/AIResearcherHZ/GMR.git
 git clone --recurse-submodules https://github.com/AIResearcherHZ/HOVER
+
 
 服务器VNC：
 /opt/TurboVNC/bin/vncserver -wm xfce -securitytypes none
