@@ -208,3 +208,100 @@ def feet_alternating_contact(
 
         return alternating.float() * is_moving.float()
     return torch.zeros(env.num_envs, device=env.device)
+
+
+def command_direction_change_penalty(
+    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """当命令方向与当前运动方向相反时，惩罚过快的动作变化。"""
+    asset = env.scene[asset_cfg.name]
+    # 获取当前速度
+    current_vel = asset.data.root_lin_vel_w[:, :2]
+    # 获取目标命令
+    command = env.command_manager.get_command(command_name)[:, :2]
+
+    # 计算速度和命令的点积，负值表示方向相反
+    dot_product = torch.sum(current_vel * command, dim=1)
+
+    # 当方向相反且速度较大时给予惩罚
+    current_speed = torch.norm(current_vel, dim=1)
+    direction_change = (dot_product < 0) & (current_speed > 0.2)
+
+    # 惩罚值与速度成正比
+    return direction_change.float() * current_speed
+
+
+def stand_still_posture(
+    env, command_name: str, command_threshold: float = 0.1, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """当命令接近零时，奖励保持标准站立姿态。"""
+    command = env.command_manager.get_command(command_name)
+    is_standing = torch.norm(command[:, :2], dim=1) < command_threshold
+
+    asset = env.scene[asset_cfg.name]
+    # 获取关节位置
+    joint_pos = asset.data.joint_pos
+    default_pos = asset.data.default_joint_pos
+
+    # 计算与默认位置的偏差
+    deviation = torch.sum(torch.square(joint_pos - default_pos), dim=1)
+
+    # 仅在静止时奖励保持默认姿态
+    return torch.exp(-deviation * 0.5) * is_standing.float()
+
+
+def velocity_direction_alignment(
+    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """奖励实际速度方向与命令方向对齐。"""
+    asset = env.scene[asset_cfg.name]
+    vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
+    current_vel = vel_yaw[:, :2]
+    command = env.command_manager.get_command(command_name)[:, :2]
+
+    # 计算速度和命令的归一化点积
+    current_speed = torch.norm(current_vel, dim=1)
+    command_speed = torch.norm(command, dim=1)
+
+    # 避免除零
+    valid_mask = (current_speed > 0.1) & (command_speed > 0.1)
+
+    dot_product = torch.sum(current_vel * command, dim=1)
+    alignment = dot_product / (current_speed * command_speed + 1e-6)
+
+    # 归一化到[0, 1]范围
+    reward = (alignment + 1.0) / 2.0
+    return reward * valid_mask.float()
+
+
+def backward_walking_stability(
+    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """后退行走时奖励身体稳定性，鼓励适当的后仰姿态。"""
+    asset = env.scene[asset_cfg.name]
+    command = env.command_manager.get_command(command_name)
+    # 判断是否在后退（命令x为负）
+    is_backward = command[:, 0] < -0.1
+    # 获取躯干pitch角度（从四元数提取）
+    quat = asset.data.root_quat_w
+    # 计算pitch角度：arcsin(2*(w*y - z*x))
+    pitch = torch.asin(torch.clamp(2.0 * (quat[:, 0] * quat[:, 2] - quat[:, 3] * quat[:, 1]), -1.0, 1.0))
+    # 后退时允许轻微后仰（pitch为正），但不要过度
+    # 理想pitch范围：0到0.1弧度（约0-6度）
+    ideal_backward_pitch = 0.05
+    pitch_error = torch.abs(pitch - ideal_backward_pitch)
+    pitch_reward = torch.exp(-pitch_error * 5.0)
+    return pitch_reward * is_backward.float()
+
+
+def body_pitch_penalty(
+    env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), max_pitch: float = 0.3
+) -> torch.Tensor:
+    """惩罚躯干过度前倾或后仰。"""
+    asset = env.scene[asset_cfg.name]
+    quat = asset.data.root_quat_w
+    # 计算pitch角度
+    pitch = torch.asin(torch.clamp(2.0 * (quat[:, 0] * quat[:, 2] - quat[:, 3] * quat[:, 1]), -1.0, 1.0))
+    # 超出最大角度的部分给予惩罚
+    excess_pitch = torch.clamp(torch.abs(pitch) - max_pitch, min=0.0)
+    return excess_pitch

@@ -153,9 +153,47 @@ class TaksT1Rewards(RewardsCfg):
         weight=-0.2,
         params={
             "command_name": "base_velocity",
-            "command_threshold": 0.06,
+            "command_threshold": 0.1,
             "asset_cfg": SceneEntityCfg("robot"),
         },
+    )
+
+    # 方向切换惩罚 - 当从前进变后退时惩罚过快变化
+    direction_change_penalty = RewTerm(
+        func=mdp.command_direction_change_penalty,
+        weight=-0.05,
+        params={"command_name": "base_velocity"},
+    )
+
+    # 静止姿态奖励 - 无命令时保持标准站姿
+    stand_still_posture = RewTerm(
+        func=mdp.stand_still_posture,
+        weight=0.05,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+        },
+    )
+
+    # 速度方向对齐奖励 - 鼓励实际速度与命令方向一致
+    velocity_alignment = RewTerm(
+        func=mdp.velocity_direction_alignment,
+        weight=0.05,
+        params={"command_name": "base_velocity"},
+    )
+
+    # 后退行走稳定性奖励 - 后退时保持适当姿态
+    backward_stability = RewTerm(
+        func=mdp.backward_walking_stability,
+        weight=0.1,
+        params={"command_name": "base_velocity"},
+    )
+
+    # 躯干pitch惩罚 - 防止过度前倾或后仰
+    body_pitch_penalty = RewTerm(
+        func=mdp.body_pitch_penalty,
+        weight=-0.1,
+        params={"max_pitch": 0.30},
     )
 
 
@@ -219,13 +257,13 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
         self.rewards.action_rate_l2.weight = -0.025
-        self.rewards.dof_acc_l2.weight = -1.25e-7
+        self.rewards.dof_acc_l2.weight = -1.5e-7
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*", "waist_.*", ".*_shoulder_.*"]
         )
 
         # 启用扭矩惩罚以减少振荡
-        self.rewards.dof_torques_l2.weight = -1.25e-5
+        self.rewards.dof_torques_l2.weight = -2.5e-5  # 增强扭矩惩罚
 
         # 命令空间线速度与角速度设置
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
