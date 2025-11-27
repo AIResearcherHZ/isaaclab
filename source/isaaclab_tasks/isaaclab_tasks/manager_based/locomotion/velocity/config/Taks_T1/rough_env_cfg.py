@@ -34,7 +34,7 @@ class TaksT1Rewards(RewardsCfg):
     # 抬脚时间奖励
     feet_air_time = RewTerm(
         func=mdp.feet_air_time_positive_biped,
-        weight=0.25,
+        weight=0.2,
         params={
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
@@ -69,7 +69,7 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
@@ -150,7 +150,7 @@ class TaksT1Rewards(RewardsCfg):
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
     stand_still_joint_deviation = RewTerm(
         func=mdp.stand_still_joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.25,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -161,7 +161,7 @@ class TaksT1Rewards(RewardsCfg):
     # 方向切换惩罚 - 当从前进变后退时惩罚过快变化
     direction_change_penalty = RewTerm(
         func=mdp.command_direction_change_penalty,
-        weight=-0.05,
+        weight=-0.1,
         params={"command_name": "base_velocity"},
     )
 
@@ -179,13 +179,6 @@ class TaksT1Rewards(RewardsCfg):
     velocity_alignment = RewTerm(
         func=mdp.velocity_direction_alignment,
         weight=0.05,
-        params={"command_name": "base_velocity"},
-    )
-
-    # 后退行走稳定性奖励 - 后退时保持适当姿态
-    backward_stability = RewTerm(
-        func=mdp.backward_walking_stability,
-        weight=0.1,
         params={"command_name": "base_velocity"},
     )
 
