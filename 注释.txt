@@ -35,7 +35,7 @@ MJCF-USD转换：
   --num_envs 15000 \
   --resume \
   --headless
-  
+
 
 Taks_T1步态训练（/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/Taks_T1）：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Velocity-Flat-Taks_T1-v0 --num_envs 15000 --headless
