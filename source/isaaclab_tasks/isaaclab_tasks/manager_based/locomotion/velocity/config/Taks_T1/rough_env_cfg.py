@@ -20,14 +20,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -231,18 +231,6 @@ class TaksT1Rewards(RewardsCfg):
 class TaksT1EventCfg(EventCfg):
     """域随机化配置，包含电机老化、关节摩擦等corner case。"""
 
-    # 电机老化随机化 - 随机化actuator增益模拟电机老化
-    randomize_actuator_gains = EventTerm(
-        func=mdp.randomize_actuator_gains,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "stiffness_distribution_params": (0.5, 1.5),  # 刚度缩放50%-150%
-            "damping_distribution_params": (0.5, 1.5),   # 阻尼缩放50%-150%
-            "operation": "scale",
-        },
-    )
-
     # 关节摩擦随机化 - 模拟关节磨损
     randomize_joint_friction = EventTerm(
         func=mdp.randomize_joint_parameters,
@@ -275,7 +263,7 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "max_delay_steps": 4,  # 最大延迟4步
+            "max_delay_steps": 3,  # 最大延迟3步
         },
     )
 
@@ -287,7 +275,7 @@ class TaksT1EventCfg(EventCfg):
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "pos_noise_std": 0.005,  # 位置噪声标准差 (rad)
-            "vel_noise_std": 0.05,   # 速度噪声标准差 (rad/s)
+            "vel_noise_std": 0.01,   # 速度噪声标准差 (rad/s)
             "pos_bias_range": (-0.01, 0.01),  # 位置偏置范围 (rad)
             "vel_bias_range": (-0.02, 0.02),  # 速度偏置范围 (rad/s)
         },
@@ -340,7 +328,7 @@ class TaksT1EventCfg(EventCfg):
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
-            "max_latency_steps": 8,  # 最大延迟8步
+            "max_latency_steps": 6,  # 最大延迟6步
         },
     )
 
