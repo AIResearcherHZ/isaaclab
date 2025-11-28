@@ -355,18 +355,6 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
-    # 局部滑溜区域 - 模拟踩到冰面/油污
-    contact_slip = EventTerm(
-        func=mdp.randomize_contact_patch_slip,
-        mode="reset",  # 每次reset时重新采样
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-            "slip_prob": 0.0001,  # 0.01%概率遇到滑溜区域（万分之一）
-            "slip_friction": 0.2,  # 滑溜时的摩擦系数，提高一点
-            "normal_friction_range": (0.6, 1.0),
-        },
-    )
-
     # 传感器延迟尖峰 - 模拟偶发的通讯阻塞
     sensor_latency_spike = EventTerm(
         func=mdp.randomize_sensor_latency_spike,
@@ -438,9 +426,9 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["com_range"] = {"x": (-0.025, 0.025), "y": (-0.05, 0.05), "z": (-0.05, 0.05)}
 
         # 机器人摩擦力随机化 - 只对脚踝关节应用
-        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*_ankle_roll_link")
-        self.events.physics_material.params["static_friction_range"] = (0.3, 1.6)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.3, 1.2)
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        self.events.physics_material.params["static_friction_range"] = (0.2, 1.8)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.2, 1.8)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
@@ -524,7 +512,6 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.constant_wind = None
         self.events.slope_randomization = None
         self.events.joint_failure = None
-        self.events.contact_slip = None
         self.events.sensor_latency_spike = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
