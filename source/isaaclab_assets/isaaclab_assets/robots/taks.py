@@ -39,7 +39,6 @@ TAKS_T1_CFG = ArticulationCfg(
         rot=(0.7071, 0, 0, 0.7071),
         joint_pos={
             ".*_elbow_joint": 1.56,
-            "waist_pitch_joint": 0.08,
             "left_shoulder_roll_joint": 0.20,
             "right_shoulder_roll_joint": -0.20,
             "left_knee_joint": 0.57,
@@ -78,10 +77,10 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_knee_joint": 200.0,
             },
             damping={
-                ".*_hip_yaw_joint": 10.0,
-                ".*_hip_roll_joint": 8.0,
-                ".*_hip_pitch_joint": 8.0,
-                ".*_knee_joint": 8.0,
+                ".*_hip_yaw_joint": 8.0,
+                ".*_hip_roll_joint": 6.0,
+                ".*_hip_pitch_joint": 6.0,
+                ".*_knee_joint": 6.0,
             },
             armature={
                 ".*_hip_.*": 0.03,
@@ -127,16 +126,16 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=27,
             stiffness={
-                ".*_shoulder_pitch_joint": 500.0,
-                ".*_shoulder_roll_joint": 10.0,
-                ".*_shoulder_yaw_joint": 5.0,
-                ".*_elbow_joint": 5.0,
+                ".*_shoulder_pitch_joint": 300.0,
+                ".*_shoulder_roll_joint": 100.0,
+                ".*_shoulder_yaw_joint": 50.0,
+                ".*_elbow_joint": 50.0,
             },
             damping={
                 ".*_shoulder_pitch_joint": 5.0,
-                ".*_shoulder_roll_joint": 1.0,
-                ".*_shoulder_yaw_joint": 0.5,
-                ".*_elbow_joint": 0.5,
+                ".*_shoulder_roll_joint": 2.0,
+                ".*_shoulder_yaw_joint": 1.0,
+                ".*_elbow_joint": 1.0,
             },
             armature={
                 ".*_shoulder_.*": 0.01,
@@ -151,8 +150,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_wrist_yaw_joint",
             ],
             effort_limit_sim=7,
-            stiffness=5.0,   # 大幅降低，手腕自然放松
-            damping=0.2,     # 低阻尼
+            stiffness=5.0,
+            damping=0.5,
             armature=0.01,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 3 Nm

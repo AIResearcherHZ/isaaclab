@@ -7,8 +7,10 @@ git clone --recurse-submodules https://github.com/AIResearcherHZ/HOVER
 服务器VNC：
 /opt/TurboVNC/bin/vncserver -wm xfce -securitytypes none
 
+
 软链接：
 ln -s /home/xhz/isaacsim _isaac_sim
+
 
 URDF-USD转换：
 ./isaaclab.sh -p scripts/tools/convert_urdf.py /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.urdf /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.usd --merge-joints

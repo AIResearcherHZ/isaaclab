@@ -39,7 +39,7 @@ class TaksT1Rewards(RewardsCfg):
     # 抬脚时间奖励
     feet_air_time = RewTerm(
         func=mdp.feet_air_time_positive_biped,
-        weight=0.2,
+        weight=0.75,
         params={
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
@@ -78,46 +78,63 @@ class TaksT1Rewards(RewardsCfg):
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
-    # 腰部关节偏差惩罚：保持躯干稳定，减少由腰部引起的晃动
+    # 躯干pitch惩罚 - 防止过度前倾或后仰
+    body_pitch_penalty = RewTerm(
+        func=mdp.body_pitch_penalty,
+        weight=-0.1,
+        params={"max_pitch": 0.30},
+    )
+
+    # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.2,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint",])},
     )
 
-    # 手臂shoulder_pitch关节偏差惩罚（较小权重，允许前后摆动平衡）
-    joint_deviation_arm_pitch = RewTerm(
+    # 腰部偏差惩罚（其他轴）：约束横向与扭转轴，提高整体稳定性
+    joint_deviation_torso_others = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.05,  # 较小权重，允许摆动
+        weight=-0.05,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
+    )
+
+    # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
+    joint_deviation_arms = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=[".*_shoulder_pitch_joint"],
+                joint_names=[
+                    ".*_shoulder_pitch_joint",
+                    ".*_shoulder_roll_joint", 
+                    ".*_shoulder_yaw_joint", 
+                    ".*_elbow_joint",
+                    ".*_wrist_.*"
+                ],
             )
         },
     )
-    
-    # 手臂其他关节偏差惩罚
-    joint_deviation_arm_others = RewTerm(
-        func=mdp.joint_deviation_l1,
-        weight=-0.1,  # 较大权重，强制保持在默认位置
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    ".*_shoulder_roll_joint",
-                    ".*_shoulder_yaw_joint",
-                    ".*_elbow_joint",
-                    ".*_wrist_.*",
-                ],
-            )
-        }
-    )
 
-    # 手臂扭矩惩罚（除pitch外的关节应接近零扭矩）
-    arm_torque_penalty = RewTerm(
+    # 手臂俯仰轴扭矩惩罚：限制肩部 pitch 轴扭矩，避免动作过猛
+    arm_torque_penalty_pitch = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-0.2,  # 强扭矩惩罚
+        weight=-0.05,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_shoulder_pitch_joint",
+                ],
+            )
+        }
+    )
+
+    # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
+    arm_torque_penalty_others = RewTerm(
+        func=mdp.joint_torques_l2,
+        weight=-0.2,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -130,7 +147,7 @@ class TaksT1Rewards(RewardsCfg):
             )
         }
     )
-
+    
     # 步态对称性奖励 - 鼓励左右脚交替接触
     gait_symmetry = RewTerm(
         func=mdp.gait_symmetry,
@@ -143,7 +160,7 @@ class TaksT1Rewards(RewardsCfg):
     # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
     double_support_penalty = RewTerm(
         func=mdp.double_support_time_penalty,
-        weight=-0.1,
+        weight=-0.2,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "max_double_support_time": 0.4,
@@ -153,7 +170,7 @@ class TaksT1Rewards(RewardsCfg):
     # 膝关节过度弯曲惩罚 - 防止蹲姿
     knee_bend_penalty = RewTerm(
         func=mdp.knee_bend_penalty,
-        weight=-0.05,
+        weight=-0.1,
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=".*_knee_joint"),
             "max_bend_angle": 0.78,
@@ -173,10 +190,20 @@ class TaksT1Rewards(RewardsCfg):
     # 双脚交替接触奖励 - 鼓励一脚着地一脚离地
     feet_alternating = RewTerm(
         func=mdp.feet_alternating_contact,
-        weight=0.05,
+        weight=0.1,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "command_name": "base_velocity",
+        },
+    )
+
+    # 静止姿态奖励 - 无命令时保持标准站姿
+    stand_still_posture = RewTerm(
+        func=mdp.stand_still_posture,
+        weight=0.1,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
         },
     )
 
@@ -198,30 +225,12 @@ class TaksT1Rewards(RewardsCfg):
         params={"command_name": "base_velocity"},
     )
 
-    # 静止姿态奖励 - 无命令时保持标准站姿
-    stand_still_posture = RewTerm(
-        func=mdp.stand_still_posture,
-        weight=0.05,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-        },
-    )
-
     # 速度方向对齐奖励 - 鼓励实际速度与命令方向一致
     velocity_alignment = RewTerm(
         func=mdp.velocity_direction_alignment,
         weight=0.05,
         params={"command_name": "base_velocity"},
     )
-
-    # 躯干pitch惩罚 - 防止过度前倾或后仰
-    body_pitch_penalty = RewTerm(
-        func=mdp.body_pitch_penalty,
-        weight=-0.1,
-        params={"max_pitch": 0.30},
-    )
-
 
 @configclass
 class TaksT1EventCfg(EventCfg):
@@ -256,7 +265,7 @@ class TaksT1EventCfg(EventCfg):
     action_noise = EventTerm(
         func=mdp.randomize_action_noise,
         mode="interval",
-        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "noise_std": 0.01,
@@ -268,7 +277,7 @@ class TaksT1EventCfg(EventCfg):
     action_delay = EventTerm(
         func=mdp.randomize_action_delay,
         mode="interval",
-        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "max_delay_steps": 4,  # 最大延迟4步
@@ -279,7 +288,7 @@ class TaksT1EventCfg(EventCfg):
     encoder_noise = EventTerm(
         func=mdp.randomize_joint_encoder_noise,
         mode="interval",
-        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "pos_noise_std": 0.005,  # 位置噪声标准差 (rad)
@@ -293,7 +302,7 @@ class TaksT1EventCfg(EventCfg):
     imu_noise = EventTerm(
         func=mdp.randomize_imu_noise_and_bias,
         mode="interval",
-        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "ang_vel_noise_std": 0.02,  # 角速度噪声 (rad/s)
@@ -308,38 +317,11 @@ class TaksT1EventCfg(EventCfg):
     observation_dropout = EventTerm(
         func=mdp.randomize_observation_dropout,
         mode="interval",
-        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "dropout_prob": 0.0005,  # 每个维度丢包概率 0.05%
             "dropout_mode": "hold",  # 丢包时保持上一帧值
-        },
-    )
-
-    # 持续风力/拖拽力 - 模拟持续的侧向干扰
-    constant_wind = EventTerm(
-        func=mdp.randomize_constant_wind_like_force,
-        mode="startup",  # 仅在仿真开始时设置一次
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
-            "force_range": {
-                "x": (-1.0, 1.0),  # 前后风力 (N)
-                "y": (-1.0, 1.0),  # 侧向风力 (N)
-                "z": (-0.5, 0.5),  # 垂直风力 (N)
-            },
-        },
-    )
-
-    # 重力方向偏置 - 模拟基座倾斜/坡度
-    slope_randomization = EventTerm(
-        func=mdp.randomize_slope_or_base_frame,
-        mode="startup",  # 仿真开始时设置
-        params={
-            "gravity_bias_range": {
-                "x": (-0.1, 0.1),  # x方向重力偏置 (m/s^2)
-                "y": (-0.1, 0.1),  # y方向重力偏置 (m/s^2)
-                "z": (-0.05, 0.05),  # z方向重力偏置 (m/s^2)
-            },
         },
     )
 
@@ -359,7 +341,7 @@ class TaksT1EventCfg(EventCfg):
     sensor_latency_spike = EventTerm(
         func=mdp.randomize_sensor_latency_spike,
         mode="interval",
-        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
@@ -449,7 +431,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
-        self.rewards.action_rate_l2.weight = -0.025
+        self.rewards.action_rate_l2.weight = -0.01
         self.rewards.dof_acc_l2.weight = -1.5e-7
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*", "waist_.*", ".*_shoulder_.*"]
@@ -509,8 +491,6 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.encoder_noise = None
         self.events.imu_noise = None
         self.events.observation_dropout = None
-        self.events.constant_wind = None
-        self.events.slope_randomization = None
         self.events.joint_failure = None
         self.events.sensor_latency_spike = None
 

@@ -18,8 +18,8 @@ class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
         # 取消地形课程机制，因为地形固定为平坦
         self.curriculum.terrain_levels = None
         # 命令空间限制配置：限制线速度和角速度范围
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
+        self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
 
@@ -37,6 +37,14 @@ class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
         # 移除试验中对机器人的随机推动事件
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_noise = None
+        self.events.action_delay = None
+        self.events.encoder_noise = None
+        self.events.imu_noise = None
+        self.events.observation_dropout = None
+        self.events.joint_failure = None
+        self.events.sensor_latency_spike = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
