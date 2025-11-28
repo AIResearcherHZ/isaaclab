@@ -60,4 +60,5 @@ Taks_T1步态训练（/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manage
   --experiment_name Taks_T1_flat \
   --num_envs 15000 \
   --load_run Taks_T1_flat \
-  --checkpoint /root/IsaacLab/logs/rsl_rl/Taks_T1_flat/2025-11-28_17-26-33/exported/policy.pt
+  --checkpoint /root/IsaacLab/logs/rsl_rl/Taks_T1_flat/2025-11-28_17-26-33/exported/policy.pt \
+  --headless
