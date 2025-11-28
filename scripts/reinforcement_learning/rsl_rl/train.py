@@ -34,6 +34,7 @@ parser.add_argument("--export_io_descriptors", action="store_true", default=Fals
 parser.add_argument(
     "--ray-proc-id", "-rid", type=int, default=None, help="Automatically configured by Ray integration, otherwise None."
 )
+parser.add_argument("--newton_visualizer", action="store_true", default=False, help="Enable Newton rendering.")
 # torque recording arguments
 parser.add_argument(
     "--enable_torque_recording", action="store_true", default=False, help="Enable torque recording during training."
@@ -134,6 +135,23 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # note: certain randomizations occur in the environment initialization so we set the seed here
     env_cfg.seed = agent_cfg.seed
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
+
+    # Enable Newton rendering if requested
+    if args_cli.newton_visualizer:
+        env_cfg.sim.enable_newton_rendering = True
+        # Set train mode for Newton viewer if using Newton visualizer
+        if hasattr(env_cfg.sim, "newton_cfg") and env_cfg.sim.newton_cfg is not None:
+            env_cfg.sim.newton_cfg.visualizer_train_mode = True
+        else:
+            # Create newton_cfg if it doesn't exist
+            try:
+                from isaaclab.sim._impl.newton_manager_cfg import NewtonCfg
+                newton_cfg = NewtonCfg()
+                newton_cfg.visualizer_train_mode = True
+                env_cfg.sim.newton_cfg = newton_cfg
+            except ImportError:
+                pass  # Newton not available
+
     # check for invalid combination of CPU device with distributed training
     if args_cli.distributed and args_cli.device is not None and "cpu" in args_cli.device:
         raise ValueError(

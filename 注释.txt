@@ -1,64 +1,252 @@
+================================================================================
+                              仓库与环境准备
+================================================================================
+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
+AIResearcherHZ
+
+【Git 仓库克隆】
 git clone https://github.com/AIResearcherHZ/isaaclab.git
+git clone https://github.com/AIResearcherHZ/S2S2R.git
 git clone https://github.com/AIResearcherHZ/whole_body_tracking.git
 git clone https://github.com/AIResearcherHZ/GMR.git
 git clone --recurse-submodules https://github.com/AIResearcherHZ/HOVER
 
 
-服务器VNC：
-/opt/TurboVNC/bin/vncserver -wm xfce -securitytypes none
+【服务器 VNC】
+/opt/TurboVNC/bin/vncserver \
+  -wm xfce \
+  -securitytypes none
 
 
-软链接：
+【软链接】
 ln -s /home/xhz/isaacsim _isaac_sim
 
 
-URDF-USD转换：
-./isaaclab.sh -p scripts/tools/convert_urdf.py /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.urdf /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.usd --merge-joints
-./isaaclab.sh -p scripts/tools/convert_urdf.py /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.urdf /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd --merge-joints
+================================================================================
+                               资产格式转换
+================================================================================
+
+【URDF → USD】
+./isaaclab.sh -p scripts/tools/convert_urdf.py \
+  /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.urdf \
+  /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.usd \
+  --merge-joints
+
+./isaaclab.sh -p scripts/tools/convert_urdf.py \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.urdf \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd \
+  --merge-joints
 
 
-MJCF-USD转换：
-./isaaclab.sh -p scripts/tools/convert_mjcf.py /home/xhz/桌面/assets/Taks_T1/Taks_T1.xml /home/xhz/桌面/assets/Taks_T1/Taks_T1.usd
-./isaaclab.sh -p scripts/tools/convert_mjcf.py /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.xml /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd
+【MJCF → USD】
+./isaaclab.sh -p scripts/tools/convert_mjcf.py \
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.xml \
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.usd
+
+./isaaclab.sh -p scripts/tools/convert_mjcf.py \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.xml \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd
 
 
-宇树G1步态训练（/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/g1）：
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Velocity-Flat-G1-v0 --num_envs 15000 --headless
-./isaaclab.sh -p -m tensorboard.main --logdir=/root/IsaacLab/logs/rsl_rl/g1_flat
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-G1-Play-v0 --num_envs 16
-键盘控制：
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-G1-Play-v0 --num_envs 1 --keyboard
-扭矩录制：
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-G1-Play-v0 --num_envs 1 --enable_torque_recording --torque_recording_dir logs/my_torque_data --torque_recording_env_id 0 --torque_recording_duration 5.0 --headless
-断点重训：
+================================================================================
+                        步态训练与蒸馏工作流总览
+================================================================================
+说明：统一整理 G1 / Taks_T1 的步态训练、Teacher-Student 蒸馏三部曲、
+Newton 可视化与 Sim2Sim 迁移，按机器人与场景（平坦 / 粗糙）分组。
+
+--------------------------------------------------------------------------------
+【G1 机器人 - 平坦地形】（/root/IsaacLab/.../config/g1）
+--------------------------------------------------------------------------------
+1）Teacher-Student 蒸馏三部曲（Sim-to-Real 工作流）
+- Teacher 策略：使用特权观测（如 base_lin_vel 线速度），真实机器人无法直接测量
+- Student 策略：仅使用真实传感器可获取的观测，适合部署到真实机器人
+
+# 第一步：训练 Teacher 策略（使用特权观测）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --num_envs 4096 \
+  --headless
+
+# 第二步：蒸馏 Student 策略（行为克隆）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-G1-Distillation-v0 \
+  --num_envs 256 \
+  --headless
+
+# 第三步：微调 Student 策略（RL Fine-tune）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-G1-Student-Finetune-v0 \
+  --num_envs 4096 \
+  --headless
+
+
+2）可视化与工具
+- TensorBoard 日志查看：
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir=/root/IsaacLab/logs/rsl_rl/g1_flat
+
+- Newton 可视化（训练 / 播放）：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --num_envs 4096 \
+  --newton_visualizer
+
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 16 \
+  --newton_visualizer
+
+- 普通播放：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 16
+
+- 键盘控制：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 1 \
+  --keyboard
+
+- 扭矩录制：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 1 \
+  --enable_torque_recording \
+  --torque_recording_dir logs/my_torque_data \
+  --torque_recording_env_id 0 \
+  --torque_recording_duration 5.0 \
+  --headless
+
+- 断点重训：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
   --experiment_name g1_flat \
   --num_envs 15000 \
-  --resume \
+  --load_run g1_flat \
+  --checkpoint /root/IsaacLab/logs/rsl_rl/g1_flat/2025-11-28_20-26-40/model_50.pt \
+  --headless
+
+- Sim2Sim 迁移（Newton -> PhysX）：
+./isaaclab.sh -p scripts/sim2sim_transfer/rsl_rl_transfer.py \
+  --config config/newton_to_physx_g1.yaml \
+  --task Isaac-Velocity-Flat-G1-Play-v0
+
+
+--------------------------------------------------------------------------------
+【G1 机器人 - 粗糙地形】
+--------------------------------------------------------------------------------
+# 第一步：训练 Teacher 策略（使用特权观测）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-G1-v0 \
+  --num_envs 4096 \
+  --headless
+
+# 第二步：蒸馏 Student 策略（行为克隆）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-Rough-G1-Distillation-v0 \
+  --num_envs 256 \
+  --headless
+
+# 第三步：微调 Student 策略（RL Fine-tune）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-Rough-G1-Student-Finetune-v0 \
+  --num_envs 4096 \
   --headless
 
 
-Taks_T1步态训练（/root/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/Taks_T1）：
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Velocity-Flat-Taks_T1-v0 --num_envs 15000 --headless
-./isaaclab.sh -p -m tensorboard.main --logdir=/root/IsaacLab/logs/rsl_rl/Taks_T1_flat
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-Taks_T1-Play-v0 --num_envs 16
-键盘控制：
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-Taks_T1-Play-v0 --num_envs 1 --keyboard
-扭矩录制：
-./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Velocity-Flat-Taks_T1-Play-v0 --num_envs 1 --enable_torque_recording --torque_recording_dir logs/my_torque_data --torque_recording_env_id 0 --torque_recording_duration 5.0 --headless
-断点重训：
+--------------------------------------------------------------------------------
+【Taks_T1 机器人 - 平坦地形】（/root/IsaacLab/.../config/Taks_T1）
+--------------------------------------------------------------------------------
+1）Teacher-Student 蒸馏三部曲
+
+# 第一步：训练 Teacher 策略（使用特权观测）
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-  --experiment_name Taks_T1_flat \
-  --num_envs 15000 \
-  --resume \
+  --num_envs 25000 \
   --headless
 
+# 第二步：蒸馏 Student 策略（行为克隆）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-Taks_T1-Distillation-v0 \
+  --num_envs 256 \
+  --headless
+
+# 第三步：微调 Student 策略（RL Fine-tune）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-Taks_T1-Student-Finetune-v0 \
+  --num_envs 4096 \
+  --headless
+
+
+2）可视化与工具
+- TensorBoard 日志查看：
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir=/root/IsaacLab/logs/rsl_rl/Taks_T1_flat
+
+- Newton 可视化（训练 / 播放）：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --num_envs 4096 \
+  --newton_visualizer
+
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 16 \
+  --newton_visualizer
+
+- 普通播放：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 16
+
+- 键盘控制：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 1 \
+  --keyboard
+
+- 扭矩录制：
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 1 \
+  --enable_torque_recording \
+  --torque_recording_dir logs/my_torque_data \
+  --torque_recording_env_id 0 \
+  --torque_recording_duration 5.0 \
+  --headless
+
+- 断点重训：
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
   --experiment_name Taks_T1_flat \
   --num_envs 15000 \
   --load_run Taks_T1_flat \
   --checkpoint /root/IsaacLab/logs/rsl_rl/Taks_T1_flat/2025-11-28_20-26-40/model_50.pt \
+  --headless
+
+- Sim2Sim 迁移（Newton -> PhysX）：
+./isaaclab.sh -p scripts/sim2sim_transfer/rsl_rl_transfer.py \
+  --config config/newton_to_physx_taks_t1.yaml \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0
+
+
+--------------------------------------------------------------------------------
+【Taks_T1 机器人 - 粗糙地形】
+--------------------------------------------------------------------------------
+# 第一步：训练 Teacher 策略（使用特权观测）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-Taks_T1-v0 \
+  --num_envs 20000 \
+  --headless
+
+# 第二步：蒸馏 Student 策略（行为克隆）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-Rough-Taks_T1-Distillation-v0 \
+  --num_envs 256 \
+  --headless
+
+# 第三步：微调 Student 策略（RL Fine-tune）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Velocity-Rough-Taks_T1-Student-Finetune-v0 \
+  --num_envs 4096 \
   --headless

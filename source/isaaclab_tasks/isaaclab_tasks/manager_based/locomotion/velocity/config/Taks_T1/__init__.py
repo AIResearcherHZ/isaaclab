@@ -34,6 +34,28 @@ gym.register(
     },
 )
 
+# 注册粗糙地形 Teacher-Student 蒸馏环境
+gym.register(
+    id="Velocity-Rough-Taks_T1-Distillation-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.rough_env_cfg:TaksT1RoughTeacherStudentEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:TaksT1VelocityDistillationRunnerCfg",
+    },
+)
+
+# 注册粗糙地形 Student 微调环境
+gym.register(
+    id="Velocity-Rough-Taks_T1-Student-Finetune-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.rough_env_cfg:TaksT1RoughStudentEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:TaksT1FlatStudentPPORunnerCfg",
+    },
+)
+
 # 注册平坦地形版本的 Taks_T1 机器人速度控制任务环境
 gym.register(
     id="Isaac-Velocity-Flat-Taks_T1-v0",
@@ -59,5 +81,39 @@ gym.register(
         "env_cfg_entry_point": f"{__name__}.flat_env_cfg:TaksT1FlatEnvCfg_PLAY",
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:TaksT1FlatPPORunnerCfg",
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+
+###############################
+# Teacher-Student Distillation #
+###############################
+
+# 注册 Teacher-Student 蒸馏环境
+# 用于从 Teacher 策略（使用特权观测）蒸馏到 Student 策略（使用非特权观测）
+gym.register(
+    id="Velocity-Taks_T1-Distillation-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_env_cfg:TaksT1FlatTeacherStudentEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:TaksT1VelocityDistillationRunnerCfg",
+    },
+)
+
+
+########################
+# Student Fine-tune #
+########################
+
+# 注册 Student 微调环境
+# 用于使用 RL 进一步微调 Student 策略（仅使用真实传感器可获取的观测）
+gym.register(
+    id="Velocity-Taks_T1-Student-Finetune-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_env_cfg:TaksT1FlatStudentEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:TaksT1FlatStudentPPORunnerCfg",
     },
 )

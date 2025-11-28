@@ -35,6 +35,7 @@ parser.add_argument(
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
 parser.add_argument("--keyboard", action="store_true", default=False, help="Whether to use keyboard.")
+parser.add_argument("--newton_visualizer", action="store_true", default=False, help="Enable Newton rendering.")
 # torque recording arguments
 parser.add_argument(
     "--enable_torque_recording", action="store_true", default=False, help="Enable torque recording during inference."
@@ -111,6 +112,22 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # note: certain randomizations occur in the environment initialization so we set the seed here
     env_cfg.seed = agent_cfg.seed
     env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
+
+    # Enable Newton rendering if requested
+    if args_cli.newton_visualizer:
+        env_cfg.sim.enable_newton_rendering = True
+        # Set play mode for Newton viewer if using Newton visualizer
+        if hasattr(env_cfg.sim, "newton_cfg") and env_cfg.sim.newton_cfg is not None:
+            env_cfg.sim.newton_cfg.visualizer_train_mode = False
+        else:
+            # Create newton_cfg if it doesn't exist
+            try:
+                from isaaclab.sim._impl.newton_manager_cfg import NewtonCfg
+                newton_cfg = NewtonCfg()
+                newton_cfg.visualizer_train_mode = False
+                env_cfg.sim.newton_cfg = newton_cfg
+            except ImportError:
+                pass  # Newton not available
 
     # specify directory for logging experiments
     log_root_path = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)

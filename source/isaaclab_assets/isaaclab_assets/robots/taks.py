@@ -126,13 +126,13 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=27,
             stiffness={
-                ".*_shoulder_pitch_joint": 300.0,
+                ".*_shoulder_pitch_joint": 100.0,
                 ".*_shoulder_roll_joint": 100.0,
                 ".*_shoulder_yaw_joint": 50.0,
                 ".*_elbow_joint": 50.0,
             },
             damping={
-                ".*_shoulder_pitch_joint": 5.0,
+                ".*_shoulder_pitch_joint": 2.0,
                 ".*_shoulder_roll_joint": 2.0,
                 ".*_shoulder_yaw_joint": 1.0,
                 ".*_elbow_joint": 1.0,

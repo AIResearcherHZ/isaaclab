@@ -2,11 +2,15 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
+
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
     EventCfg,
     LocomotionVelocityRoughEnvCfg,
     RewardsCfg,
+    StudentObservationsCfg,
+    TeacherStudentObservationsCfg,
 )
 
 from isaaclab_assets import TAKS_T1_CFG  # isort: skip
@@ -103,9 +107,7 @@ class TaksT1Rewards(RewardsCfg):
                 "robot",
                 joint_names=[
                     ".*_shoulder_pitch_joint",
-                    ".*_shoulder_roll_joint", 
                     ".*_shoulder_yaw_joint", 
-                    ".*_elbow_joint",
                     ".*_wrist_.*"
                 ],
             )
@@ -129,7 +131,7 @@ class TaksT1Rewards(RewardsCfg):
     # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
     arm_torque_penalty_others = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-2.0e-6,
+        weight=-1.0e-5,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -440,7 +442,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
-        # 终止条件：躯干、双臂、髋关节接触地面即终止
+        # 终止条件：躯干、双臂、髈关节接触地面即终止
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
             "pelvis",  # 骨盆
             "torso_link",  # 躯干
@@ -448,6 +450,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             ".*_shoulder_roll_link",  # 肩部roll关节
             ".*_shoulder_yaw_link",  # 肩部yaw关节
         ]
+
 
 @configclass
 class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
@@ -491,3 +494,50 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
+
+
+###############################
+# Teacher-Student Distillation #
+###############################
+
+
+@configclass
+class TaksT1RoughTeacherStudentEnvCfg(TaksT1RoughEnvCfg):
+    """Teacher-Student 蒸馏阶段的粗糙地形环境配置。
+
+    该配置用于行为克隆（Behavior Cloning）阶段：
+    - Student 策略从 Teacher 策略学习
+    - Teacher 使用包含特权信息（如 base_lin_vel）的观测
+    - Student 使用不含特权信息的观测
+    """
+
+    observations: TeacherStudentObservationsCfg = TeacherStudentObservationsCfg()
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        # 蒸馏阶段使用较少的环境数量
+        self.scene.num_envs = 256
+
+        # 蒸馏阶段降低 Teacher 观测噪声，提高学习稳定性
+        self.observations.teacher.base_lin_vel.noise = Unoise(n_min=-0.001, n_max=0.001)
+        self.observations.teacher.base_ang_vel.noise = Unoise(n_min=-0.002, n_max=0.002)
+        self.observations.teacher.projected_gravity.noise = Unoise(n_min=-0.0005, n_max=0.0005)
+        self.observations.teacher.joint_pos.noise = Unoise(n_min=-0.0001, n_max=0.0001)
+        self.observations.teacher.joint_vel.noise = Unoise(n_min=-0.0001, n_max=0.0001)
+
+
+########################
+# Student Fine-tune #
+########################
+
+
+@configclass
+class TaksT1RoughStudentEnvCfg(TaksT1RoughEnvCfg):
+    """Student 微调阶段的粗糙地形环境配置。
+
+    该配置用于 Student 策略的 RL 微调阶段：
+    - 仅使用真实传感器可获取的观测（不含 base_lin_vel）
+    - 通过 RL 进一步优化 Student 策略性能
+    """
+
+    observations: StudentObservationsCfg = StudentObservationsCfg()

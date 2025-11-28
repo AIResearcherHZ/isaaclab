@@ -1,6 +1,13 @@
 from isaaclab.utils import configclass
 
-from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
+from isaaclab_rl.rsl_rl import (
+    RslRlDistillationAlgorithmCfg,
+    RslRlDistillationStudentTeacherRecurrentCfg,
+    RslRlOnPolicyRunnerCfg,
+    RslRlPpoActorCriticCfg,
+    RslRlPpoActorCriticRecurrentCfg,
+    RslRlPpoAlgorithmCfg,
+)
 
 
 @configclass
@@ -57,3 +64,83 @@ class TaksT1FlatPPORunnerCfg(TaksT1RoughPPORunnerCfg):
         # 平坦环境下使用更小的网络规模以降低计算开销
         self.policy.actor_hidden_dims = [256, 128, 128]
         self.policy.critic_hidden_dims = [256, 128, 128]
+
+
+###############################
+# Teacher-Student Distillation #
+###############################
+
+
+@configclass
+class TaksT1VelocityDistillationRunnerCfg(TaksT1FlatPPORunnerCfg):
+    """Teacher-Student 蒸馏阶段的训练配置。
+
+    使用行为克隆（Behavior Cloning）从 Teacher 策略蒸馏到 Student 策略：
+    - Teacher: 使用特权观测（包含 base_lin_vel）的 MLP 策略
+    - Student: 使用非特权观测的 LSTM 循环策略
+    """
+
+    seed = 42
+    num_steps_per_env = 24
+    max_iterations = 10000
+    save_interval = 100
+    run_name = "distillation"
+
+    # 蒸馏算法配置
+    algorithm = RslRlDistillationAlgorithmCfg(
+        num_learning_epochs=5,
+        gradient_length=5,
+        learning_rate=1e-3,
+        loss_type="mse",  # 使用 MSE 损失进行行为克隆
+    )
+
+    # Student-Teacher 网络配置
+    policy = RslRlDistillationStudentTeacherRecurrentCfg(
+        student_hidden_dims=[256, 256, 128],  # Student MLP 隐藏层
+        teacher_hidden_dims=[256, 128, 128],  # Teacher MLP 隐藏层
+        activation="elu",
+        init_noise_std=0.1,
+        class_name="StudentTeacherRecurrent",
+        rnn_type="lstm",  # Student 使用 LSTM 处理时序信息
+        rnn_hidden_dim=256,
+        rnn_num_layers=3,
+        teacher_recurrent=False,  # Teacher 不使用循环网络
+    )
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 1500
+        self.experiment_name = "Taks_T1_distillation"
+
+
+########################
+# Student Fine-tune #
+########################
+
+
+@configclass
+class TaksT1FlatStudentPPORunnerCfg(TaksT1FlatPPORunnerCfg):
+    """Student 策略 RL 微调阶段的训练配置。
+
+    在蒸馏完成后，使用 RL 进一步微调 Student 策略：
+    - 仅使用真实传感器可获取的观测
+    - 使用 LSTM 循环网络处理时序信息以补偿缺失的速度观测
+    """
+
+    # 使用循环 Actor-Critic 网络
+    policy = RslRlPpoActorCriticRecurrentCfg(
+        class_name="ActorCriticRecurrent",
+        init_noise_std=0.1,
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
+        activation="elu",
+        rnn_type="lstm",
+        rnn_hidden_dim=256,
+        rnn_num_layers=2,
+    )
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.max_iterations = 4000
+        self.run_name = "student_finetune"
+        self.experiment_name = "Taks_T1_student_finetune"

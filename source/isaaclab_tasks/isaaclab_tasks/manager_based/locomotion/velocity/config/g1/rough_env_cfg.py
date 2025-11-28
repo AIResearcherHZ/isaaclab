@@ -1,9 +1,15 @@
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
-from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import LocomotionVelocityRoughEnvCfg, RewardsCfg
+from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
+    LocomotionVelocityRoughEnvCfg,
+    RewardsCfg,
+    StudentObservationsCfg,
+    TeacherStudentObservationsCfg,
+)
 
 ##
 # 预定义配置
@@ -204,3 +210,50 @@ class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
+
+
+###############################
+# Teacher-Student Distillation #
+###############################
+
+
+@configclass
+class G1RoughTeacherStudentEnvCfg(G1RoughEnvCfg):
+    """Teacher-Student 蒸馏阶段的粗糙地形环境配置。
+
+    该配置用于行为克隆（Behavior Cloning）阶段：
+    - Student 策略从 Teacher 策略学习
+    - Teacher 使用包含特权信息（如 base_lin_vel）的观测
+    - Student 使用不含特权信息的观测
+    """
+
+    observations: TeacherStudentObservationsCfg = TeacherStudentObservationsCfg()
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        # 蒸馏阶段使用较少的环境数量
+        self.scene.num_envs = 256
+
+        # 蒸馏阶段降低 Teacher 观测噪声，提高学习稳定性
+        self.observations.teacher.base_lin_vel.noise = Unoise(n_min=-0.001, n_max=0.001)
+        self.observations.teacher.base_ang_vel.noise = Unoise(n_min=-0.002, n_max=0.002)
+        self.observations.teacher.projected_gravity.noise = Unoise(n_min=-0.0005, n_max=0.0005)
+        self.observations.teacher.joint_pos.noise = Unoise(n_min=-0.0001, n_max=0.0001)
+        self.observations.teacher.joint_vel.noise = Unoise(n_min=-0.0001, n_max=0.0001)
+
+
+########################
+# Student Fine-tune #
+########################
+
+
+@configclass
+class G1RoughStudentEnvCfg(G1RoughEnvCfg):
+    """Student 微调阶段的粗糙地形环境配置。
+
+    该配置用于 Student 策略的 RL 微调阶段：
+    - 仅使用真实传感器可获取的观测（不含 base_lin_vel）
+    - 通过 RL 进一步优化 Student 策略性能
+    """
+
+    observations: StudentObservationsCfg = StudentObservationsCfg()

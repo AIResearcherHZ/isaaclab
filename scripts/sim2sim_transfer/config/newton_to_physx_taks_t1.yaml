@@ -1,0 +1,87 @@
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Taks_T1 机器人 sim2sim 迁移配置
+# 用于从 Newton 物理引擎训练的策略迁移到 PhysX 物理引擎部署
+
+# Joint names in the source physics engine where policy is trained (Newton)
+# 按照 Newton 引擎中的关节顺序排列
+source_joint_names:
+  # 腿部关节 (12 DOF)
+  - "left_hip_yaw_joint"
+  - "left_hip_roll_joint"
+  - "left_hip_pitch_joint"
+  - "left_knee_joint"
+  - "left_ankle_pitch_joint"
+  - "left_ankle_roll_joint"
+  - "right_hip_yaw_joint"
+  - "right_hip_roll_joint"
+  - "right_hip_pitch_joint"
+  - "right_knee_joint"
+  - "right_ankle_pitch_joint"
+  - "right_ankle_roll_joint"
+  # 腰部关节 (3 DOF)
+  - "waist_yaw_joint"
+  - "waist_roll_joint"
+  - "waist_pitch_joint"
+  # 手臂关节 (14 DOF)
+  - "left_shoulder_pitch_joint"
+  - "left_shoulder_roll_joint"
+  - "left_shoulder_yaw_joint"
+  - "left_elbow_joint"
+  - "left_wrist_roll_joint"
+  - "left_wrist_pitch_joint"
+  - "left_wrist_yaw_joint"
+  - "right_shoulder_pitch_joint"
+  - "right_shoulder_roll_joint"
+  - "right_shoulder_yaw_joint"
+  - "right_elbow_joint"
+  - "right_wrist_roll_joint"
+  - "right_wrist_pitch_joint"
+  - "right_wrist_yaw_joint"
+  # 颈部关节 (3 DOF)
+  - "neck_yaw_joint"
+  - "neck_roll_joint"
+  - "neck_pitch_joint"
+
+# Joint names in the target physics engine where policy is deployed (PhysX)
+# 按照 PhysX 引擎中的关节顺序排列（通常按 URDF 中的定义顺序）
+target_joint_names:
+  # 腿部关节 (12 DOF)
+  - "left_hip_yaw_joint"
+  - "right_hip_yaw_joint"
+  - "left_hip_roll_joint"
+  - "right_hip_roll_joint"
+  - "left_hip_pitch_joint"
+  - "right_hip_pitch_joint"
+  - "left_knee_joint"
+  - "right_knee_joint"
+  - "left_ankle_pitch_joint"
+  - "right_ankle_pitch_joint"
+  - "left_ankle_roll_joint"
+  - "right_ankle_roll_joint"
+  # 腰部关节 (3 DOF)
+  - "waist_yaw_joint"
+  - "waist_roll_joint"
+  - "waist_pitch_joint"
+  # 手臂关节 (14 DOF)
+  - "left_shoulder_pitch_joint"
+  - "right_shoulder_pitch_joint"
+  - "left_shoulder_roll_joint"
+  - "right_shoulder_roll_joint"
+  - "left_shoulder_yaw_joint"
+  - "right_shoulder_yaw_joint"
+  - "left_elbow_joint"
+  - "right_elbow_joint"
+  - "left_wrist_roll_joint"
+  - "right_wrist_roll_joint"
+  - "left_wrist_pitch_joint"
+  - "right_wrist_pitch_joint"
+  - "left_wrist_yaw_joint"
+  - "right_wrist_yaw_joint"
+  # 颈部关节 (3 DOF)
+  - "neck_yaw_joint"
+  - "neck_roll_joint"
+  - "neck_pitch_joint"
