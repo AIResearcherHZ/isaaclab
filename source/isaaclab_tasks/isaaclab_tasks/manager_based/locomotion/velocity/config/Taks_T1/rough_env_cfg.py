@@ -332,6 +332,19 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
+    # 重力方向偏置 - 模拟基座倾斜/坡度
+    slope_randomization = EventTerm(
+        func=mdp.randomize_slope_or_base_frame,
+        mode="startup",  # 仿真开始时设置
+        params={
+            "gravity_bias_range": {
+                "x": (-0.1, 0.1),  # x方向重力偏置 (m/s^2)
+                "y": (-0.1, 0.1),  # y方向重力偏置 (m/s^2)
+                "z": (-0.05, 0.05),  # z方向重力偏置 (m/s^2)
+            },
+        },
+    )
+
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     # 使用上一节定义的奖励配置
@@ -474,6 +487,7 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.observation_dropout = None
         self.events.joint_failure = None
         self.events.sensor_latency_spike = None
+        self.events.slope_randomization = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
