@@ -2,7 +2,6 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
-
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
     EventCfg,
@@ -10,11 +9,7 @@ from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
     RewardsCfg,
 )
 
-##
-# 预定义配置
-##
 from isaaclab_assets import TAKS_T1_CFG  # isort: skip
-
 
 @configclass
 class TaksT1Rewards(RewardsCfg):
@@ -349,7 +344,6 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
-
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     # 使用上一节定义的奖励配置
@@ -453,7 +447,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             ".*_shoulder_roll_link",  # 肩部roll关节
             ".*_shoulder_yaw_link",  # 肩部yaw关节
         ]
-
 
 @configclass
 class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
