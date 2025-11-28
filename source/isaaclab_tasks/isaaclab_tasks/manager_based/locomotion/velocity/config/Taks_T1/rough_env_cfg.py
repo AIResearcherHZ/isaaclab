@@ -115,7 +115,7 @@ class TaksT1Rewards(RewardsCfg):
     # 手臂俯仰轴扭矩惩罚：限制肩部 pitch 轴扭矩，避免动作过猛
     arm_torque_penalty_pitch = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-0.05,
+        weight=-0.5e-6,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -129,7 +129,7 @@ class TaksT1Rewards(RewardsCfg):
     # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
     arm_torque_penalty_others = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-0.2,
+        weight=-2.0e-6,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
