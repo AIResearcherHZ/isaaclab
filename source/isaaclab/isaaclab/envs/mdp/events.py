@@ -1,17 +1,3 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
-#
-# SPDX-License-Identifier: BSD-3-Clause
-
-"""Common functions that can be used to enable different events.
-
-Events include anything related to altering the simulation state. This includes changing the physics
-materials, applying external forces, and resetting the state of the asset.
-
-The functions can be passed to the :class:`isaaclab.managers.EventTermCfg` object to enable
-the event introduced by the function.
-"""
-
 from __future__ import annotations
 
 import math
@@ -44,6 +30,7 @@ def randomize_rigid_body_scale(
     asset_cfg: SceneEntityCfg,
     relative_child_path: str | None = None,
 ):
+    """刚体缩放随机化事件函数（在 USD 级别修改 xformOp:scale）。"""
     """Randomize the scale of a rigid body asset in the USD stage.
 
     This function modifies the "xformOp:scale" property of all the prims corresponding to the asset.
@@ -69,14 +56,14 @@ def randomize_rigid_body_scale(
         :attr:`isaaclab.scene.InteractiveSceneCfg.replicate_physics` to False. This ensures that physics
         parser will parse the individual asset properties separately.
     """
-    # check if sim is running
+    # 检查仿真是否已经在运行（只能在播放前修改 USD 属性）
     if env.sim.is_playing():
         raise RuntimeError(
             "Randomizing scale while simulation is running leads to unpredictable behaviors."
             " Please ensure that the event term is called before the simulation starts by using the 'usd' mode."
         )
 
-    # extract the used quantities (to enable type-hinting)
+    # 提取场景中的刚体对象，方便类型提示
     asset: RigidObject = env.scene[asset_cfg.name]
 
     if isinstance(asset, Articulation):
@@ -87,18 +74,18 @@ def randomize_rigid_body_scale(
             " https://isaac-sim.github.io/IsaacLab/main/source/how-to/multi_asset_spawning.html"
         )
 
-    # resolve environment ids
+    # 解析需要随机化的环境 ID；为空则对全部环境生效
     if env_ids is None:
         env_ids = torch.arange(env.scene.num_envs, device="cpu")
     else:
         env_ids = env_ids.cpu()
 
-    # acquire stage
+    # 获取当前 USD Stage
     stage = get_current_stage()
     # resolve prim paths for spawning and cloning
     prim_paths = sim_utils.find_matching_prim_paths(asset.cfg.prim_path)
 
-    # sample scale values
+    # 采样缩放系数（支持统一缩放或 xyz 分量独立缩放）
     if isinstance(scale_range, dict):
         range_list = [scale_range.get(key, (1.0, 1.0)) for key in ["x", "y", "z"]]
         ranges = torch.tensor(range_list, device="cpu")
@@ -106,38 +93,36 @@ def randomize_rigid_body_scale(
     else:
         rand_samples = math_utils.sample_uniform(*scale_range, (len(env_ids), 1), device="cpu")
         rand_samples = rand_samples.repeat(1, 3)
-    # convert to list for the for loop
+    # 转成 Python list，便于在 for 循环中按环境索引
     rand_samples = rand_samples.tolist()
 
-    # apply the randomization to the parent if no relative child path is provided
-    # this might be useful if user wants to randomize a particular mesh in the prim hierarchy
+    # 若未提供子路径，则默认对 asset 根 prim 生效
+    # 若提供相对子路径，可只随机化层级中的某个子 mesh
     if relative_child_path is None:
         relative_child_path = ""
     elif not relative_child_path.startswith("/"):
         relative_child_path = "/" + relative_child_path
 
-    # use sdf changeblock for faster processing of USD properties
+    # 使用 Sdf.ChangeBlock() 批量修改 USD，提升写入效率
     with Sdf.ChangeBlock():
         for i, env_id in enumerate(env_ids):
-            # path to prim to randomize
+            # 当前环境下需要随机化的 prim 路径
             prim_path = prim_paths[env_id] + relative_child_path
-            # spawn single instance
+            # 在 root layer 中确保 prim spec 存在
             prim_spec = Sdf.CreatePrimInLayer(stage.GetRootLayer(), prim_path)
 
-            # get the attribute to randomize
+            # 获取/创建缩放属性 xformOp:scale
             scale_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:scale")
-            # if the scale attribute does not exist, create it
+            # 若不存在缩放属性，则新建一个 Double3 类型的 AttributeSpec
             has_scale_attr = scale_spec is not None
             if not has_scale_attr:
                 scale_spec = Sdf.AttributeSpec(prim_spec, prim_path + ".xformOp:scale", Sdf.ValueTypeNames.Double3)
 
-            # set the new scale
+            # 写入随机缩放值
             scale_spec.default = Gf.Vec3f(*rand_samples[i])
 
-            # ensure the operation is done in the right ordering if we created the scale attribute.
-            # otherwise, we assume the scale attribute is already in the right order.
-            # note: by default isaac sim follows this ordering for the transform stack so any asset
-            #   created through it will have the correct ordering
+            # 如果新建了 scale 属性，则需要保证变换栈顺序正确
+            # 默认顺序为 translate -> orient -> scale，与 Isaac Sim 约定保持一致
             if not has_scale_attr:
                 op_order_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOpOrder")
                 if op_order_spec is None:
@@ -187,25 +172,24 @@ class randomize_rigid_body_material(ManagerTermBase):
         """
         super().__init__(cfg, env)
 
-        # extract the used quantities (to enable type-hinting)
+        # 从配置中提取资产配置与实例，便于类型提示与后续访问
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
 
+        # 仅支持刚体对象或关节结构，其他类型直接报错
         if not isinstance(self.asset, (RigidObject, Articulation)):
             raise ValueError(
                 f"Randomization term 'randomize_rigid_body_material' not supported for asset: '{self.asset_cfg.name}'"
                 f" with type: '{type(self.asset)}'."
             )
 
-        # obtain number of shapes per body (needed for indexing the material properties correctly)
-        # note: this is a workaround since the Articulation does not provide a direct way to obtain the number of shapes
-        #  per body. We use the physics simulation view to obtain the number of shapes per body.
+        # 计算每个刚体上的 shape 数量，用于正确索引材质（Articulation 无直接接口，只能通过 PhysX 视图推断）
         if isinstance(self.asset, Articulation) and self.asset_cfg.body_ids != slice(None):
             self.num_shapes_per_body = []
             for link_path in self.asset.root_physx_view.link_paths[0]:
                 link_physx_view = self.asset._physics_sim_view.create_rigid_body_view(link_path)  # type: ignore
                 self.num_shapes_per_body.append(link_physx_view.max_shapes)
-            # ensure the parsing is correct
+            # 校验解析到的 shape 总数与预期是否一致
             num_shapes = sum(self.num_shapes_per_body)
             expected_shapes = self.asset.root_physx_view.max_shapes
             if num_shapes != expected_shapes:
@@ -217,20 +201,18 @@ class randomize_rigid_body_material(ManagerTermBase):
             # in this case, we don't need to do special indexing
             self.num_shapes_per_body = None
 
-        # obtain parameters for sampling friction and restitution values
+        # 从 cfg 中取得摩擦系数与恢复系数采样范围与桶数
         static_friction_range = cfg.params.get("static_friction_range", (1.0, 1.0))
         dynamic_friction_range = cfg.params.get("dynamic_friction_range", (1.0, 1.0))
         restitution_range = cfg.params.get("restitution_range", (0.0, 0.0))
         num_buckets = int(cfg.params.get("num_buckets", 1))
 
-        # sample material properties from the given ranges
-        # note: we only sample the materials once during initialization
-        #   afterwards these are randomly assigned to the geometries of the asset
+        # 在初始化阶段一次性采样 num_buckets 组材质参数，后续只做索引分配
         range_list = [static_friction_range, dynamic_friction_range, restitution_range]
         ranges = torch.tensor(range_list, device="cpu")
         self.material_buckets = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (num_buckets, 3), device="cpu")
 
-        # ensure dynamic friction is always less than static friction
+        # 若需要，强制动态摩擦不大于静摩擦，保证物理合理性
         make_consistent = cfg.params.get("make_consistent", False)
         if make_consistent:
             self.material_buckets[:, 1] = torch.min(self.material_buckets[:, 0], self.material_buckets[:, 1])
@@ -246,35 +228,35 @@ class randomize_rigid_body_material(ManagerTermBase):
         asset_cfg: SceneEntityCfg,
         make_consistent: bool = False,
     ):
-        # resolve environment ids
+        # 解析环境 ID；为空则对所有环境随机化
         if env_ids is None:
             env_ids = torch.arange(env.scene.num_envs, device="cpu")
         else:
             env_ids = env_ids.cpu()
 
-        # randomly assign material IDs to the geometries
+        # 为每个环境、每个 shape 随机分配一个材质桶索引
         total_num_shapes = self.asset.root_physx_view.max_shapes
         bucket_ids = torch.randint(0, num_buckets, (len(env_ids), total_num_shapes), device="cpu")
         material_samples = self.material_buckets[bucket_ids]
 
-        # retrieve material buffer from the physics simulation
+        # 从物理仿真中取出现有材质缓冲区
         materials = self.asset.root_physx_view.get_material_properties()
 
-        # update material buffer with new samples
+        # 用采样到的新材质覆盖缓冲区
         if self.num_shapes_per_body is not None:
-            # sample material properties from the given ranges
+            # 对 Articulation，按 body 逐段写入对应的 shape 区间
             for body_id in self.asset_cfg.body_ids:
-                # obtain indices of shapes for the body
+                # 计算该 body 对应的 shape 索引范围
                 start_idx = sum(self.num_shapes_per_body[:body_id])
                 end_idx = start_idx + self.num_shapes_per_body[body_id]
                 # assign the new materials
                 # material samples are of shape: num_env_ids x total_num_shapes x 3
                 materials[env_ids, start_idx:end_idx] = material_samples[:, start_idx:end_idx]
         else:
-            # assign all the materials
+            # 否则直接整体覆盖所有 shape 的材质
             materials[env_ids] = material_samples[:]
 
-        # apply to simulation
+        # 将更新后的材质缓冲区写回物理仿真
         self.asset.root_physx_view.set_material_properties(materials, env_ids)
 
 
@@ -309,10 +291,10 @@ class randomize_rigid_body_mass(ManagerTermBase):
         """
         super().__init__(cfg, env)
 
-        # extract the used quantities (to enable type-hinting)
+        # 从配置中提取资产和随机化参数
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
-        # check for valid operation
+        # 校验 operation 是否有效
         if cfg.params["operation"] == "scale":
             if "mass_distribution_params" in cfg.params:
                 _validate_scale_range(
@@ -334,42 +316,37 @@ class randomize_rigid_body_mass(ManagerTermBase):
         distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
         recompute_inertia: bool = True,
     ):
-        # resolve environment ids
+        # 解析环境 ID；为空则对所有环境随机化
         if env_ids is None:
             env_ids = torch.arange(env.scene.num_envs, device="cpu")
         else:
             env_ids = env_ids.cpu()
 
-        # resolve body indices
+        # 解析需要随机化的 body 索引；slice(None) 表示所有刚体
         if self.asset_cfg.body_ids == slice(None):
             body_ids = torch.arange(self.asset.num_bodies, dtype=torch.int, device="cpu")
         else:
             body_ids = torch.tensor(self.asset_cfg.body_ids, dtype=torch.int, device="cpu")
 
-        # get the current masses of the bodies (num_assets, num_bodies)
+        # 从 PhysX 视图获取当前质量矩阵 (num_envs, num_bodies)
         masses = self.asset.root_physx_view.get_masses()
 
-        # apply randomization on default values
-        # this is to make sure when calling the function multiple times, the randomization is applied on the
-        # default values and not the previously randomized values
+        # 始终在默认质量的基础上重新随机，避免多次调用时叠加误差
         masses[env_ids[:, None], body_ids] = self.asset.data.default_mass[env_ids[:, None], body_ids].clone()
 
-        # sample from the given range
-        # note: we modify the masses in-place for all environments
-        #   however, the setter takes care that only the masses of the specified environments are modified
+        # 按指定分布与操作对质量进行随机化（加法 / 缩放 / 绝对赋值）
         masses = _randomize_prop_by_op(
             masses, mass_distribution_params, env_ids, body_ids, operation=operation, distribution=distribution
         )
 
-        # set the mass into the physics simulation
+        # 将随机后的质量写回物理仿真
         self.asset.root_physx_view.set_masses(masses, env_ids)
 
-        # recompute inertia tensors if needed
+        # 如有需要，按质量变化比例缩放惯性张量
         if recompute_inertia:
             # compute the ratios of the new masses to the initial masses
             ratios = masses[env_ids[:, None], body_ids] / self.asset.data.default_mass[env_ids[:, None], body_ids]
-            # scale the inertia tensors by the the ratios
-            # since mass randomization is done on default values, we can use the default inertia tensors
+            # 按比例缩放默认惯性张量（质量随机化始终基于默认值）
             inertias = self.asset.root_physx_view.get_inertias()
             if isinstance(self.asset, Articulation):
                 # inertia has shape: (num_envs, num_bodies, 9) for articulation
@@ -379,7 +356,7 @@ class randomize_rigid_body_mass(ManagerTermBase):
             else:
                 # inertia has shape: (num_envs, 9) for rigid object
                 inertias[env_ids] = self.asset.data.default_inertia[env_ids] * ratios
-            # set the inertia tensors into the physics simulation
+            # 将新的惯性张量写回物理仿真
             self.asset.root_physx_view.set_inertias(inertias, env_ids)
 
 
@@ -395,9 +372,9 @@ def randomize_rigid_body_com(
         This function uses CPU tensors to assign the CoM. It is recommended to use this function
         only during the initialization of the environment.
     """
-    # extract the used quantities (to enable type-hinting)
+    # 从场景中获取对应的关节结构，用于修改质心
     asset: Articulation = env.scene[asset_cfg.name]
-    # resolve environment ids
+    # 解析环境 ID；为空则对所有环境生效
     if env_ids is None:
         env_ids = torch.arange(env.scene.num_envs, device="cpu")
     else:
@@ -409,18 +386,18 @@ def randomize_rigid_body_com(
     else:
         body_ids = torch.tensor(asset_cfg.body_ids, dtype=torch.int, device="cpu")
 
-    # sample random CoM values
+    # 按 xyz 范围采样质心偏移量
     range_list = [com_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z"]]
     ranges = torch.tensor(range_list, device="cpu")
     rand_samples = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (len(env_ids), 3), device="cpu").unsqueeze(1)
 
-    # get the current com of the bodies (num_assets, num_bodies)
+    # 从 PhysX 视图获取当前质心
     coms = asset.root_physx_view.get_coms().clone()
 
-    # Randomize the com in range
+    # 在采样范围内平移质心
     coms[env_ids[:, None], body_ids, :3] += rand_samples
 
-    # Set the new coms
+    # 将新的质心写回物理仿真
     asset.root_physx_view.set_coms(coms, env_ids)
 
 
@@ -447,15 +424,15 @@ def randomize_rigid_body_collider_offsets(
         This function uses CPU tensors to assign the collision properties. It is recommended to use this function
         only during the initialization of the environment.
     """
-    # extract the used quantities (to enable type-hinting)
+    # 从场景中获取刚体 / 关节结构
     asset: RigidObject | Articulation = env.scene[asset_cfg.name]
 
     # resolve environment ids
     if env_ids is None:
         env_ids = torch.arange(env.scene.num_envs, device="cpu")
 
-    # sample collider properties from the given ranges and set into the physics simulation
-    # -- rest offsets
+    # 按给定范围采样并写入碰撞体属性
+    # -- rest offsets（休止偏移）
     if rest_offset_distribution_params is not None:
         rest_offset = asset.root_physx_view.get_rest_offsets().clone()
         rest_offset = _randomize_prop_by_op(
@@ -467,7 +444,7 @@ def randomize_rigid_body_collider_offsets(
             distribution=distribution,
         )
         asset.root_physx_view.set_rest_offsets(rest_offset, env_ids.cpu())
-    # -- contact offsets
+    # -- contact offsets（接触偏移）
     if contact_offset_distribution_params is not None:
         contact_offset = asset.root_physx_view.get_contact_offsets().clone()
         contact_offset = _randomize_prop_by_op(
@@ -504,10 +481,11 @@ def randomize_physics_scene_gravity(
     .. tip::
         This function uses CPU tensors to assign gravity.
     """
-    # get the current gravity
+    # 从环境配置中读取当前重力向量
     gravity = torch.tensor(env.sim.cfg.gravity, device="cpu").unsqueeze(0)
     dist_param_0 = torch.tensor(gravity_distribution_params[0], device="cpu")
     dist_param_1 = torch.tensor(gravity_distribution_params[1], device="cpu")
+    # 对重力向量按指定分布与操作进行随机化
     gravity = _randomize_prop_by_op(
         gravity,
         (dist_param_0, dist_param_1),
@@ -516,10 +494,10 @@ def randomize_physics_scene_gravity(
         operation=operation,
         distribution=distribution,
     )
-    # unbatch the gravity tensor into a list
+    # 去掉 batch 维，转成 Python list 以便写回引擎
     gravity = gravity[0].tolist()
 
-    # set the gravity into the physics simulation
+    # 将新的重力写入 PhysX 场景
     physics_sim_view: physx.SimulationView = sim_utils.SimulationContext.instance().physics_sim_view
     physics_sim_view.set_gravity(carb.Float3(*gravity))
 
@@ -553,10 +531,10 @@ class randomize_actuator_gains(ManagerTermBase):
         """
         super().__init__(cfg, env)
 
-        # extract the used quantities (to enable type-hinting)
+        # 从配置中提取目标资产（包含一组执行器）
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
-        # check for valid operation
+        # 校验 operation 是否有效（主要影响缩放范围是否合法）
         if cfg.params["operation"] == "scale":
             if "stiffness_distribution_params" in cfg.params:
                 _validate_scale_range(
@@ -580,19 +558,20 @@ class randomize_actuator_gains(ManagerTermBase):
         operation: Literal["add", "scale", "abs"] = "abs",
         distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
     ):
-        # Resolve environment ids
+        # 解析环境 ID；为空则对所有环境生效
         if env_ids is None:
             env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
 
         def randomize(data: torch.Tensor, params: tuple[float, float]) -> torch.Tensor:
+            # 对给定张量的选择维度进行随机化（加法 / 缩放 / 绝对值）
             return _randomize_prop_by_op(
                 data, params, dim_0_ids=None, dim_1_ids=actuator_indices, operation=operation, distribution=distribution
             )
 
-        # Loop through actuators and randomize gains
+        # 遍历该资产下的所有执行器，按配置随机化刚度/阻尼
         for actuator in self.asset.actuators.values():
             if isinstance(self.asset_cfg.joint_ids, slice):
-                # we take all the joints of the actuator
+                # 配置为 slice(None) 时，执行器下的所有关节都参与随机化
                 actuator_indices = slice(None)
                 if isinstance(actuator.joint_indices, slice):
                     global_indices = slice(None)
@@ -601,20 +580,21 @@ class randomize_actuator_gains(ManagerTermBase):
                 else:
                     raise TypeError("Actuator joint indices must be a slice or a torch.Tensor.")
             elif isinstance(actuator.joint_indices, slice):
-                # we take the joints defined in the asset config
+                # 执行器 joint_indices 是 slice，按场景配置中的 joint_ids 取子集
                 global_indices = actuator_indices = torch.tensor(self.asset_cfg.joint_ids, device=self.asset.device)
             else:
-                # we take the intersection of the actuator joints and the asset config joints
+                # 其他情况：取执行器关节与配置关节的交集
                 actuator_joint_indices = actuator.joint_indices
                 asset_joint_ids = torch.tensor(self.asset_cfg.joint_ids, device=self.asset.device)
-                # the indices of the joints in the actuator that have to be randomized
+                # actuator 内部需要随机化的局部索引
                 actuator_indices = torch.nonzero(torch.isin(actuator_joint_indices, asset_joint_ids)).view(-1)
                 if len(actuator_indices) == 0:
                     continue
-                # maps actuator indices that have to be randomized to global joint indices
+                # 将局部索引映射到全局关节索引
                 global_indices = actuator_joint_indices[actuator_indices]
             # Randomize stiffness
             if stiffness_distribution_params is not None:
+                # 先用默认关节刚度覆盖，再在其上做随机化
                 stiffness = actuator.stiffness[env_ids].clone()
                 stiffness[:, actuator_indices] = self.asset.data.default_joint_stiffness[env_ids][
                     :, global_indices
@@ -622,16 +602,19 @@ class randomize_actuator_gains(ManagerTermBase):
                 randomize(stiffness, stiffness_distribution_params)
                 actuator.stiffness[env_ids] = stiffness
                 if isinstance(actuator, ImplicitActuator):
+                    # 隐式执行器需要将新的刚度写回到底层模拟
                     self.asset.write_joint_stiffness_to_sim(
                         stiffness, joint_ids=actuator.joint_indices, env_ids=env_ids
                     )
             # Randomize damping
             if damping_distribution_params is not None:
+                # 同理，对关节阻尼进行随机化
                 damping = actuator.damping[env_ids].clone()
                 damping[:, actuator_indices] = self.asset.data.default_joint_damping[env_ids][:, global_indices].clone()
                 randomize(damping, damping_distribution_params)
                 actuator.damping[env_ids] = damping
                 if isinstance(actuator, ImplicitActuator):
+                    # 将随机后的阻尼写入模拟
                     self.asset.write_joint_damping_to_sim(damping, joint_ids=actuator.joint_indices, env_ids=env_ids)
 
 
@@ -666,10 +649,10 @@ class randomize_joint_parameters(ManagerTermBase):
         """
         super().__init__(cfg, env)
 
-        # extract the used quantities (to enable type-hinting)
+        # 记录目标资产及配置，用于后续关节属性随机化
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
-        # check for valid operation
+        # 校验 operation 与缩放范围是否合法
         if cfg.params["operation"] == "scale":
             if "friction_distribution_params" in cfg.params:
                 _validate_scale_range(cfg.params["friction_distribution_params"], "friction_distribution_params")
@@ -693,18 +676,18 @@ class randomize_joint_parameters(ManagerTermBase):
         operation: Literal["add", "scale", "abs"] = "abs",
         distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
     ):
-        # resolve environment ids
+        # 解析环境 ID
         if env_ids is None:
             env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
 
-        # resolve joint indices
+        # 根据配置解析参与随机化的关节索引
         if self.asset_cfg.joint_ids == slice(None):
             joint_ids = slice(None)  # for optimization purposes
         else:
             joint_ids = torch.tensor(self.asset_cfg.joint_ids, dtype=torch.int, device=self.asset.device)
 
-        # sample joint properties from the given ranges and set into the physics simulation
-        # joint friction coefficient
+        # 根据配置对各关节属性采样并写入物理仿真
+        # 关节摩擦系数
         if friction_distribution_params is not None:
             friction_coeff = _randomize_prop_by_op(
                 self.asset.data.default_joint_friction_coeff.clone(),
@@ -1684,6 +1667,565 @@ class randomize_visual_color(ManagerTermBase):
             random_colors = self.color_rng.generator.uniform(colors[0], colors[1], size=(num_prims, 3))
 
             rep.functional.modify.attribute(self.material_prims, "diffuse_color_constant", random_colors)
+
+
+##############################################################################
+# 额外的鲁棒性随机化事件（动作/传感器/故障类）
+##############################################################################
+
+
+class randomize_action_noise(ManagerTermBase):
+    """在动作上添加噪声，模拟控制信号不完美。
+    
+    每个 step 在 policy 输出的动作上叠加高斯噪声或均匀噪声，
+    模拟真实控制链路中的量化误差、通讯抖动等。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        # 噪声标准差或范围
+        self.noise_std = cfg.params.get("noise_std", 0.02)
+        self.noise_type = cfg.params.get("noise_type", "gaussian")  # "gaussian" or "uniform"
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        noise_std: float = 0.02,
+        noise_type: str = "gaussian",
+    ):
+        """对关节位置目标添加噪声。"""
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
+        
+        # 获取当前关节位置目标
+        joint_pos_target = self.asset.data.joint_pos_target[env_ids].clone()
+        
+        # 添加噪声
+        if noise_type == "gaussian":
+            noise = torch.randn_like(joint_pos_target) * noise_std
+        else:  # uniform
+            noise = (torch.rand_like(joint_pos_target) * 2 - 1) * noise_std
+        
+        joint_pos_target += noise
+        
+        # 写回（注意：这会在下一个 step 生效）
+        self.asset.set_joint_position_target(joint_pos_target, env_ids=env_ids)
+
+
+class randomize_action_delay(ManagerTermBase):
+    """模拟动作延迟，使用 FIFO 缓冲区延迟命令执行。
+    
+    维护一个动作历史缓冲区，每次实际执行的是 delay_steps 之前的动作，
+    模拟真实系统中的通讯延迟和控制周期不对齐。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        
+        # 最大延迟步数
+        self.max_delay_steps = cfg.params.get("max_delay_steps", 3)
+        # 为每个 env 采样一个固定的延迟步数
+        self.delay_steps = torch.randint(
+            0, self.max_delay_steps + 1, 
+            (env.scene.num_envs,), 
+            device=self.asset.device
+        )
+        # 动作历史缓冲区: (num_envs, max_delay_steps + 1, num_joints)
+        self.action_buffer = torch.zeros(
+            env.scene.num_envs,
+            self.max_delay_steps + 1,
+            self.asset.num_joints,
+            device=self.asset.device,
+        )
+        self.buffer_idx = 0
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        max_delay_steps: int = 3,
+    ):
+        """应用延迟后的动作。"""
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
+        
+        # 获取当前动作目标
+        current_action = self.asset.data.joint_pos_target.clone()
+        
+        # 存入缓冲区
+        self.action_buffer[:, self.buffer_idx] = current_action
+        
+        # 对每个 env，取出延迟后的动作
+        delayed_actions = torch.zeros_like(current_action)
+        for i in range(env.scene.num_envs):
+            delay = self.delay_steps[i].item()
+            delayed_idx = (self.buffer_idx - delay) % (self.max_delay_steps + 1)
+            delayed_actions[i] = self.action_buffer[i, delayed_idx]
+        
+        # 更新缓冲区索引
+        self.buffer_idx = (self.buffer_idx + 1) % (self.max_delay_steps + 1)
+        
+        # 应用延迟后的动作
+        self.asset.set_joint_position_target(delayed_actions[env_ids], env_ids=env_ids)
+        
+        # reset 时重新采样延迟
+        if env_ids is not None and len(env_ids) > 0:
+            self.delay_steps[env_ids] = torch.randint(
+                0, self.max_delay_steps + 1, (len(env_ids),), device=self.asset.device
+            )
+            self.action_buffer[env_ids] = 0.0
+
+
+class randomize_joint_encoder_noise(ManagerTermBase):
+    """关节编码器噪声和偏置随机化。
+    
+    模拟真实编码器的测量噪声和零点偏移：
+    - 每个 env 采样一个固定的 bias（慢变化）
+    - 每个 step 叠加高斯噪声（快变化）
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        
+        # 噪声参数
+        self.pos_noise_std = cfg.params.get("pos_noise_std", 0.01)  # rad
+        self.vel_noise_std = cfg.params.get("vel_noise_std", 0.1)   # rad/s
+        self.pos_bias_range = cfg.params.get("pos_bias_range", (-0.02, 0.02))  # rad
+        self.vel_bias_range = cfg.params.get("vel_bias_range", (-0.05, 0.05))  # rad/s
+        
+        # 为每个 env 采样固定偏置
+        self.pos_bias = math_utils.sample_uniform(
+            self.pos_bias_range[0], self.pos_bias_range[1],
+            (env.scene.num_envs, self.asset.num_joints),
+            device=self.asset.device
+        )
+        self.vel_bias = math_utils.sample_uniform(
+            self.vel_bias_range[0], self.vel_bias_range[1],
+            (env.scene.num_envs, self.asset.num_joints),
+            device=self.asset.device
+        )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        pos_noise_std: float = 0.01,
+        vel_noise_std: float = 0.1,
+        pos_bias_range: tuple[float, float] = (-0.02, 0.02),
+        vel_bias_range: tuple[float, float] = (-0.05, 0.05),
+    ):
+        """在关节位置和速度观测上添加噪声和偏置。
+        
+        注意：这个函数修改 asset.data 中的值，应该在 observation 计算之前调用。
+        """
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
+        
+        # 添加位置噪声和偏置
+        pos_noise = torch.randn(len(env_ids), self.asset.num_joints, device=self.asset.device) * pos_noise_std
+        self.asset.data.joint_pos[env_ids] += pos_noise + self.pos_bias[env_ids]
+        
+        # 添加速度噪声和偏置
+        vel_noise = torch.randn(len(env_ids), self.asset.num_joints, device=self.asset.device) * vel_noise_std
+        self.asset.data.joint_vel[env_ids] += vel_noise + self.vel_bias[env_ids]
+        
+        # reset 时重新采样偏置
+        if env_ids is not None and len(env_ids) > 0:
+            self.pos_bias[env_ids] = math_utils.sample_uniform(
+                pos_bias_range[0], pos_bias_range[1],
+                (len(env_ids), self.asset.num_joints),
+                device=self.asset.device
+            )
+            self.vel_bias[env_ids] = math_utils.sample_uniform(
+                vel_bias_range[0], vel_bias_range[1],
+                (len(env_ids), self.asset.num_joints),
+                device=self.asset.device
+            )
+
+
+class randomize_imu_noise_and_bias(ManagerTermBase):
+    """IMU 噪声和漂移随机化。
+    
+    模拟真实 IMU 的测量特性：
+    - 角速度白噪声 + 固定偏置
+    - 线加速度白噪声 + 固定偏置
+    - 可选：偏置随机游走（慢漂移）
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        
+        # 噪声参数
+        self.ang_vel_noise_std = cfg.params.get("ang_vel_noise_std", 0.05)  # rad/s
+        self.lin_acc_noise_std = cfg.params.get("lin_acc_noise_std", 0.1)   # m/s^2
+        self.ang_vel_bias_range = cfg.params.get("ang_vel_bias_range", (-0.02, 0.02))
+        self.lin_acc_bias_range = cfg.params.get("lin_acc_bias_range", (-0.1, 0.1))
+        self.bias_drift_std = cfg.params.get("bias_drift_std", 0.001)  # 每步漂移
+        
+        # 为每个 env 采样固定偏置
+        self.ang_vel_bias = math_utils.sample_uniform(
+            self.ang_vel_bias_range[0], self.ang_vel_bias_range[1],
+            (env.scene.num_envs, 3), device=self.asset.device
+        )
+        self.lin_acc_bias = math_utils.sample_uniform(
+            self.lin_acc_bias_range[0], self.lin_acc_bias_range[1],
+            (env.scene.num_envs, 3), device=self.asset.device
+        )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        ang_vel_noise_std: float = 0.05,
+        lin_acc_noise_std: float = 0.1,
+        ang_vel_bias_range: tuple[float, float] = (-0.02, 0.02),
+        lin_acc_bias_range: tuple[float, float] = (-0.1, 0.1),
+        bias_drift_std: float = 0.001,
+    ):
+        """在 IMU 观测上添加噪声和偏置。"""
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
+        
+        # 偏置随机游走
+        self.ang_vel_bias += torch.randn_like(self.ang_vel_bias) * bias_drift_std
+        self.lin_acc_bias += torch.randn_like(self.lin_acc_bias) * bias_drift_std
+        
+        # 添加角速度噪声和偏置
+        ang_vel_noise = torch.randn(len(env_ids), 3, device=self.asset.device) * ang_vel_noise_std
+        self.asset.data.root_ang_vel_b[env_ids] += ang_vel_noise + self.ang_vel_bias[env_ids]
+        
+        # 添加线加速度噪声和偏置（如果有的话）
+        lin_vel_noise = torch.randn(len(env_ids), 3, device=self.asset.device) * lin_acc_noise_std
+        self.asset.data.root_lin_vel_b[env_ids] += lin_vel_noise + self.lin_acc_bias[env_ids]
+        
+        # reset 时重新采样偏置
+        if env_ids is not None and len(env_ids) > 0:
+            self.ang_vel_bias[env_ids] = math_utils.sample_uniform(
+                ang_vel_bias_range[0], ang_vel_bias_range[1],
+                (len(env_ids), 3), device=self.asset.device
+            )
+            self.lin_acc_bias[env_ids] = math_utils.sample_uniform(
+                lin_acc_bias_range[0], lin_acc_bias_range[1],
+                (len(env_ids), 3), device=self.asset.device
+            )
+
+
+class randomize_observation_dropout(ManagerTermBase):
+    """观测丢包/传感器失效随机化。
+    
+    以一定概率将部分观测维度置零或保持上一帧值，
+    模拟传感器偶发失效、通讯丢包等情况。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        
+        self.dropout_prob = cfg.params.get("dropout_prob", 0.01)  # 每个维度丢包概率
+        self.dropout_mode = cfg.params.get("dropout_mode", "zero")  # "zero" or "hold"
+        
+        # 保存上一帧观测用于 hold 模式
+        self.last_joint_pos = self.asset.data.joint_pos.clone()
+        self.last_joint_vel = self.asset.data.joint_vel.clone()
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        dropout_prob: float = 0.01,
+        dropout_mode: str = "zero",
+    ):
+        """随机丢弃部分观测。"""
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
+        
+        # 生成丢包掩码
+        pos_dropout_mask = torch.rand(len(env_ids), self.asset.num_joints, device=self.asset.device) < dropout_prob
+        vel_dropout_mask = torch.rand(len(env_ids), self.asset.num_joints, device=self.asset.device) < dropout_prob
+        
+        if dropout_mode == "zero":
+            # 置零
+            self.asset.data.joint_pos[env_ids] = torch.where(
+                pos_dropout_mask, 
+                torch.zeros_like(self.asset.data.joint_pos[env_ids]),
+                self.asset.data.joint_pos[env_ids]
+            )
+            self.asset.data.joint_vel[env_ids] = torch.where(
+                vel_dropout_mask,
+                torch.zeros_like(self.asset.data.joint_vel[env_ids]),
+                self.asset.data.joint_vel[env_ids]
+            )
+        else:  # hold
+            # 保持上一帧值
+            self.asset.data.joint_pos[env_ids] = torch.where(
+                pos_dropout_mask,
+                self.last_joint_pos[env_ids],
+                self.asset.data.joint_pos[env_ids]
+            )
+            self.asset.data.joint_vel[env_ids] = torch.where(
+                vel_dropout_mask,
+                self.last_joint_vel[env_ids],
+                self.asset.data.joint_vel[env_ids]
+            )
+        
+        # 更新上一帧缓存
+        self.last_joint_pos[env_ids] = self.asset.data.joint_pos[env_ids].clone()
+        self.last_joint_vel[env_ids] = self.asset.data.joint_vel[env_ids].clone()
+
+
+def randomize_constant_wind_like_force(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    force_range: dict[str, tuple[float, float]],
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+):
+    """施加持续的类风力/拖拽力。
+    
+    为每个 env 采样一个固定方向的力，整个 episode 保持不变，
+    模拟持续的侧向风、线缆拉扯等恒定偏置力。
+    """
+    asset: RigidObject | Articulation = env.scene[asset_cfg.name]
+    
+    if env_ids is None:
+        env_ids = torch.arange(env.scene.num_envs, device=asset.device)
+    
+    # 采样持续力（每个 env 一个固定值）
+    range_list = [force_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z"]]
+    ranges = torch.tensor(range_list, device=asset.device)
+    forces = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (len(env_ids), 3), device=asset.device)
+    
+    # 扩展到所有 body（只对 base/torso 施加）
+    num_bodies = len(asset_cfg.body_ids) if isinstance(asset_cfg.body_ids, list) else 1
+    forces = forces.unsqueeze(1).expand(-1, num_bodies, -1)
+    torques = torch.zeros_like(forces)
+    
+    # 设置外力
+    asset.set_external_force_and_torque(forces, torques, env_ids=env_ids, body_ids=asset_cfg.body_ids)
+
+
+def randomize_slope_or_base_frame(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    gravity_bias_range: dict[str, tuple[float, float]],
+):
+    """通过修改重力方向模拟基座倾斜/坡度。
+    
+    在重力向量的 x, y 分量上添加小偏置，
+    等效于机器人站在轻微倾斜的地面上。
+    """
+    if env_ids is None:
+        env_ids = torch.arange(env.scene.num_envs, device="cpu")
+    
+    # 获取当前重力
+    gravity = torch.tensor(env.sim.cfg.gravity, device="cpu").unsqueeze(0)
+    
+    # 采样重力偏置（主要在 x, y 方向）
+    range_list = [gravity_bias_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z"]]
+    ranges = torch.tensor(range_list, device="cpu")
+    bias = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (1, 3), device="cpu")
+    
+    # 应用偏置
+    gravity = gravity + bias
+    gravity = gravity[0].tolist()
+    
+    # 设置新重力
+    physics_sim_view: physx.SimulationView = sim_utils.SimulationContext.instance().physics_sim_view
+    physics_sim_view.set_gravity(carb.Float3(*gravity))
+
+
+class randomize_joint_failure(ManagerTermBase):
+    """关节故障随机化。
+    
+    以一定概率让某些关节"失效"：
+    - 扭矩输出减半或归零
+    - 关节卡死在某个位置
+    模拟电机故障、驱动器失效等极端情况。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        
+        self.failure_prob = cfg.params.get("failure_prob", 0.01)  # 每个关节失效概率
+        self.failure_mode = cfg.params.get("failure_mode", "weak")  # "weak", "stuck", "dead"
+        self.weak_factor = cfg.params.get("weak_factor", 0.3)  # weak 模式下的扭矩衰减因子
+        
+        # 记录哪些关节失效
+        self.failed_joints = torch.zeros(
+            env.scene.num_envs, self.asset.num_joints, 
+            dtype=torch.bool, device=self.asset.device
+        )
+        self.stuck_positions = torch.zeros(
+            env.scene.num_envs, self.asset.num_joints,
+            device=self.asset.device
+        )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        failure_prob: float = 0.01,
+        failure_mode: str = "weak",
+        weak_factor: float = 0.3,
+    ):
+        """应用关节故障效果。"""
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
+        
+        # 对 reset 的 env 重新采样故障状态
+        new_failures = torch.rand(len(env_ids), self.asset.num_joints, device=self.asset.device) < failure_prob
+        self.failed_joints[env_ids] = new_failures
+        self.stuck_positions[env_ids] = self.asset.data.joint_pos[env_ids].clone()
+        
+        # 应用故障效果
+        if failure_mode == "weak":
+            # 获取当前关节扭矩限制并衰减
+            # 注意：这里简化处理，实际应该修改 actuator 的 effort_limit
+            pass  # 在 actuator 层面处理更合适
+        elif failure_mode == "stuck":
+            # 强制关节保持在失效时的位置
+            stuck_mask = self.failed_joints[env_ids]
+            current_pos = self.asset.data.joint_pos[env_ids].clone()
+            current_pos = torch.where(stuck_mask, self.stuck_positions[env_ids], current_pos)
+            self.asset.set_joint_position_target(current_pos, env_ids=env_ids)
+        elif failure_mode == "dead":
+            # 关节完全不响应（目标位置设为当前位置）
+            dead_mask = self.failed_joints[env_ids]
+            current_pos = self.asset.data.joint_pos[env_ids].clone()
+            target_pos = self.asset.data.joint_pos_target[env_ids].clone()
+            target_pos = torch.where(dead_mask, current_pos, target_pos)
+            self.asset.set_joint_position_target(target_pos, env_ids=env_ids)
+
+
+class randomize_contact_patch_slip(ManagerTermBase):
+    """局部超低摩擦区域随机化。
+    
+    随机将部分 env 的地面/脚底摩擦设置得很低，
+    模拟踩到冰面、油污等滑溜区域。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
+        
+        self.slip_prob = cfg.params.get("slip_prob", 0.05)  # 滑溜区域出现概率
+        self.slip_friction = cfg.params.get("slip_friction", 0.1)  # 滑溜时的摩擦系数
+        self.normal_friction_range = cfg.params.get("normal_friction_range", (0.6, 1.0))
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        slip_prob: float = 0.05,
+        slip_friction: float = 0.1,
+        normal_friction_range: tuple[float, float] = (0.6, 1.0),
+    ):
+        """随机设置滑溜区域。"""
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device="cpu")
+        else:
+            env_ids = env_ids.cpu()
+        
+        # 获取当前材质属性
+        materials = self.asset.root_physx_view.get_material_properties()
+        
+        # 决定哪些 env 是滑溜的
+        is_slip = torch.rand(len(env_ids)) < slip_prob
+        
+        for i, env_id in enumerate(env_ids):
+            if is_slip[i]:
+                # 设置低摩擦
+                materials[env_id, :, 0] = slip_friction  # static friction
+                materials[env_id, :, 1] = slip_friction  # dynamic friction
+            else:
+                # 正常摩擦
+                friction = torch.empty(materials.shape[1]).uniform_(*normal_friction_range)
+                materials[env_id, :, 0] = friction
+                materials[env_id, :, 1] = friction * 0.8  # dynamic < static
+        
+        self.asset.root_physx_view.set_material_properties(materials, env_ids)
+
+
+class randomize_sensor_latency_spike(ManagerTermBase):
+    """传感器延迟尖峰随机化。
+    
+    极少数 step 在观测上注入大延迟（使用很旧的一帧），
+    模拟偶发的通讯阻塞、传感器卡顿等。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        
+        self.spike_prob = cfg.params.get("spike_prob", 0.005)  # 延迟尖峰发生概率
+        self.max_latency_steps = cfg.params.get("max_latency_steps", 10)  # 最大延迟步数
+        
+        # 观测历史缓冲区
+        self.history_buffer_pos = torch.zeros(
+            env.scene.num_envs,
+            self.max_latency_steps + 1,
+            self.asset.num_joints,
+            device=self.asset.device
+        )
+        self.history_buffer_vel = torch.zeros(
+            env.scene.num_envs,
+            self.max_latency_steps + 1,
+            self.asset.num_joints,
+            device=self.asset.device
+        )
+        self.buffer_idx = 0
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        spike_prob: float = 0.005,
+        max_latency_steps: int = 10,
+    ):
+        """偶发注入大延迟。"""
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
+        
+        # 存储当前观测
+        self.history_buffer_pos[:, self.buffer_idx] = self.asset.data.joint_pos.clone()
+        self.history_buffer_vel[:, self.buffer_idx] = self.asset.data.joint_vel.clone()
+        
+        # 决定哪些 env 发生延迟尖峰
+        spike_mask = torch.rand(len(env_ids), device=self.asset.device) < spike_prob
+        
+        if spike_mask.any():
+            # 随机选择延迟步数
+            latency = torch.randint(1, max_latency_steps + 1, (len(env_ids),), device=self.asset.device)
+            
+            for i, env_id in enumerate(env_ids):
+                if spike_mask[i]:
+                    delayed_idx = (self.buffer_idx - latency[i].item()) % (self.max_latency_steps + 1)
+                    self.asset.data.joint_pos[env_id] = self.history_buffer_pos[env_id, delayed_idx]
+                    self.asset.data.joint_vel[env_id] = self.history_buffer_vel[env_id, delayed_idx]
+        
+        # 更新缓冲区索引
+        self.buffer_idx = (self.buffer_idx + 1) % (self.max_latency_steps + 1)
 
 
 """

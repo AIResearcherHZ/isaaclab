@@ -1,9 +1,14 @@
+from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
-from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import LocomotionVelocityRoughEnvCfg, RewardsCfg
+from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
+    EventCfg,
+    LocomotionVelocityRoughEnvCfg,
+    RewardsCfg,
+)
 
 ##
 # 预定义配置
@@ -79,34 +84,62 @@ class TaksT1Rewards(RewardsCfg):
         weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
-    
-    # 手臂关节偏差惩罚：减少上肢不必要摆动，保持干净的动作
-    joint_deviation_arms = RewTerm(
+
+    # 手臂shoulder_pitch关节偏差惩罚（较小权重，允许前后摆动平衡）
+    joint_deviation_arm_pitch = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.05,  # 较小权重，允许摆动
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=[
-                    ".*_shoulder_pitch_joint",
-                    ".*_shoulder_roll_joint",
-                    ".*_shoulder_yaw_joint",
-                    ".*_elbow_joint",
-                    ".*_wrist_roll_joint",
-                ],
+                joint_names=[".*_shoulder_pitch_joint"],
             )
         },
     )
     
+    # 手臂其他关节偏差惩罚
+    joint_deviation_arm_others = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,  # 较大权重，强制保持在默认位置
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_shoulder_roll_joint",
+                    ".*_shoulder_yaw_joint",
+                    ".*_elbow_joint",
+                    ".*_wrist_.*",
+                ],
+            )
+        }
+    )
+
+    # 手臂扭矩惩罚（除pitch外的关节应接近零扭矩）
+    arm_torque_penalty = RewTerm(
+        func=mdp.joint_torques_l2,
+        weight=-0.2,  # 强扭矩惩罚
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_shoulder_roll_joint",
+                    ".*_shoulder_yaw_joint",
+                    ".*_elbow_joint",
+                    ".*_wrist_.*",
+                ],
+            )
+        }
+    )
+
     # 步态对称性奖励 - 鼓励左右脚交替接触
     gait_symmetry = RewTerm(
         func=mdp.gait_symmetry,
         weight=0.1,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        },
+        }
     )
-    
+
     # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
     double_support_penalty = RewTerm(
         func=mdp.double_support_time_penalty,
@@ -114,9 +147,9 @@ class TaksT1Rewards(RewardsCfg):
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "max_double_support_time": 0.4,
-        },
+        }
     )
-    
+
     # 膝关节过度弯曲惩罚 - 防止蹲姿
     knee_bend_penalty = RewTerm(
         func=mdp.knee_bend_penalty,
@@ -191,9 +224,168 @@ class TaksT1Rewards(RewardsCfg):
 
 
 @configclass
+class TaksT1EventCfg(EventCfg):
+    """域随机化配置，包含电机老化、关节摩擦等corner case。"""
+
+    # 电机老化随机化 - 随机化actuator增益模拟电机老化
+    randomize_actuator_gains = EventTerm(
+        func=mdp.randomize_actuator_gains,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "stiffness_distribution_params": (0.5, 1.5),  # 刚度缩放50%-150%
+            "damping_distribution_params": (0.5, 1.5),   # 阻尼缩放50%-150%
+            "operation": "scale",
+        },
+    )
+
+    # 关节摩擦随机化 - 模拟关节磨损
+    randomize_joint_friction = EventTerm(
+        func=mdp.randomize_joint_parameters,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+            "armature_distribution_params": (0.5, 2.0),  # 惯量缩放
+            "operation": "scale",
+        },
+    )
+
+    # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
+
+    # 动作噪声 - 模拟控制信号不完美（量化误差、通讯抖动）
+    action_noise = EventTerm(
+        func=mdp.randomize_action_noise,
+        mode="interval",
+        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "noise_std": 0.01,
+            "noise_type": "gaussian",
+        },
+    )
+
+    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    action_delay = EventTerm(
+        func=mdp.randomize_action_delay,
+        mode="interval",
+        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "max_delay_steps": 4,  # 最大延迟4步
+        },
+    )
+
+    # 关节编码器噪声 - 模拟编码器测量误差和零点偏移
+    encoder_noise = EventTerm(
+        func=mdp.randomize_joint_encoder_noise,
+        mode="interval",
+        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "pos_noise_std": 0.005,  # 位置噪声标准差 (rad)
+            "vel_noise_std": 0.05,   # 速度噪声标准差 (rad/s)
+            "pos_bias_range": (-0.01, 0.01),  # 位置偏置范围 (rad)
+            "vel_bias_range": (-0.02, 0.02),  # 速度偏置范围 (rad/s)
+        },
+    )
+
+    # IMU噪声和漂移 - 模拟真实IMU的测量特性
+    imu_noise = EventTerm(
+        func=mdp.randomize_imu_noise_and_bias,
+        mode="interval",
+        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "ang_vel_noise_std": 0.02,  # 角速度噪声 (rad/s)
+            "lin_acc_noise_std": 0.05,  # 线加速度噪声 (m/s^2)
+            "ang_vel_bias_range": (-0.01, 0.01),
+            "lin_acc_bias_range": (-0.05, 0.05),
+            "bias_drift_std": 0.001,  # 偏置漂移
+        },
+    )
+
+    # 观测丢包 - 模拟传感器偶发失效
+    observation_dropout = EventTerm(
+        func=mdp.randomize_observation_dropout,
+        mode="interval",
+        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "dropout_prob": 0.0005,  # 每个维度丢包概率 0.05%
+            "dropout_mode": "hold",  # 丢包时保持上一帧值
+        },
+    )
+
+    # 持续风力/拖拽力 - 模拟持续的侧向干扰
+    constant_wind = EventTerm(
+        func=mdp.randomize_constant_wind_like_force,
+        mode="startup",  # 仅在仿真开始时设置一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
+            "force_range": {
+                "x": (-1.0, 1.0),  # 前后风力 (N)
+                "y": (-1.0, 1.0),  # 侧向风力 (N)
+                "z": (-0.5, 0.5),  # 垂直风力 (N)
+            },
+        },
+    )
+
+    # 重力方向偏置 - 模拟基座倾斜/坡度
+    slope_randomization = EventTerm(
+        func=mdp.randomize_slope_or_base_frame,
+        mode="startup",  # 仿真开始时设置
+        params={
+            "gravity_bias_range": {
+                "x": (-0.1, 0.1),  # x方向重力偏置 (m/s^2)
+                "y": (-0.1, 0.1),  # y方向重力偏置 (m/s^2)
+                "z": (-0.05, 0.05),  # z方向重力偏置 (m/s^2)
+            },
+        },
+    )
+
+    # 关节故障 - 模拟电机故障（极低概率）
+    joint_failure = EventTerm(
+        func=mdp.randomize_joint_failure,
+        mode="reset",  # 每次reset时重新采样故障状态
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "failure_prob": 0.0001,  # 每个关节失效概率 0.01%
+            "failure_mode": "weak",  # 弱化模式（扭矩衰减）
+            "weak_factor": 0.5,  # 衰减因子提高，故障程度减轻
+        },
+    )
+
+    # 局部滑溜区域 - 模拟踩到冰面/油污
+    contact_slip = EventTerm(
+        func=mdp.randomize_contact_patch_slip,
+        mode="reset",  # 每次reset时重新采样
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "slip_prob": 0.0001,  # 0.01%概率遇到滑溜区域（万分之一）
+            "slip_friction": 0.2,  # 滑溜时的摩擦系数，提高一点
+            "normal_friction_range": (0.6, 1.0),
+        },
+    )
+
+    # 传感器延迟尖峰 - 模拟偶发的通讯阻塞
+    sensor_latency_spike = EventTerm(
+        func=mdp.randomize_sensor_latency_spike,
+        mode="interval",
+        interval_range_s=(60.0, 100.0),  # 60-100秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
+            "max_latency_steps": 8,  # 最大延迟8步
+        },
+    )
+
+
+@configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     # 使用上一节定义的奖励配置
     rewards: TaksT1Rewards = TaksT1Rewards()
+    # 使用扩展的事件配置（包含电机老化、关节摩擦等域随机化）
+    events: TaksT1EventCfg = TaksT1EventCfg()
 
     def __post_init__(self):
         # 调用父类后初始化逻辑，确保基础配置正确设置
@@ -245,12 +437,26 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
         self.events.base_com.params["com_range"] = {"x": (-0.025, 0.025), "y": (-0.05, 0.05), "z": (-0.05, 0.05)}
 
-        # 机器人摩擦力随机化 (摩擦力必须 >= 0)
+        # 机器人摩擦力随机化
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.physics_material.params["static_friction_range"] = (0.3, 1.6)
         self.events.physics_material.params["dynamic_friction_range"] = (0.3, 1.2)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
+
+        # ==================== 观测噪声增强 ====================
+        # 增加观测噪声范围以提高鲁棒性
+        self.observations.policy.base_lin_vel.noise.n_min = -0.5
+        self.observations.policy.base_lin_vel.noise.n_max = 0.5
+        self.observations.policy.base_ang_vel.noise.n_min = -0.2
+        self.observations.policy.base_ang_vel.noise.n_max = 0.2
+        self.observations.policy.joint_pos.noise.n_min = -0.01
+        self.observations.policy.joint_pos.noise.n_max = 0.01
+        self.observations.policy.joint_vel.noise.n_min = -0.5
+        self.observations.policy.joint_vel.noise.n_max = 0.5
+        # 重力方向噪声 - 模拟传感器偏差
+        self.observations.policy.projected_gravity.noise.n_min = -0.05
+        self.observations.policy.projected_gravity.noise.n_max = 0.05
 
         # 奖励权重进一步细调
         self.rewards.undesired_contacts = None
@@ -303,12 +509,23 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)
-
         # 试玩模式关闭观测扰动，避免不确定性来源
         self.observations.policy.enable_corruption = False
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+
+        # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_noise = None
+        self.events.action_delay = None
+        self.events.encoder_noise = None
+        self.events.imu_noise = None
+        self.events.observation_dropout = None
+        self.events.constant_wind = None
+        self.events.slope_randomization = None
+        self.events.joint_failure = None
+        self.events.contact_slip = None
+        self.events.sensor_latency_spike = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True

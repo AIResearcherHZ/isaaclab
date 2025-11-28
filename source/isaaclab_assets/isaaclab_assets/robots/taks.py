@@ -133,7 +133,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_elbow_joint": 5.0,
             },
             damping={
-                ".*_shoulder_pitch_joint": 10.0,
+                ".*_shoulder_pitch_joint": 5.0,
                 ".*_shoulder_roll_joint": 1.0,
                 ".*_shoulder_yaw_joint": 0.5,
                 ".*_elbow_joint": 0.5,
