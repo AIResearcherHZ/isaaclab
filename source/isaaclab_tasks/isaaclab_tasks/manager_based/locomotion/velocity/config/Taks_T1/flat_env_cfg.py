@@ -17,6 +17,8 @@ class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
         self.observations.policy.height_scan = None
         # 取消地形课程机制，因为地形固定为平坦
         self.curriculum.terrain_levels = None
+        
+        self.rewards.feet_air_time.weight = 0.75
         # 命令空间限制配置：限制线速度和角速度范围
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
         self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
