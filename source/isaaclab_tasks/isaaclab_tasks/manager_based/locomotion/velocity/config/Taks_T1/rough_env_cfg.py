@@ -437,8 +437,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
         self.events.base_com.params["com_range"] = {"x": (-0.025, 0.025), "y": (-0.05, 0.05), "z": (-0.05, 0.05)}
 
-        # 机器人摩擦力随机化
-        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        # 机器人摩擦力随机化 - 只对脚踝关节应用
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*_ankle_roll_link")
         self.events.physics_material.params["static_friction_range"] = (0.3, 1.6)
         self.events.physics_material.params["dynamic_friction_range"] = (0.3, 1.2)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
