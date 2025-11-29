@@ -79,9 +79,8 @@ ln -s /home/xhz/isaacsim _isaac_sim
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
   --experiment_name g1_flat \
-  --num_envs 15000 \
-  --load_run g1_flat \
-  --checkpoint logs/rsl_rl/g1_flat/2025-11-28_20-26-40/model_50.pt \
+  --num_envs 25000 \
+  --resume \
   --headless
 
 # 扭矩录制
@@ -149,9 +148,8 @@ ln -s /home/xhz/isaacsim _isaac_sim
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
   --experiment_name Taks_T1_flat \
-  --num_envs 15000 \
-  --load_run Taks_T1_flat \
-  --checkpoint logs/rsl_rl/Taks_T1_flat/2025-11-29_16-06-38/model_1499.pt \
+  --num_envs 25000 \
+  --resume \
   --headless
 
 # IO描述符导出
