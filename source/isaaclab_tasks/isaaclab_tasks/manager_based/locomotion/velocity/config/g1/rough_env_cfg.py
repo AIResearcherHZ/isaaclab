@@ -235,9 +235,9 @@ class G1EventCfg(EventCfg):
             "asset_cfg": SceneEntityCfg("robot"),
             "ang_vel_noise_std": 0.02,  # 角速度噪声 (rad/s)
             "lin_acc_noise_std": 0.05,  # 线加速度噪声 (m/s^2)
-            "ang_vel_bias_range": (-0.01, 0.01),
-            "lin_acc_bias_range": (-0.05, 0.05),
-            "bias_drift_std": 0.001,  # 偏置漂移
+            "ang_vel_bias_range": (-0.1, 0.1),
+            "lin_acc_bias_range": (-0.2, 0.2),
+            "bias_drift_std": 0.01,  # 偏置漂移
         },
     )
 
@@ -248,7 +248,7 @@ class G1EventCfg(EventCfg):
         interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "dropout_prob": 0.0005,  # 每个维度丢包概率 0.05%
+            "dropout_prob": 0.001,  # 每个维度丢包概率 0.1%
             "dropout_mode": "hold",  # 丢包时保持上一帧值
         },
     )
