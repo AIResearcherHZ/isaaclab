@@ -85,7 +85,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --headless
 
 # IO描述符导出
-./isaaclab.sh -p scripts/environments/export_io_descriptors.py --task Isaac-Velocity-Flat-G1-v0 --output_dir ./io_descriptors
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Flat-G1-v0 --output_dir ./io_descriptors
 
 
 --------------------------------------------------------------------------------
@@ -96,6 +96,9 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --task Isaac-Velocity-Rough-G1-v0 \
   --num_envs 4096 \
   --headless
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Rough-G1-v0 --output_dir ./io_descriptors
 
 
 --------------------------------------------------------------------------------
@@ -132,7 +135,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --headless
 
 # IO描述符导出
-./isaaclab.sh -p scripts/environments/export_io_descriptors.py --task Isaac-Velocity-Flat-Taks_T1-v0 --output_dir ./io_descriptors
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Flat-Taks_T1-v0 --output_dir ./io_descriptors
 
 
 --------------------------------------------------------------------------------
@@ -143,3 +146,6 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --task Isaac-Velocity-Rough-Taks_T1-v0 \
   --num_envs 20000 \
   --headless
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Rough-Taks_T1-v0 --output_dir ./io_descriptors
