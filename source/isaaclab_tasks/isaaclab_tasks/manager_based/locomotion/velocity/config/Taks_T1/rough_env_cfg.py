@@ -113,8 +113,6 @@ class TaksT1Rewards(RewardsCfg):
         func=mdp.joint_torques_l2,
         weight=-0.5e-5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"])},
-            )
-        }
     )
 
     # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
