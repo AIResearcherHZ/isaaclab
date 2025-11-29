@@ -112,14 +112,16 @@ class TaksT1Rewards(RewardsCfg):
     arm_torque_penalty_others = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-1.0e-4,
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_elbow_joint", ".*_wrist_.*"],
-            )
-        }
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_elbow_joint", ".*_wrist_.*"])}
     )
     
+    # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
+    waist_joint_torques_l2 = RewTerm(
+        func=mdp.joint_torques_l2,
+        weight=-2.5e-5,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
+    )
+
     # 步态对称性奖励 - 鼓励左右脚交替接触
     gait_symmetry = RewTerm(
         func=mdp.gait_symmetry,
