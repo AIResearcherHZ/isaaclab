@@ -151,7 +151,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --experiment_name Taks_T1_flat \
   --num_envs 15000 \
   --load_run Taks_T1_flat \
-  --checkpoint logs/rsl_rl/Taks_T1_flat/2025-11-28_23-50-36/model_999.pt \
+  --checkpoint logs/rsl_rl/Taks_T1_flat/2025-11-29_16-06-38/model_1499.pt \
   --headless
 
 # IO描述符导出
