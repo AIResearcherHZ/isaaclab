@@ -230,7 +230,7 @@ class TaksT1EventCfg(EventCfg):
     action_noise = EventTerm(
         func=mdp.randomize_action_noise,
         mode="interval",
-        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "noise_std": 0.01,
@@ -242,10 +242,10 @@ class TaksT1EventCfg(EventCfg):
     action_delay = EventTerm(
         func=mdp.randomize_action_delay,
         mode="interval",
-        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "max_delay_steps": 3,  # 最大延迟3步
+            "max_delay_steps": 5,  # 最大延迟5步
         },
     )
 
@@ -253,7 +253,7 @@ class TaksT1EventCfg(EventCfg):
     encoder_noise = EventTerm(
         func=mdp.randomize_joint_encoder_noise,
         mode="interval",
-        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "pos_noise_std": 0.005,  # 位置噪声标准差 (rad)
@@ -267,7 +267,7 @@ class TaksT1EventCfg(EventCfg):
     imu_noise = EventTerm(
         func=mdp.randomize_imu_noise_and_bias,
         mode="interval",
-        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "ang_vel_noise_std": 0.02,  # 角速度噪声 (rad/s)
@@ -282,7 +282,7 @@ class TaksT1EventCfg(EventCfg):
     observation_dropout = EventTerm(
         func=mdp.randomize_observation_dropout,
         mode="interval",
-        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "dropout_prob": 0.0005,  # 每个维度丢包概率 0.05%
@@ -306,11 +306,11 @@ class TaksT1EventCfg(EventCfg):
     sensor_latency_spike = EventTerm(
         func=mdp.randomize_sensor_latency_spike,
         mode="interval",
-        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
-            "max_latency_steps": 6,  # 最大延迟6步
+            "max_latency_steps": 10,  # 最大延迟10步
         },
     )
 
