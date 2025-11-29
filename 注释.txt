@@ -84,6 +84,16 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --checkpoint logs/rsl_rl/g1_flat/2025-11-28_20-26-40/model_50.pt \
   --headless
 
+# 扭矩录制
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 1 \
+  --enable_torque_recording \
+  --torque_recording_dir logs/my_torque_data \
+  --torque_recording_env_id 0 \
+  --torque_recording_duration 5.0 \
+  --headless
+
 # IO描述符导出
 ./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Flat-G1-v0 --output_dir ./io_descriptors
 
@@ -124,6 +134,16 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
   --num_envs 1 \
   --keyboard
+
+# 扭矩录制
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 1 \
+  --enable_torque_recording \
+  --torque_recording_dir logs/my_torque_data \
+  --torque_recording_env_id 0 \
+  --torque_recording_duration 5.0 \
+  --headless
 
 # 断点重训
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
