@@ -1,14 +1,13 @@
+from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
+    EventCfg,
     LocomotionVelocityRoughEnvCfg,
     RewardsCfg,
-    StudentObservationsCfg,
-    TeacherStudentObservationsCfg,
 )
 
 ##
@@ -118,11 +117,188 @@ class G1Rewards(RewardsCfg):
         params={"asset_cfg": SceneEntityCfg("robot", joint_names="torso_joint")},
     )
 
+    # 单脚支撑奖励 - 鼓励正常迈步
+    single_leg_stance = RewTerm(
+        func=mdp.single_leg_stance_reward,
+        weight=0.05,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "command_name": "base_velocity",
+        },
+    )
+
+    # 双脚交替接触奖励 - 鼓励一脚着地一脚离地
+    feet_alternating = RewTerm(
+        func=mdp.feet_alternating_contact,
+        weight=0.1,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "command_name": "base_velocity",
+        },
+    )
+
+    # 静止姿态奖励 - 无命令时保持标准站姿
+    stand_still_posture = RewTerm(
+        func=mdp.stand_still_posture,
+        weight=0.5,
+        params={"command_name": "base_velocity", "command_threshold": 0.1},
+    )
+
+    # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
+    stand_still_joint_deviation = RewTerm(
+        func=mdp.stand_still_joint_deviation_l1,
+        weight=-0.25,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "asset_cfg": SceneEntityCfg("robot"),
+        },
+    )
+
+    # 方向切换惩罚 - 当从前进变后退时惩罚过快变化
+    direction_change_penalty = RewTerm(
+        func=mdp.command_direction_change_penalty,
+        weight=-0.1,
+        params={"command_name": "base_velocity"},
+    )
+
+    # 速度方向对齐奖励 - 鼓励实际速度与命令方向一致
+    velocity_alignment = RewTerm(
+        func=mdp.velocity_direction_alignment,
+        weight=0.02,
+        params={"command_name": "base_velocity"},
+    )
+
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
+
+
+@configclass
+class G1EventCfg(EventCfg):
+    """域随机化配置，包含电机老化、关节摩擦等corner case。"""
+
+    # 关节摩擦随机化 - 模拟关节磨损
+    randomize_joint_friction = EventTerm(
+        func=mdp.randomize_joint_parameters,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+            "armature_distribution_params": (0.5, 2.0),  # 惯量缩放
+            "operation": "scale",
+        },
+    )
+
+    # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
+
+    # 动作噪声 - 模拟控制信号不完美（量化误差、通讯抖动）
+    action_noise = EventTerm(
+        func=mdp.randomize_action_noise,
+        mode="interval",
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "noise_std": 0.01,
+            "noise_type": "gaussian",
+        },
+    )
+
+    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    action_delay = EventTerm(
+        func=mdp.randomize_action_delay,
+        mode="interval",
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "max_delay_steps": 3,  # 最大延迟3步
+        },
+    )
+
+    # 关节编码器噪声 - 模拟编码器测量误差和零点偏移
+    encoder_noise = EventTerm(
+        func=mdp.randomize_joint_encoder_noise,
+        mode="interval",
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "pos_noise_std": 0.005,  # 位置噪声标准差 (rad)
+            "vel_noise_std": 0.01,   # 速度噪声标准差 (rad/s)
+            "pos_bias_range": (-0.01, 0.01),  # 位置偏置范围 (rad)
+            "vel_bias_range": (-0.02, 0.02),  # 速度偏置范围 (rad/s)
+        },
+    )
+
+    # IMU噪声和漂移 - 模拟真实IMU的测量特性
+    imu_noise = EventTerm(
+        func=mdp.randomize_imu_noise_and_bias,
+        mode="interval",
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "ang_vel_noise_std": 0.02,  # 角速度噪声 (rad/s)
+            "lin_acc_noise_std": 0.05,  # 线加速度噪声 (m/s^2)
+            "ang_vel_bias_range": (-0.01, 0.01),
+            "lin_acc_bias_range": (-0.05, 0.05),
+            "bias_drift_std": 0.001,  # 偏置漂移
+        },
+    )
+
+    # 观测丢包 - 模拟传感器偶发失效
+    observation_dropout = EventTerm(
+        func=mdp.randomize_observation_dropout,
+        mode="interval",
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "dropout_prob": 0.0005,  # 每个维度丢包概率 0.05%
+            "dropout_mode": "hold",  # 丢包时保持上一帧值
+        },
+    )
+
+    # 关节故障 - 模拟电机故障（极低概率）
+    joint_failure = EventTerm(
+        func=mdp.randomize_joint_failure,
+        mode="reset",  # 每次reset时重新采样故障状态
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "failure_prob": 0.0001,  # 每个关节失效概率 0.01%
+            "failure_mode": "weak",  # 弱化模式（扭矩衰减）
+            "weak_factor": 0.5,  # 衰减因子提高，故障程度减轻
+        },
+    )
+
+    # 传感器延迟尖峰 - 模拟偶发的通讯阻塞
+    sensor_latency_spike = EventTerm(
+        func=mdp.randomize_sensor_latency_spike,
+        mode="interval",
+        interval_range_s=(60.0, 120.0),  # 60-120秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
+            "max_latency_steps": 6,  # 最大延迟6步
+        },
+    )
+
+    # 重力方向偏置 - 模拟基座倾斜/坡度
+    slope_randomization = EventTerm(
+        func=mdp.randomize_slope_or_base_frame,
+        mode="startup",  # 仿真开始时设置
+        params={
+            "gravity_bias_range": {
+                "x": (-0.1, 0.1),  # x方向重力偏置 (m/s^2)
+                "y": (-0.1, 0.1),  # y方向重力偏置 (m/s^2)
+                "z": (-0.05, 0.05),  # z方向重力偏置 (m/s^2)
+            },
+        },
+    )
+
 
 @configclass
 class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    # 使用上一节定义的奖励配置
+    base_link_name = "torso_link"
+    foot_link_name = ".*_ankle_roll_link"
+
     rewards: G1Rewards = G1Rewards()
+    # 使用扩展的事件配置（包含电机老化、关节摩擦等域随机化）
+    events: G1EventCfg = G1EventCfg()
 
     def __post_init__(self):
         # 调用父类后初始化逻辑，确保基础配置正确设置
@@ -130,29 +306,62 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 场景相关设置
         self.scene.robot = G1_MINIMAL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-        # 高度扫描器指向机器人的躯干，用于动态仿真时采集高度信息
-        self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/torso_link"
+        self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/" + self.base_link_name
 
-        # 随机化事件配置：取消推人事件和附加质量事件
-        self.events.push_robot = None
-        self.events.add_base_mass = None
-        # 重置关节角度的范围固定为 1，全范围固定一致
+        # ------------------------------Observations------------------------------
+        # 只使用真实传感器可获取的观测（IMU + 关节编码器）
+        self.observations.policy.base_ang_vel.scale = 0.25
+        self.observations.policy.joint_pos.scale = 1.0
+        self.observations.policy.joint_vel.scale = 0.05
+        # 删除无法真实获取的观测
+        self.observations.policy.height_scan = None
+        self.observations.policy.base_lin_vel = None
+
+        # ------------------------------Actions------------------------------
+        self.actions.joint_pos.scale = 0.25
+        self.actions.joint_pos.clip = {".*": (-100.0, 100.0)}
+
+        # ------------------------------Events------------------------------
+        self.events.push_robot.params["velocity_range"] = {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}
+        self.events.push_robot.interval_range_s = (0.0, 5.0)
+        self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
+        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
+        self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
+        self.events.base_external_force_torque.params["force_range"] = (-2.5, 2.5)
+        self.events.base_external_force_torque.params["torque_range"] = (-1.0, 1.0)
+
+        # 重置机器人关节时增加随机性
         self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
-        # 仅在躯干施加外力
-        self.events.base_external_force_torque.params["asset_cfg"].body_names = ["torso_link"]
-        # 重置底座时只允许位置略微改变但速度保持为零
+        self.events.reset_robot_joints.params["velocity_range"] = (1.0, 1.0)
+
+        # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "pose_range": {
+                "x": (-0.5, 0.5),
+                "y": (-0.5, 0.5),
+                "z": (-0.05, 0.15),
+                "roll": (-0.1, 0.1),
+                "pitch": (-0.1, 0.1),
+                "yaw": (-3.14, 3.14),
+            },
             "velocity_range": {
-                "x": (0.0, 0.0),
-                "y": (0.0, 0.0),
-                "z": (0.0, 0.0),
-                "roll": (0.0, 0.0),
-                "pitch": (0.0, 0.0),
-                "yaw": (0.0, 0.0),
+                "x": (-0.5, 0.5),
+                "y": (-0.5, 0.5),
+                "z": (-0.2, 0.2),
+                "roll": (-0.52, 0.52),
+                "pitch": (-0.52, 0.52),
+                "yaw": (-0.78, 0.78),
             },
         }
-        self.events.base_com = None
+        self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
+        self.events.base_com.params["com_range"] = {"x": (-0.025, 0.025), "y": (-0.05, 0.05), "z": (-0.05, 0.05)}
+
+        # 机器人摩擦力随机化 - 只对脚踝关节应用
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        self.events.physics_material.params["static_friction_range"] = (0.2, 1.8)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.2, 1.8)
+        self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
+        self.events.physics_material.params["num_buckets"] = 64
 
         # 奖励权重进一步细调
         self.rewards.lin_vel_z_l2.weight = 0.0
@@ -168,13 +377,13 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
         )
 
-        # 命令空间线速度与角速度设置
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.0, 0.0)
+        # ------------------------------Commands------------------------------
+        self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
-        # 终止条件：躯干接触地面即终止
-        self.terminations.base_contact.params["sensor_cfg"].body_names = "torso_link"
+        # ------------------------------Terminations------------------------------
+        self.terminations.base_contact.params["sensor_cfg"].body_names = self.base_link_name
 
 
 @configclass
@@ -208,52 +417,16 @@ class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
         self.events.base_external_force_torque = None
         self.events.push_robot = None
 
+        # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_noise = None
+        self.events.action_delay = None
+        self.events.encoder_noise = None
+        self.events.imu_noise = None
+        self.events.observation_dropout = None
+        self.events.joint_failure = None
+        self.events.sensor_latency_spike = None
+        self.events.slope_randomization = None
+
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
 
-
-###############################
-# Teacher-Student Distillation #
-###############################
-
-
-@configclass
-class G1RoughTeacherStudentEnvCfg(G1RoughEnvCfg):
-    """Teacher-Student 蒸馏阶段的粗糙地形环境配置。
-
-    该配置用于行为克隆（Behavior Cloning）阶段：
-    - Student 策略从 Teacher 策略学习
-    - Teacher 使用包含特权信息（如 base_lin_vel）的观测
-    - Student 使用不含特权信息的观测
-    """
-
-    observations: TeacherStudentObservationsCfg = TeacherStudentObservationsCfg()
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        # 蒸馏阶段使用较少的环境数量
-        self.scene.num_envs = 256
-
-        # 蒸馏阶段降低 Teacher 观测噪声，提高学习稳定性
-        self.observations.teacher.base_lin_vel.noise = Unoise(n_min=-0.001, n_max=0.001)
-        self.observations.teacher.base_ang_vel.noise = Unoise(n_min=-0.002, n_max=0.002)
-        self.observations.teacher.projected_gravity.noise = Unoise(n_min=-0.0005, n_max=0.0005)
-        self.observations.teacher.joint_pos.noise = Unoise(n_min=-0.0001, n_max=0.0001)
-        self.observations.teacher.joint_vel.noise = Unoise(n_min=-0.0001, n_max=0.0001)
-
-
-########################
-# Student Fine-tune #
-########################
-
-
-@configclass
-class G1RoughStudentEnvCfg(G1RoughEnvCfg):
-    """Student 微调阶段的粗糙地形环境配置。
-
-    该配置用于 Student 策略的 RL 微调阶段：
-    - 仅使用真实传感器可获取的观测（不含 base_lin_vel）
-    - 通过 RL 进一步优化 Student 策略性能
-    """
-
-    observations: StudentObservationsCfg = StudentObservationsCfg()

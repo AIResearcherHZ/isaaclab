@@ -9,8 +9,6 @@ from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
     EventCfg,
     LocomotionVelocityRoughEnvCfg,
     RewardsCfg,
-    StudentObservationsCfg,
-    TeacherStudentObservationsCfg,
 )
 
 from isaaclab_assets import TAKS_T1_CFG  # isort: skip
@@ -88,7 +86,7 @@ class TaksT1Rewards(RewardsCfg):
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.2,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint",])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint"])},
     )
 
     # 腰部偏差惩罚（其他轴）：约束横向与扭转轴，提高整体稳定性
@@ -105,11 +103,7 @@ class TaksT1Rewards(RewardsCfg):
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=[
-                    ".*_shoulder_pitch_joint",
-                    ".*_shoulder_yaw_joint", 
-                    ".*_wrist_.*"
-                ],
+                joint_names=[".*_shoulder_.*", ".*_wrist_.*"],
             )
         },
     )
@@ -117,13 +111,8 @@ class TaksT1Rewards(RewardsCfg):
     # 手臂俯仰轴扭矩惩罚：限制肩部 pitch 轴扭矩，避免动作过猛
     arm_torque_penalty_pitch = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-0.5e-6,
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    ".*_shoulder_pitch_joint",
-                ],
+        weight=-0.5e-5,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"])},
             )
         }
     )
@@ -131,16 +120,11 @@ class TaksT1Rewards(RewardsCfg):
     # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
     arm_torque_penalty_others = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-1.0e-5,
+        weight=-1.0e-4,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=[
-                    ".*_shoulder_roll_joint",
-                    ".*_shoulder_yaw_joint",
-                    ".*_elbow_joint",
-                    ".*_wrist_.*",
-                ],
+                joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_elbow_joint", ".*_wrist_.*"],
             )
         }
     )
@@ -149,18 +133,16 @@ class TaksT1Rewards(RewardsCfg):
     gait_symmetry = RewTerm(
         func=mdp.gait_symmetry,
         weight=0.1,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        }
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
     )
 
     # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
     double_support_penalty = RewTerm(
         func=mdp.double_support_time_penalty,
-        weight=-0.2,
+        weight=-0.5,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "max_double_support_time": 0.4,
+            "max_double_support_time": 0.2,
         }
     )
 
@@ -177,7 +159,7 @@ class TaksT1Rewards(RewardsCfg):
     # 单脚支撑奖励 - 鼓励正常迈步
     single_leg_stance = RewTerm(
         func=mdp.single_leg_stance_reward,
-        weight=0.1,
+        weight=0.05,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "command_name": "base_velocity",
@@ -197,11 +179,8 @@ class TaksT1Rewards(RewardsCfg):
     # 静止姿态奖励 - 无命令时保持标准站姿
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
-        weight=0.1,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-        },
+        weight=0.5,
+        params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
@@ -225,9 +204,12 @@ class TaksT1Rewards(RewardsCfg):
     # 速度方向对齐奖励 - 鼓励实际速度与命令方向一致
     velocity_alignment = RewTerm(
         func=mdp.velocity_direction_alignment,
-        weight=0.05,
+        weight=0.02,
         params={"command_name": "base_velocity"},
     )
+
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
+
 
 @configclass
 class TaksT1EventCfg(EventCfg):
@@ -349,7 +331,9 @@ class TaksT1EventCfg(EventCfg):
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    # 使用上一节定义的奖励配置
+    base_link_name = "torso_link"
+    foot_link_name = ".*_ankle_roll_link"
+
     rewards: TaksT1Rewards = TaksT1Rewards()
     # 使用扩展的事件配置（包含电机老化、关节摩擦等域随机化）
     events: TaksT1EventCfg = TaksT1EventCfg()
@@ -358,21 +342,29 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 调用父类后初始化逻辑，确保基础配置正确设置
         super().__post_init__()
 
-        # 场景相关设置
+        # ------------------------------Scene------------------------------
         self.scene.robot = TAKS_T1_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-        # 高度扫描器指向机器人的躯干，用于动态仿真时采集高度信息
-        self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/torso_link"
+        self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/" + self.base_link_name
 
-        # 保留推人事件，增加扰动自稳定训练
+        # ------------------------------Observations------------------------------
+        # 只使用真实传感器可获取的观测（IMU + 关节编码器）
+        self.observations.policy.base_ang_vel.scale = 0.25
+        self.observations.policy.joint_pos.scale = 1.0
+        self.observations.policy.joint_vel.scale = 0.05
+        # 删除无法真实获取的观测
+        self.observations.policy.height_scan = None
+        self.observations.policy.base_lin_vel = None
+
+        # ------------------------------Actions------------------------------
+        self.actions.joint_pos.scale = 0.25
+        self.actions.joint_pos.clip = {".*": (-100.0, 100.0)}
+
+        # ------------------------------Events------------------------------
         self.events.push_robot.params["velocity_range"] = {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}
         self.events.push_robot.interval_range_s = (0.0, 5.0)
-
-        # 增加基座质量随机化
-        self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
+        self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
-
-        # 在躯干施加随机外力和扭矩，增强扰动抗性
-        self.events.base_external_force_torque.params["asset_cfg"].body_names = ["torso_link"]
+        self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
         self.events.base_external_force_torque.params["force_range"] = (-2.5, 2.5)
         self.events.base_external_force_torque.params["torque_range"] = (-1.0, 1.0)
 
@@ -383,12 +375,12 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
             "pose_range": {
-                "x": (-0.1, 0.1),
-                "y": (-0.1, 0.1),
-                "z": (-0.1, 0.1),
+                "x": (-0.5, 0.5),
+                "y": (-0.5, 0.5),
+                "z": (-0.05, 0.15),
                 "roll": (-0.1, 0.1),
                 "pitch": (-0.1, 0.1),
-                "yaw": (-0.2, 0.2),
+                "yaw": (-3.14, 3.14),
             },
             "velocity_range": {
                 "x": (-0.5, 0.5),
@@ -399,9 +391,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                 "yaw": (-0.78, 0.78),
             },
         }
-
-        # 保留质心随机化以增加动力学多样性
-        self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
+        self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.base_com.params["com_range"] = {"x": (-0.025, 0.025), "y": (-0.05, 0.05), "z": (-0.05, 0.05)}
 
         # 机器人摩擦力随机化 - 只对脚踝关节应用
@@ -411,44 +401,28 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
-        # ==================== 观测噪声增强 ====================
-        # 增加观测噪声范围以提高鲁棒性
-        self.observations.policy.base_lin_vel.noise.n_min = -0.5
-        self.observations.policy.base_lin_vel.noise.n_max = 0.5
-        self.observations.policy.base_ang_vel.noise.n_min = -0.2
-        self.observations.policy.base_ang_vel.noise.n_max = 0.2
-        self.observations.policy.joint_pos.noise.n_min = -0.01
-        self.observations.policy.joint_pos.noise.n_max = 0.01
-        self.observations.policy.joint_vel.noise.n_min = -0.5
-        self.observations.policy.joint_vel.noise.n_max = 0.5
-        # 重力方向噪声 - 模拟传感器偏差
-        self.observations.policy.projected_gravity.noise.n_min = -0.05
-        self.observations.policy.projected_gravity.noise.n_max = 0.05
-
-        # 奖励权重进一步细调
+        # ------------------------------Rewards------------------------------
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
         self.rewards.action_rate_l2.weight = -0.01
         self.rewards.dof_acc_l2.weight = -1.5e-7
+        self.rewards.dof_torques_l2.weight = -5.0e-5
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*", "waist_.*", ".*_shoulder_.*"]
         )
 
-        # 启用扭矩惩罚以减少振荡
-        self.rewards.dof_torques_l2.weight = -2.5e-5  # 增强扭矩惩罚
-
-        # 命令空间线速度与角速度设置
+        # ------------------------------Commands------------------------------
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
         self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
-        # 终止条件：躯干、双臂、髈关节接触地面即终止
+        # ------------------------------Terminations------------------------------
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
-            "pelvis",  # 骨盆
-            "torso_link",  # 躯干
-            ".*_shoulder_pitch_link",  # 肩部pitch关节
-            ".*_shoulder_roll_link",  # 肩部roll关节
-            ".*_shoulder_yaw_link",  # 肩部yaw关节
+            "pelvis",
+            self.base_link_name,
+            ".*_shoulder_pitch_link",
+            ".*_shoulder_roll_link",
+            ".*_shoulder_yaw_link",
         ]
 
 
@@ -495,49 +469,3 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
 
-
-###############################
-# Teacher-Student Distillation #
-###############################
-
-
-@configclass
-class TaksT1RoughTeacherStudentEnvCfg(TaksT1RoughEnvCfg):
-    """Teacher-Student 蒸馏阶段的粗糙地形环境配置。
-
-    该配置用于行为克隆（Behavior Cloning）阶段：
-    - Student 策略从 Teacher 策略学习
-    - Teacher 使用包含特权信息（如 base_lin_vel）的观测
-    - Student 使用不含特权信息的观测
-    """
-
-    observations: TeacherStudentObservationsCfg = TeacherStudentObservationsCfg()
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        # 蒸馏阶段使用较少的环境数量
-        self.scene.num_envs = 256
-
-        # 蒸馏阶段降低 Teacher 观测噪声，提高学习稳定性
-        self.observations.teacher.base_lin_vel.noise = Unoise(n_min=-0.001, n_max=0.001)
-        self.observations.teacher.base_ang_vel.noise = Unoise(n_min=-0.002, n_max=0.002)
-        self.observations.teacher.projected_gravity.noise = Unoise(n_min=-0.0005, n_max=0.0005)
-        self.observations.teacher.joint_pos.noise = Unoise(n_min=-0.0001, n_max=0.0001)
-        self.observations.teacher.joint_vel.noise = Unoise(n_min=-0.0001, n_max=0.0001)
-
-
-########################
-# Student Fine-tune #
-########################
-
-
-@configclass
-class TaksT1RoughStudentEnvCfg(TaksT1RoughEnvCfg):
-    """Student 微调阶段的粗糙地形环境配置。
-
-    该配置用于 Student 策略的 RL 微调阶段：
-    - 仅使用真实传感器可获取的观测（不含 base_lin_vel）
-    - 通过 RL 进一步优化 Student 策略性能
-    """
-
-    observations: StudentObservationsCfg = StudentObservationsCfg()

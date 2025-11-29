@@ -86,9 +86,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_.*": 0.03,
                 ".*_knee_joint": 0.03,
             },
-            saturation_effort=100.0,
+            saturation_effort=150.0,
         ),
-        # 脚踝关节配置 - 扭矩来自URDF/XML: 27 Nm
+        # 脚踝关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
         "feet": DCMotorCfg(
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
             effort_limit=27.0,
@@ -104,7 +104,7 @@ TAKS_T1_CFG = ArticulationCfg(
             armature=0.03,
             saturation_effort=27.0,
         ),
-        # 腰部关节配置 - 扭矩来自URDF/XML: 97 Nm
+        # 腰部关节配置 - 扭矩来自URDF/XML: 峰值 97 Nm，额定 30 Nm
         "waist": ImplicitActuatorCfg(
             joint_names_expr=[
                 "waist_yaw_joint",
@@ -116,7 +116,7 @@ TAKS_T1_CFG = ArticulationCfg(
             damping=50.0,
             armature=0.01,
         ),
-        # 手臂关节配置 - 扭矩来自URDF/XML: 27 Nm
+        # 手臂关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
         "arms": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_shoulder_pitch_joint",
@@ -124,44 +124,44 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_shoulder_yaw_joint",
                 ".*_elbow_joint",
             ],
-            effort_limit_sim=27,
+            effort_limit_sim=9,
             stiffness={
-                ".*_shoulder_pitch_joint": 100.0,
-                ".*_shoulder_roll_joint": 100.0,
+                ".*_shoulder_pitch_joint": 150.0,
+                ".*_shoulder_roll_joint": 50.0,
                 ".*_shoulder_yaw_joint": 50.0,
-                ".*_elbow_joint": 50.0,
+                ".*_elbow_joint": 150.0,
             },
             damping={
                 ".*_shoulder_pitch_joint": 2.0,
-                ".*_shoulder_roll_joint": 2.0,
+                ".*_shoulder_roll_joint": 1.0,
                 ".*_shoulder_yaw_joint": 1.0,
-                ".*_elbow_joint": 1.0,
+                ".*_elbow_joint": 2.0,
             },
             armature={
                 ".*_shoulder_.*": 0.01,
                 ".*_elbow_joint": 0.01,
             },
         ),
-        # 手腕关节配置 - 扭矩来自URDF/XML: 7 Nm
+        # 手腕关节配置 - 扭矩来自URDF/XML: 峰值 7 Nm，额定 3 Nm
         "wrists": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_wrist_roll_joint",
                 ".*_wrist_pitch_joint",
                 ".*_wrist_yaw_joint",
             ],
-            effort_limit_sim=7,
+            effort_limit_sim=3,
             stiffness=5.0,
             damping=0.5,
             armature=0.01,
         ),
-        # 颈部关节配置 - 扭矩来自URDF/XML: 3 Nm
+        # 颈部关节配置 - 扭矩来自URDF/XML: 峰值 3 Nm，额定 0.8 Nm
         "neck": ImplicitActuatorCfg(
             joint_names_expr=[
                 "neck_yaw_joint",
                 "neck_roll_joint",
                 "neck_pitch_joint",
             ],
-            effort_limit_sim=3,
+            effort_limit_sim=0.8,
             stiffness=5.0,
             damping=0.5,
             armature=0.01,

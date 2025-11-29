@@ -138,74 +138,41 @@ class ActionsCfg:
 
 @configclass
 class PolicyCfg(ObsGroup):
-    """Teacher 策略所需的观测组配置（包含特权信息如 base_lin_vel）。
+    """策略所需的观测组配置（仅使用真实传感器可获取的观测）。
 
     ObsGroup 表示一组有序的观测项，框架会按定义顺序合并（concatenate）或独立输出。
-    该观测组包含 base_lin_vel（线速度），这是真实传感器无法直接获取的特权信息。
+    
+    真实传感器可获取的观测：
+    - IMU: base_ang_vel（角速度）, projected_gravity（投影重力/姿态）
+    - 关节编码器: joint_pos（关节位置）, joint_vel（关节速度）
+    - 命令: velocity_commands（速度命令）
+    - 历史动作: actions（上一步动作）
     """
 
-    # 观测项按顺序定义，顺序决定合并前的排列
-    base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
-    # 线速度观测：机器人底座在世界坐标系下的线速度（带均匀噪声扰动）
-    # 注意：这是特权观测，真实机器人无法直接测量
-
+    # IMU 观测
     base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
-    # 角速度观测：底座绕自身轴的角速度（带噪声）
+    # 角速度观测：底座绕自身轴的角速度（带噪声）- 来自 IMU 陀螺仪
 
     projected_gravity = ObsTerm(
         func=mdp.projected_gravity,
         noise=Unoise(n_min=-0.05, n_max=0.05),
     )
-    # 投影重力（通常用于估计机器人朝向与地面法线相关信息）
+    # 投影重力（机器人姿态）- 来自 IMU 加速度计
 
+    # 命令观测
     velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
     # 观测当前下发的速度命令（从 CommandsCfg 中生成）
 
+    # 关节编码器观测
     joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
-    # 相对于参考位置的关节角度观测（带小幅噪声）
+    # 相对于参考位置的关节角度观测（带小幅噪声）- 来自关节编码器
 
     joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
-    # 关节速度观测（带噪声）
+    # 关节速度观测（带噪声）- 来自关节编码器微分或直接测量
 
+    # 历史动作
     actions = ObsTerm(func=mdp.last_action)
-    # 观测上一步的动作，常用于训练带时间相关性的策略（例如 RNN 或带动作输入的 MLP）
-
-    def __post_init__(self):
-        # 启用观测扰动选项（如果提供噪声则作用）
-        self.enable_corruption = True
-        # 将所有观测拼接成单个向量（concatenate_terms = True 表示合并为一维向量）
-        self.concatenate_terms = True
-
-
-@configclass
-class StudentPolicyCfg(ObsGroup):
-    """Student 策略所需的观测组配置（不包含特权信息）。
-
-    该观测组排除了 base_lin_vel（线速度），因为真实机器人传感器无法直接测量该值。
-    Student 策略需要通过其他观测（如角速度、重力投影、关节状态等）来隐式估计速度。
-    """
-
-    # 注意：不包含 base_lin_vel，这是与 Teacher 的主要区别
-    base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
-    # 角速度观测：底座绕自身轴的角速度（带噪声）
-
-    projected_gravity = ObsTerm(
-        func=mdp.projected_gravity,
-        noise=Unoise(n_min=-0.05, n_max=0.05),
-    )
-    # 投影重力（通常用于估计机器人朝向与地面法线相关信息）
-
-    velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
-    # 观测当前下发的速度命令（从 CommandsCfg 中生成）
-
-    joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
-    # 相对于参考位置的关节角度观测（带小幅噪声）
-
-    joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
-    # 关节速度观测（带噪声）
-
-    actions = ObsTerm(func=mdp.last_action)
-    # 观测上一步的动作，常用于训练带时间相关性的策略（例如 RNN 或带动作输入的 MLP）
+    # 观测上一步的动作，常用于训练带时间相关性的策略
 
     def __post_init__(self):
         # 启用观测扰动选项（如果提供噪声则作用）
@@ -219,12 +186,12 @@ class ObservationsCfg:
     """观察项（obs）的配置集合。
 
     包含一个名为 PolicyCfg 的观测组（Observation Group），该组定义了策略所需的所有观测项。
-    默认使用 Teacher 观测组（包含特权信息）。
+    仅使用真实传感器可获取的观测（IMU + 关节编码器）。
     """
 
     @configclass
     class PolicyCfgWithHeightScan(PolicyCfg):
-        """带高度扫描的 Teacher 策略观测组配置。"""
+        """带高度扫描的策略观测组配置（用于粗糙地形）。"""
 
         height_scan = ObsTerm(
             func=mdp.height_scan,
@@ -238,32 +205,6 @@ class ObservationsCfg:
 
     # 实际使用的观测组实例（可以在上层环境配置中替换或修改）
     policy: PolicyCfgWithHeightScan = PolicyCfgWithHeightScan()
-
-
-@configclass
-class StudentObservationsCfg:
-    """Student 策略的观测配置（不包含特权信息）。
-
-    用于 Student Fine-tune 阶段，策略仅使用真实传感器可获取的观测。
-    """
-
-    # 使用 Student 观测组（不包含 base_lin_vel）
-    policy: StudentPolicyCfg = StudentPolicyCfg()
-
-
-@configclass
-class TeacherStudentObservationsCfg:
-    """Teacher-Student 蒸馏阶段的观测配置。
-
-    包含两个观测组：
-    - policy: Student 观测组（用于 Student 策略输入）
-    - teacher: Teacher 观测组（用于 Teacher 策略输入，包含特权信息）
-    """
-
-    # Student 策略使用不含特权信息的观测
-    policy: StudentPolicyCfg = StudentPolicyCfg()
-    # Teacher 策略使用包含特权信息的观测
-    teacher: PolicyCfg = PolicyCfg()
 
 
 @configclass
