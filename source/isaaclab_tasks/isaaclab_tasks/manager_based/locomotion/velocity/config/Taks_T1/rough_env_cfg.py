@@ -86,14 +86,7 @@ class TaksT1Rewards(RewardsCfg):
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.2,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint"])},
-    )
-
-    # 腰部偏差惩罚（其他轴）：约束横向与扭转轴，提高整体稳定性
-    joint_deviation_torso_others = RewTerm(
-        func=mdp.joint_deviation_l1,
-        weight=-0.05,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
@@ -103,7 +96,7 @@ class TaksT1Rewards(RewardsCfg):
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=[".*_shoulder_.*", ".*_wrist_.*"],
+                joint_names=[".*_shoulder_.*", ".*_elbow_joint", ".*_wrist_.*"],
             )
         },
     )
@@ -111,7 +104,7 @@ class TaksT1Rewards(RewardsCfg):
     # 手臂俯仰轴扭矩惩罚：限制肩部 pitch 轴扭矩，避免动作过猛
     arm_torque_penalty_pitch = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-0.5e-5,
+        weight=-2.0e-5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"])},
     )
 
@@ -403,7 +396,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
         self.rewards.action_rate_l2.weight = -0.01
-        self.rewards.dof_acc_l2.weight = -1.5e-7
+        self.rewards.dof_acc_l2.weight = -2.5e-7
         self.rewards.dof_torques_l2.weight = -5.0e-5
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*", "waist_.*", ".*_shoulder_.*"]
