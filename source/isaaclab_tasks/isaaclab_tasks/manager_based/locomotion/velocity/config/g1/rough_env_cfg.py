@@ -116,38 +116,6 @@ class G1Rewards(RewardsCfg):
         weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["torso_joint"])},
     )
-
-
-    # 手臂俯仰轴扭矩惩罚：限制肩部 pitch 轴扭矩，避免动作过猛
-    arm_torque_penalty_pitch = RewTerm(
-        func=mdp.joint_torques_l2,
-        weight=-2.0e-5,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"])},
-    )
-
-    # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
-    arm_torque_penalty_others = RewTerm(
-        func=mdp.joint_torques_l2,
-        weight=-2.5e-4,
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    ".*_shoulder_roll_joint",
-                    ".*_shoulder_yaw_joint",
-                    ".*_elbow_pitch_joint",
-                    ".*_elbow_roll_joint",
-                    ".*_five_joint",
-                    ".*_three_joint",
-                    ".*_six_joint",
-                    ".*_four_joint",
-                    ".*_zero_joint",
-                    ".*_one_joint",
-                    ".*_two_joint",
-                ],
-            )
-        },
-    )
     
     # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
     waist_torques_penalty_l2 = RewTerm(
