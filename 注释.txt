@@ -64,7 +64,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 ./isaaclab.sh -p -m tensorboard.main \
   --logdir=logs/rsl_rl/g1_flat
 
-# 普通播放
+# 普通播放（能生成onnx）
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
   --task Isaac-Velocity-Flat-G1-Play-v0 \
   --num_envs 16
@@ -123,7 +123,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 ./isaaclab.sh -p -m tensorboard.main \
   --logdir=logs/rsl_rl/Taks_T1_flat
 
-# 普通播放
+# 普通播放（能生成onnx）
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
   --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
   --num_envs 16

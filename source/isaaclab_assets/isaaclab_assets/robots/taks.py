@@ -113,8 +113,8 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=97,
             velocity_limit_sim=37.0,
-            stiffness=1000.0,
-            damping=50.0,
+            stiffness=200.0,
+            damping=5.0,
             armature=0.01,
         ),
         # 手臂关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
