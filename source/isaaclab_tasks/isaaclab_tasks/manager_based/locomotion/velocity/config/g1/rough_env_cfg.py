@@ -75,7 +75,7 @@ class G1Rewards(RewardsCfg):
     # 手臂关节偏差惩罚：减少上肢不必要摆动，保持干净的动作
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.2,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
