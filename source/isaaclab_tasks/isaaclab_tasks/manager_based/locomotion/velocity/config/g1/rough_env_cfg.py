@@ -110,11 +110,67 @@ class G1Rewards(RewardsCfg):
         },
     )
 
-    # 腰部关节偏差惩罚：保持躯干稳定，减少由腰部引起的晃动
+    # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names="torso_joint")},
+        weight=-0.2,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["torso_joint"])},
+    )
+
+
+    # 手臂俯仰轴扭矩惩罚：限制肩部 pitch 轴扭矩，避免动作过猛
+    arm_torque_penalty_pitch = RewTerm(
+        func=mdp.joint_torques_l2,
+        weight=-2.0e-5,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"])},
+    )
+
+    # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
+    arm_torque_penalty_others = RewTerm(
+        func=mdp.joint_torques_l2,
+        weight=-2.5e-4,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_shoulder_roll_joint",
+                    ".*_shoulder_yaw_joint",
+                    ".*_elbow_pitch_joint",
+                    ".*_elbow_roll_joint",
+                    ".*_five_joint",
+                    ".*_three_joint",
+                    ".*_six_joint",
+                    ".*_four_joint",
+                    ".*_zero_joint",
+                    ".*_one_joint",
+                    ".*_two_joint",
+                ],
+            )
+        },
+    )
+    
+    # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
+    waist_torques_penalty_l2 = RewTerm(
+        func=mdp.joint_torques_l2,
+        weight=-5e-5,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["torso_joint"])},
+    )
+
+    # 步态对称性奖励 - 鼓励左右脚交替接触
+    gait_symmetry = RewTerm(
+        func=mdp.gait_symmetry,
+        weight=0.1,
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
+    )
+
+    # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
+    double_support_penalty = RewTerm(
+        func=mdp.double_support_time_penalty,
+        weight=-0.5,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "max_double_support_time": 0.2,
+        }
     )
 
     # 单脚支撑奖励 - 鼓励正常迈步
@@ -168,9 +224,6 @@ class G1Rewards(RewardsCfg):
         weight=0.02,
         params={"command_name": "base_velocity"},
     )
-
-    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
-
 
 @configclass
 class G1EventCfg(EventCfg):

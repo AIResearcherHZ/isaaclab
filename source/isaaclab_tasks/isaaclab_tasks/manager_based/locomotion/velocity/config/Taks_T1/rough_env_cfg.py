@@ -208,9 +208,6 @@ class TaksT1Rewards(RewardsCfg):
         params={"command_name": "base_velocity"},
     )
 
-    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
-
-
 @configclass
 class TaksT1EventCfg(EventCfg):
     """域随机化配置，包含电机老化、关节摩擦等corner case。"""
@@ -406,9 +403,9 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.flat_orientation_l2.weight = -1.0
         self.rewards.action_rate_l2.weight = -0.01
         self.rewards.dof_acc_l2.weight = -5.0e-7
-        self.rewards.dof_torques_l2.weight = -1.0e-4
+        self.rewards.dof_torques_l2.weight = -5.0e-5
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
-            "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*", "waist_.*", ".*_shoulder_.*"]
+            "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
         )
 
         # ------------------------------Commands------------------------------
