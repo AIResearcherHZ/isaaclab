@@ -6,9 +6,16 @@ The following configurations are available:
 
 """
 
+import os
+
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import DCMotorCfg, ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
+
+# Get the absolute path to the Taks_T1 USD file
+_TAKS_T1_USD_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "Taks_T1", "Taks_T1.usd"
+)
 
 ##
 # Configuration
@@ -16,7 +23,7 @@ from isaaclab.assets.articulation import ArticulationCfg
 
 TAKS_T1_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd",
+        usd_path=_TAKS_T1_USD_PATH,
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
