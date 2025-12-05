@@ -401,6 +401,127 @@ def randomize_rigid_body_com(
     asset.root_physx_view.set_coms(coms, env_ids)
 
 
+class randomize_rigid_body_inertia(ManagerTermBase):
+    """Randomize the inertia tensor of rigid bodies by adding, scaling, or setting random values.
+
+    This function allows randomizing the inertia tensor of the bodies of the asset independently
+    from mass randomization. The function samples random values from the given distribution
+    parameters and adds, scales, or sets the values into the physics simulation based on the operation.
+
+    The same scale factor is applied to all 9 components of the inertia tensor for each body,
+    preserving the relative shape of the inertia tensor while changing its magnitude.
+
+    .. tip::
+        This function uses CPU tensors to assign the body inertias. It is recommended to use this function
+        only during the initialization of the environment.
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        """Initialize the term.
+
+        Args:
+            cfg: The configuration of the event term.
+            env: The environment instance.
+
+        Raises:
+            TypeError: If `params` is not a tuple of two numbers.
+            ValueError: If the operation is not supported.
+            ValueError: If the lower bound is negative or zero when not allowed.
+            ValueError: If the upper bound is less than the lower bound.
+        """
+        super().__init__(cfg, env)
+
+        # 从配置中提取资产和随机化参数
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
+        # 校验 operation 是否有效
+        if cfg.params["operation"] == "scale":
+            if "inertia_distribution_params" in cfg.params:
+                _validate_scale_range(
+                    cfg.params["inertia_distribution_params"], "inertia_distribution_params", allow_zero=False
+                )
+        elif cfg.params["operation"] not in ("abs", "add"):
+            raise ValueError(
+                "Randomization term 'randomize_rigid_body_inertia' does not support operation:"
+                f" '{cfg.params['operation']}'."
+            )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        inertia_distribution_params: tuple[float, float],
+        operation: Literal["add", "scale", "abs"],
+        distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
+    ):
+        # 解析环境 ID；为空则对所有环境随机化
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device="cpu")
+        else:
+            env_ids = env_ids.cpu()
+
+        # 解析需要随机化的 body 索引；slice(None) 表示所有刚体
+        if self.asset_cfg.body_ids == slice(None):
+            body_ids = torch.arange(self.asset.num_bodies, dtype=torch.int, device="cpu")
+        else:
+            body_ids = torch.tensor(self.asset_cfg.body_ids, dtype=torch.int, device="cpu")
+
+        # 从 PhysX 视图获取当前惯性张量
+        inertias = self.asset.root_physx_view.get_inertias()
+
+        # 选择采样分布函数
+        if distribution == "uniform":
+            dist_fn = math_utils.sample_uniform
+        elif distribution == "log_uniform":
+            dist_fn = math_utils.sample_log_uniform
+        elif distribution == "gaussian":
+            dist_fn = math_utils.sample_gaussian
+        else:
+            raise NotImplementedError(
+                f"Unknown distribution: '{distribution}' for inertia randomization."
+                " Please use 'uniform', 'log_uniform', 'gaussian'."
+            )
+
+        # 始终在默认惯性的基础上重新随机，避免多次调用时叠加误差
+        if isinstance(self.asset, Articulation):
+            # inertia has shape: (num_envs, num_bodies, 9) for articulation
+            inertias[env_ids[:, None], body_ids] = self.asset.data.default_inertia[env_ids[:, None], body_ids].clone()
+            # 为每个 (env, body) 采样一个缩放因子，然后广播到 9 个惯性分量
+            n_envs = len(env_ids)
+            n_bodies = len(body_ids)
+            scale_factors = dist_fn(*inertia_distribution_params, (n_envs, n_bodies), device="cpu")
+            # 将缩放因子扩展到 (n_envs, n_bodies, 9)
+            scale_factors = scale_factors.unsqueeze(-1).expand(-1, -1, 9)
+
+            if operation == "scale":
+                inertias[env_ids[:, None], body_ids] *= scale_factors
+            elif operation == "add":
+                inertias[env_ids[:, None], body_ids] += scale_factors
+            else:  # abs
+                inertias[env_ids[:, None], body_ids] = scale_factors
+        else:
+            # inertia has shape: (num_envs, 9) for rigid object
+            inertias[env_ids] = self.asset.data.default_inertia[env_ids].clone()
+            n_envs = len(env_ids)
+            scale_factors = dist_fn(*inertia_distribution_params, (n_envs, 1), device="cpu")
+            # 将缩放因子扩展到 (n_envs, 9)
+            scale_factors = scale_factors.expand(-1, 9)
+
+            if operation == "scale":
+                inertias[env_ids] *= scale_factors
+            elif operation == "add":
+                inertias[env_ids] += scale_factors
+            else:  # abs
+                inertias[env_ids] = scale_factors
+
+        # 确保惯性张量非负
+        inertias = torch.clamp(inertias, min=1e-9)
+
+        # 将新的惯性张量写回物理仿真
+        self.asset.root_physx_view.set_inertias(inertias, env_ids)
+
+
 def randomize_rigid_body_collider_offsets(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,

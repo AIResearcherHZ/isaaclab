@@ -52,6 +52,8 @@ class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
         # 移除试验中对机器人的随机推动事件
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        # 关闭惯性随机化
+        self.events.randomize_body_inertia = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True

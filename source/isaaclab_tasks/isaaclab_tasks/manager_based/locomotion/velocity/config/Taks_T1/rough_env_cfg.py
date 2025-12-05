@@ -218,7 +218,18 @@ class TaksT1EventCfg(EventCfg):
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-            "armature_distribution_params": (0.5, 2.0),  # 惯量缩放
+            "armature_distribution_params": (0.5, 2.0),  # 电机转子惯量缩放
+            "operation": "scale",
+        },
+    )
+
+    # 刚体惯性随机化 - 模拟连杆惯性不确定性
+    randomize_body_inertia = EventTerm(
+        func=mdp.randomize_rigid_body_inertia,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "inertia_distribution_params": (0.5, 2.0),  # 刚体惯性缩放
             "operation": "scale",
         },
     )
@@ -462,6 +473,7 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.joint_failure = None
         self.events.sensor_latency_spike = None
         self.events.slope_randomization = None
+        self.events.randomize_body_inertia = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
