@@ -9,7 +9,7 @@ The following configurations are available:
 import os
 
 import isaaclab.sim as sim_utils
-from isaaclab.actuators import DCMotorCfg, ImplicitActuatorCfg
+from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 
 # Get the absolute path to the Taks_T1 USD file
@@ -58,58 +58,44 @@ TAKS_T1_CFG = ArticulationCfg(
     soft_joint_pos_limit_factor=0.99,
     actuators={
         # 腿部关节配置 - 扭矩来自URDF/XML
-        "legs": DCMotorCfg(
+        "legs": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_hip_yaw_joint",
                 ".*_hip_roll_joint",
                 ".*_hip_pitch_joint",
                 ".*_knee_joint",
             ],
-            effort_limit={
+            effort_limit_sim={
                 ".*_hip_yaw_joint": 97.0,
                 ".*_hip_roll_joint": 97.0,
                 ".*_hip_pitch_joint": 120.0,
                 ".*_knee_joint": 120.0,
             },
-            velocity_limit={
-                ".*_hip_yaw_joint": 32,
-                ".*_hip_roll_joint": 32,
-                ".*_hip_pitch_joint": 48,
-                ".*_knee_joint": 48,
-            },
             stiffness={
-                ".*_hip_yaw_joint": 100.0,
-                ".*_hip_roll_joint": 100.0,
-                ".*_hip_pitch_joint": 100.0,
+                ".*_hip_yaw_joint": 150.0,
+                ".*_hip_roll_joint": 150.0,
+                ".*_hip_pitch_joint": 200.0,
                 ".*_knee_joint": 200.0,
             },
             damping={
-                ".*_hip_yaw_joint": 8.0,
-                ".*_hip_roll_joint": 6.0,
-                ".*_hip_pitch_joint": 6.0,
-                ".*_knee_joint": 6.0,
+                ".*_hip_yaw_joint": 5.0,
+                ".*_hip_roll_joint": 5.0,
+                ".*_hip_pitch_joint": 5.0,
+                ".*_knee_joint": 5.0,
             },
             armature={
-                ".*_hip_.*": 0.03,
-                ".*_knee_joint": 0.03,
+                ".*_hip_.*": 0.01,
+                ".*_knee_joint": 0.01,
             },
             saturation_effort=150.0,
         ),
         # 脚踝关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
-        "feet": DCMotorCfg(
+        "feet": ImplicitActuatorCfg(
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
-            effort_limit=27.0,
-            velocity_limit=37.0,
-            stiffness={
-                ".*_ankle_pitch_joint": 40.0,
-                ".*_ankle_roll_joint": 30.0,
-            },
-            damping={
-                ".*_ankle_pitch_joint": 2.0,
-                ".*_ankle_roll_joint": 1.5,
-            },
-            armature=0.03,
-            saturation_effort=27.0,
+            effort_limit_sim=27.0,
+            stiffness=20.0,
+            damping=2.0,
+            armature=0.01,
         ),
         # 腰部关节配置 - 扭矩来自URDF/XML: 峰值 97 Nm，额定 30 Nm
         "waist": ImplicitActuatorCfg(
@@ -119,7 +105,6 @@ TAKS_T1_CFG = ArticulationCfg(
                 "waist_pitch_joint",
             ],
             effort_limit_sim=97,
-            velocity_limit_sim=37.0,
             stiffness=200.0,
             damping=5.0,
             armature=0.01,
@@ -133,7 +118,6 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_elbow_joint",
             ],
             effort_limit_sim=9,
-            velocity_limit_sim=100,
             stiffness={
                 ".*_shoulder_pitch_joint": 40.0,
                 ".*_shoulder_roll_joint": 40.0,
@@ -159,8 +143,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_wrist_yaw_joint",
             ],
             effort_limit_sim=3,
-            velocity_limit_sim=100,
-            stiffness=10.0,
+            stiffness=20.0,
             damping=5.0,
             armature=0.01,
         ),
@@ -172,10 +155,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 "neck_pitch_joint",
             ],
             effort_limit_sim=0.8,
-            velocity_limit_sim=15,
-            stiffness=10.0,
-            damping=5.0,
-            armature=0.01,
+            stiffness=5.0,
+            damping=1.0,
+            armature=0.001,
         ),
     },
 )
