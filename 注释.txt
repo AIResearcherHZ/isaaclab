@@ -26,14 +26,12 @@ ln -s /home/xhz/isaacsim _isaac_sim
 
 【URDF → USD】
 ./isaaclab.sh -p scripts/tools/convert_urdf.py \
-  /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.urdf \
-  /home/xhz/桌面/assets/Taks_T1/urdf/Taks_T1.usd \
-  --merge-joints
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.urdf \
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.usd
 
 ./isaaclab.sh -p scripts/tools/convert_urdf.py \
   /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.urdf \
-  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd \
-  --merge-joints
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd
 
 
 【MJCF → USD】
