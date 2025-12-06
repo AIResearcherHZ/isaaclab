@@ -87,7 +87,6 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_.*": 0.01,
                 ".*_knee_joint": 0.01,
             },
-            saturation_effort=150.0,
         ),
         # 脚踝关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
         "feet": ImplicitActuatorCfg(
