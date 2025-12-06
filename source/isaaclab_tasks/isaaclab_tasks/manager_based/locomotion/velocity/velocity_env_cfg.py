@@ -233,7 +233,7 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base"),  # 仅对 base 链接应用质量变化
-            "mass_distribution_params": (-5.0, 5.0),  # 质量变化范围（相对或绝对取决于实现）
+            "mass_distribution_params": (-1.0, 3.0),  # 质量变化范围（相对或绝对取决于实现）
             "operation": "add",  # 操作类型（例如 add 表示增加质量）
         },
     )
@@ -291,7 +291,7 @@ class EventCfg:
         func=mdp.push_by_setting_velocity,
         mode="interval",  # 在 interval 模式下周期性触发
         interval_range_s=(0.0, 5.0),  # 触发时间间隔范围（随机或固定采样）
-        params={"velocity_range": {"x": (-5.0, 5.0), "y": (-5.0, 5.0)}},  # 推力对应的速度范围
+        params={"velocity_range": {"x": (-2.5, 2.5), "y": (-2.5, 2.5)}},  # 推力对应的速度范围
     )
 
 
