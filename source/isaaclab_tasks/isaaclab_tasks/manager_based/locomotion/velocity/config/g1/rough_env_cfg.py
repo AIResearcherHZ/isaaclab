@@ -433,8 +433,8 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                 "x": (-0.5, 0.5),
                 "y": (-0.5, 0.5),
                 "z": (-0.05, 0.15),
-                "roll": (-0.1, 0.1),
-                "pitch": (-0.1, 0.1),
+                "roll": (-0.18, 0.18),
+                "pitch": (-0.18, 0.18),
                 "yaw": (-3.14, 3.14),
             },
             "velocity_range": {
