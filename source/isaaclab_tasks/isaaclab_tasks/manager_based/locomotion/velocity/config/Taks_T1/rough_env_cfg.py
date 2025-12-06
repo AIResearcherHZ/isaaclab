@@ -427,6 +427,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # ------------------------------Terminations------------------------------
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
             self.base_link_name,
+            "neck_pitch_link",
             ".*_shoulder_pitch_link",
             ".*_shoulder_roll_link",
             ".*_shoulder_yaw_link",
