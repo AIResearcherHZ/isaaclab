@@ -210,27 +210,6 @@ def feet_alternating_contact(
     return torch.zeros(env.num_envs, device=env.device)
 
 
-def command_direction_change_penalty(
-    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
-) -> torch.Tensor:
-    """当命令方向与当前运动方向相反时，惩罚过快的动作变化。"""
-    asset = env.scene[asset_cfg.name]
-    # 获取当前速度
-    current_vel = asset.data.root_lin_vel_w[:, :2]
-    # 获取目标命令
-    command = env.command_manager.get_command(command_name)[:, :2]
-
-    # 计算速度和命令的点积，负值表示方向相反
-    dot_product = torch.sum(current_vel * command, dim=1)
-
-    # 当方向相反且速度较大时给予惩罚
-    current_speed = torch.norm(current_vel, dim=1)
-    direction_change = (dot_product < 0) & (current_speed > 0.2)
-
-    # 惩罚值与速度成正比
-    return direction_change.float() * current_speed
-
-
 def stand_still_posture(
     env, command_name: str, command_threshold: float = 0.1, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
@@ -274,34 +253,132 @@ def velocity_direction_alignment(
     return reward * valid_mask.float()
 
 
-def backward_walking_stability(
-    env, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+def body_pitch_range_penalty(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    min_pitch: float = -0.3,
+    max_pitch: float = 0.3,
+    use_body_link: bool = False,
 ) -> torch.Tensor:
-    """后退行走时奖励身体稳定性，鼓励适当的后仰姿态。"""
+    """惩罚pitch角度超出指定范围（支持前倾和后仰分别限制）。
+    
+    Args:
+        env: 环境对象
+        asset_cfg: 资产配置，可指定body_names来选择特定link
+        min_pitch: 最小允许pitch角度（负值表示后仰），单位弧度
+        max_pitch: 最大允许pitch角度（正值表示前倾），单位弧度
+        use_body_link: 是否使用指定body link的姿态，False则使用root姿态
+    
+    Returns:
+        超出范围的惩罚值（越界越大）
+    """
     asset = env.scene[asset_cfg.name]
-    command = env.command_manager.get_command(command_name)
-    # 判断是否在后退（命令x为负）
-    is_backward = command[:, 0] < -0.1
-    # 获取躯干pitch角度（从四元数提取）
-    quat = asset.data.root_quat_w
-    # 计算pitch角度：arcsin(2*(w*y - z*x))
+    
+    if use_body_link and asset_cfg.body_ids is not None:
+        # 使用指定body link的世界姿态
+        quat = asset.data.body_quat_w[:, asset_cfg.body_ids[0], :]
+    else:
+        # 使用机器人根节点姿态
+        quat = asset.data.root_quat_w
+    
+    # 计算pitch角度 (正值=前倾, 负值=后仰)
     pitch = torch.asin(torch.clamp(2.0 * (quat[:, 0] * quat[:, 2] - quat[:, 3] * quat[:, 1]), -1.0, 1.0))
-    # 后退时允许轻微后仰（pitch为正），但不要过度
-    # 理想pitch范围：0到0.1弧度（约0-6度）
-    ideal_backward_pitch = 0.05
-    pitch_error = torch.abs(pitch - ideal_backward_pitch)
-    pitch_reward = torch.exp(-pitch_error * 5.0)
-    return pitch_reward * is_backward.float()
+    
+    # 分别计算前倾和后仰的越界量
+    excess_forward = torch.clamp(pitch - max_pitch, min=0.0)  # 前倾超限
+    excess_backward = torch.clamp(min_pitch - pitch, min=0.0)  # 后仰超限
+    
+    return excess_forward + excess_backward
 
 
-def body_pitch_penalty(
-    env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), max_pitch: float = 0.3
+def foot_roll_penalty(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    max_roll: float = 0.15,
 ) -> torch.Tensor:
-    """惩罚躯干过度前倾或后仰。"""
+    """惩罚脚踝roll角度过大（防止脚侧面着地）。
+    
+    只在脚接触地面时惩罚，鼓励全脚掌着地。
+    
+    Args:
+        env: 环境对象
+        asset_cfg: 资产配置，指定脚踝link
+        sensor_cfg: 接触传感器配置
+        max_roll: 最大允许roll角度，单位弧度（默认约8.6度）
+    
+    Returns:
+        脚踝roll角度超限的惩罚值
+    """
     asset = env.scene[asset_cfg.name]
-    quat = asset.data.root_quat_w
-    # 计算pitch角度
-    pitch = torch.asin(torch.clamp(2.0 * (quat[:, 0] * quat[:, 2] - quat[:, 3] * quat[:, 1]), -1.0, 1.0))
-    # 超出最大角度的部分给予惩罚
-    excess_pitch = torch.clamp(torch.abs(pitch) - max_pitch, min=0.0)
-    return excess_pitch
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    
+    # 获取脚踝link的世界姿态四元数
+    foot_quat = asset.data.body_quat_w[:, asset_cfg.body_ids, :]  # (num_envs, num_feet, 4)
+    
+    # 计算roll角度: roll = atan2(2*(w*x + y*z), 1 - 2*(x^2 + y^2))
+    w, x, y, z = foot_quat[..., 0], foot_quat[..., 1], foot_quat[..., 2], foot_quat[..., 3]
+    roll = torch.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
+    
+    # 获取接触状态
+    contact_forces = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :]
+    in_contact = torch.norm(contact_forces[:, 0, :, :], dim=-1) > 1.0  # (num_envs, num_feet)
+    
+    # 只在接触时惩罚roll角度超限
+    excess_roll = torch.clamp(torch.abs(roll) - max_roll, min=0.0)  # (num_envs, num_feet)
+    penalty = excess_roll * in_contact.float()
+    
+    return torch.sum(penalty, dim=1)
+
+
+def foot_flat_contact_reward(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    ideal_roll: float = 0.0,
+    ideal_pitch: float = 0.0,
+    roll_tolerance: float = 0.02,
+    pitch_tolerance: float = 0.10,
+) -> torch.Tensor:
+    """奖励脚全掌平稳着地（roll和pitch都接近理想值）。
+    
+    Args:
+        env: 环境对象
+        asset_cfg: 资产配置，指定脚踝link
+        sensor_cfg: 接触传感器配置
+        ideal_roll: 理想roll角度，默认0
+        ideal_pitch: 理想pitch角度，默认0
+        roll_tolerance: roll容差
+        pitch_tolerance: pitch容差
+    
+    Returns:
+        脚平稳着地的奖励值
+    """
+    asset = env.scene[asset_cfg.name]
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    
+    # 获取脚踝link的世界姿态四元数
+    foot_quat = asset.data.body_quat_w[:, asset_cfg.body_ids, :]  # (num_envs, num_feet, 4)
+    
+    w, x, y, z = foot_quat[..., 0], foot_quat[..., 1], foot_quat[..., 2], foot_quat[..., 3]
+    
+    # 计算roll和pitch
+    roll = torch.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
+    pitch = torch.asin(torch.clamp(2.0 * (w * y - z * x), -1.0, 1.0))
+    
+    # 获取接触状态
+    contact_forces = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :]
+    in_contact = torch.norm(contact_forces[:, 0, :, :], dim=-1) > 1.0  # (num_envs, num_feet)
+    
+    # 计算与理想姿态的偏差
+    roll_error = torch.abs(roll - ideal_roll)
+    pitch_error = torch.abs(pitch - ideal_pitch)
+    
+    # 在容差范围内给予奖励
+    roll_reward = torch.exp(-roll_error / roll_tolerance)
+    pitch_reward = torch.exp(-pitch_error / pitch_tolerance)
+    
+    # 只在接触时奖励
+    reward = roll_reward * pitch_reward * in_contact.float()
+    
+    return torch.sum(reward, dim=1)

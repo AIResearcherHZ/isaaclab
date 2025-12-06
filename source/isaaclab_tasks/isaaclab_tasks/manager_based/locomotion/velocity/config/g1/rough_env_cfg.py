@@ -33,7 +33,7 @@ class G1Rewards(RewardsCfg):
     # 追踪角速度奖励：鼓励机器人控制自身偏航角速率去匹配命令
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.0,
+        weight=1.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -116,12 +116,50 @@ class G1Rewards(RewardsCfg):
         weight=-0.25,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["torso_joint"])},
     )
-    
+
     # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
     waist_torques_penalty_l2 = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-5e-5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["torso_joint"])},
+    )
+
+    # 全身pitch惩罚 - 防止过度前倾或后仰（使用范围限制）
+    body_pitch_range = RewTerm(
+        func=mdp.body_pitch_range_penalty,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "min_pitch": -0.20,  # 后仰限制（约-11.5度）
+            "max_pitch": 0.20,   # 前倾限制（约11.5度）
+            "use_body_link": False,  # 使用root姿态
+        },
+    )
+
+    # 躯干pitch惩罚 - 防止过度前倾或后仰（使用范围限制）
+    body_pitch_range_torso = RewTerm(
+        func=mdp.body_pitch_range_penalty,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=["torso_link"]),
+            "min_pitch": -0.25,  # 后仰限制（约-14.3度）
+            "max_pitch": 0.25,   # 前倾限制（约14.3度）
+            "use_body_link": True,  # 使用torso_link姿态
+        },
+    )
+
+    # 脚全掌着地奖励 - 鼓励脚平稳接触地面
+    foot_flat_contact = RewTerm(
+        func=mdp.foot_flat_contact_reward,
+        weight=0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "ideal_roll": 0.0,
+            "ideal_pitch": 0.0,
+            "roll_tolerance": 0.02,
+            "pitch_tolerance": 0.10,
+        },
     )
 
     # 步态对称性奖励 - 鼓励左右脚交替接触
@@ -165,7 +203,7 @@ class G1Rewards(RewardsCfg):
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
         weight=0.5,
-        params={"command_name": "base_velocity", "command_threshold": 0.1},
+        params={"command_name": "base_velocity", "command_threshold": 0.05},
     )
 
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
@@ -174,16 +212,9 @@ class G1Rewards(RewardsCfg):
         weight=-0.25,
         params={
             "command_name": "base_velocity",
-            "command_threshold": 0.1,
+            "command_threshold": 0.05,
             "asset_cfg": SceneEntityCfg("robot"),
         },
-    )
-
-    # 方向切换惩罚 - 当从前进变后退时惩罚过快变化
-    direction_change_penalty = RewTerm(
-        func=mdp.command_direction_change_penalty,
-        weight=-0.1,
-        params={"command_name": "base_velocity"},
     )
 
     # 速度方向对齐奖励 - 鼓励实际速度与命令方向一致
