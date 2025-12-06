@@ -322,6 +322,28 @@ class G1EventCfg(EventCfg):
         },
     )
 
+    # 手臂末端外力 - 模拟手部受到的外部扰动
+    arms_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_elbow_roll_link"]),
+            "force_range": (-5.0, 5.0),
+            "torque_range": (-5.0, 5.0),
+        },
+    )
+
+    # 脚末端外力 - 模拟脚部受到的外部扰动
+    feet_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
+            "force_range": (-5.0, 5.0),
+            "torque_range": (-5.0, 5.0),
+        },
+    )
+
 
 @configclass
 class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
@@ -354,13 +376,20 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.actions.joint_pos.clip = {".*": (-100.0, 100.0)}
 
         # ------------------------------Events------------------------------
-        self.events.push_robot.params["velocity_range"] = {"x": (-2.5, 2.5), "y": (-2.5, 2.5)}
-        self.events.push_robot.interval_range_s = (0.0, 5.0)
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
+        
+        self.events.push_robot.params["velocity_range"] = {"x": (-1.5, 1.5), "y": (-1.5, 1.5)}
+        self.events.push_robot.interval_range_s = (0.0, 5.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
-        self.events.base_external_force_torque.params["force_range"] = (-2.5, 2.5)
-        self.events.base_external_force_torque.params["torque_range"] = (-2.5, 2.5)
+        self.events.base_external_force_torque.params["force_range"] = (-1.5, 1.5)
+        self.events.base_external_force_torque.params["torque_range"] = (-1.5, 1.5)
+
+        # 末端推力配置 - 手臂、头部和脚
+        self.events.arms_external_force_torque.params["force_range"] = (-5.0, 5.0)
+        self.events.arms_external_force_torque.params["torque_range"] = (-5.0, 5.0)
+        self.events.feet_external_force_torque.params["force_range"] = (-5.0, 5.0)
+        self.events.feet_external_force_torque.params["torque_range"] = (-5.0, 5.0)
 
         # 重置机器人关节时增加随机性
         self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
@@ -415,8 +444,10 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
         # ------------------------------Terminations------------------------------
-        self.terminations.base_contact.params["sensor_cfg"].body_names = self.base_link_name
-
+        self.terminations.base_contact.params["sensor_cfg"].body_names = [
+            self.base_link_name,
+            "head_link",
+        ]
 
 @configclass
 class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
@@ -448,6 +479,8 @@ class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        self.events.arms_external_force_torque = None
+        self.events.feet_external_force_torque = None
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）
         self.events.action_noise = None
