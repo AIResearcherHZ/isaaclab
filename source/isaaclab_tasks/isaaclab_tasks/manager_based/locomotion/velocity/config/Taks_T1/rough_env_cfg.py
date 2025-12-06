@@ -368,13 +368,13 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.actions.joint_pos.clip = {".*": (-100.0, 100.0)}
 
         # ------------------------------Events------------------------------
-        self.events.push_robot.params["velocity_range"] = {"x": (-5.0, 5.0), "y": (-5.0, 5.0)}
+        self.events.push_robot.params["velocity_range"] = {"x": (-3.0, 3.0), "y": (-3.0, 3.0)}
         self.events.push_robot.interval_range_s = (0.0, 5.0)
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.add_base_mass.params["mass_distribution_params"] = (-3.0, 3.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
-        self.events.base_external_force_torque.params["force_range"] = (-5.0, 5.0)
-        self.events.base_external_force_torque.params["torque_range"] = (-2.5, 2.5)
+        self.events.base_external_force_torque.params["force_range"] = (-3.0, 3.0)
+        self.events.base_external_force_torque.params["torque_range"] = (-2.0, 2.0)
 
         # 重置机器人关节时增加随机性
         self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
