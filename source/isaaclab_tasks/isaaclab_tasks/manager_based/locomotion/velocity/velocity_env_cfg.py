@@ -143,15 +143,24 @@ class PolicyCfg(ObsGroup):
     ObsGroup 表示一组有序的观测项，框架会按定义顺序合并（concatenate）或独立输出。
     
     真实传感器可获取的观测：
-    - IMU: base_ang_vel（角速度）, projected_gravity（投影重力/姿态）
+    - IMU: base_ang_vel（角速度）, projected_gravity（投影重力/姿态）, base_lin_acc（线加速度）
     - 关节编码器: joint_pos（关节位置）, joint_vel（关节速度）
     - 命令: velocity_commands（速度命令）
     - 历史动作: actions（上一步动作）
     """
 
     # IMU 观测
-    base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
+    base_ang_vel = ObsTerm(
+        func=mdp.base_ang_vel,
+        noise=Unoise(n_min=-0.2, n_max=0.2),
+    )
     # 角速度观测：底座绕自身轴的角速度（带噪声）- 来自 IMU 陀螺仪
+
+    base_lin_acc = ObsTerm(
+        func=mdp.base_lin_acc,
+        noise=Unoise(n_min=-0.1, n_max=0.1),
+    )
+    # 线加速度观测：底座在自身坐标系下的线加速度（带噪声）- 来自 IMU 加速度计
 
     projected_gravity = ObsTerm(
         func=mdp.projected_gravity,

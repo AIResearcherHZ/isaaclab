@@ -380,6 +380,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # ------------------------------Observations------------------------------
         # 只使用真实传感器可获取的观测（IMU + 关节编码器）
         self.observations.policy.base_ang_vel.scale = 0.25
+        self.observations.policy.base_lin_acc.scale = 0.25
         self.observations.policy.joint_pos.scale = 1.0
         self.observations.policy.joint_vel.scale = 0.05
         # 删除无法真实获取的观测

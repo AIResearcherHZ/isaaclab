@@ -70,6 +70,23 @@ def base_ang_vel(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCf
 @generic_io_descriptor(
     units="m/s^2", axes=["X", "Y", "Z"], observation_type="RootState", on_inspect=[record_shape, record_dtype]
 )
+def base_lin_acc(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Root linear acceleration in the asset's root frame.
+
+    This quantity is computed from the center of mass linear acceleration in the world frame,
+    transformed to the asset's root frame. It simulates the linear acceleration measurement
+    from an IMU sensor mounted on the robot base.
+    """
+    # extract the used quantities (to enable type-hinting)
+    asset: RigidObject = env.scene[asset_cfg.name]
+    # get linear acceleration in world frame and transform to body frame
+    lin_acc_w = asset.data.body_com_lin_acc_w[:, 0, :]  # shape: (num_envs, 3)
+    return math_utils.quat_apply_inverse(asset.data.root_quat_w, lin_acc_w)
+
+
+@generic_io_descriptor(
+    units="m/s^2", axes=["X", "Y", "Z"], observation_type="RootState", on_inspect=[record_shape, record_dtype]
+)
 def projected_gravity(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Gravity projection on the asset's root frame."""
     # extract the used quantities (to enable type-hinting)
