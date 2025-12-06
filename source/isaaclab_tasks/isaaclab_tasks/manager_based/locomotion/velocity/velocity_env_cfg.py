@@ -290,8 +290,8 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(10.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-        params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},  # 推力对应的速度范围
+        interval_range_s=(0.0, 5.0),  # 触发时间间隔范围（随机或固定采样）
+        params={"velocity_range": {"x": (-5.0, 5.0), "y": (-5.0, 5.0)}},  # 推力对应的速度范围
     )
 
 

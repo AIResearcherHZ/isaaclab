@@ -218,7 +218,7 @@ class TaksT1EventCfg(EventCfg):
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-            "armature_distribution_params": (0.5, 2.0),  # 电机转子惯量缩放
+            "armature_distribution_params": (0.1, 2.0),  # 电机转子惯量缩放
             "operation": "scale",
         },
     )
@@ -229,7 +229,7 @@ class TaksT1EventCfg(EventCfg):
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "inertia_distribution_params": (0.5, 2.0),  # 刚体惯性缩放
+            "inertia_distribution_params": (0.1, 2.0),  # 刚体惯性缩放
             "operation": "scale",
         },
     )
@@ -243,7 +243,7 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "noise_std": 0.01,
+            "noise_std": 0.05,
             "noise_type": "gaussian",
         },
     )
@@ -266,10 +266,10 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "pos_noise_std": 0.005,  # 位置噪声标准差 (rad)
-            "vel_noise_std": 0.01,   # 速度噪声标准差 (rad/s)
-            "pos_bias_range": (-0.01, 0.01),  # 位置偏置范围 (rad)
-            "vel_bias_range": (-0.02, 0.02),  # 速度偏置范围 (rad/s)
+            "pos_noise_std": 0.01,  # 位置噪声标准差 (rad)
+            "vel_noise_std": 0.02,   # 速度噪声标准差 (rad/s)
+            "pos_bias_range": (-0.05, 0.05),  # 位置偏置范围 (rad)
+            "vel_bias_range": (-0.1, 0.1),  # 速度偏置范围 (rad/s)
         },
     )
 
@@ -280,11 +280,11 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "ang_vel_noise_std": 0.02,  # 角速度噪声 (rad/s)
-            "lin_acc_noise_std": 0.05,  # 线加速度噪声 (m/s^2)
+            "ang_vel_noise_std": 0.05,  # 角速度噪声 (rad/s)
+            "lin_acc_noise_std": 0.1,  # 线加速度噪声 (m/s^2)
             "ang_vel_bias_range": (-0.1, 0.1),
             "lin_acc_bias_range": (-0.2, 0.2),
-            "bias_drift_std": 0.01,  # 偏置漂移
+            "bias_drift_std": 0.05,  # 偏置漂移
         },
     )
 
@@ -295,7 +295,7 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "dropout_prob": 0.001,  # 每个维度丢包概率 0.1%
+            "dropout_prob": 0.005,  # 每个维度丢包概率 0.5%
             "dropout_mode": "hold",  # 丢包时保持上一帧值
         },
     )
@@ -306,7 +306,7 @@ class TaksT1EventCfg(EventCfg):
         mode="reset",  # 每次reset时重新采样故障状态
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "failure_prob": 0.0001,  # 每个关节失效概率 0.01%
+            "failure_prob": 0.0005,  # 每个关节失效概率 0.05%
             "failure_mode": "weak",  # 弱化模式（扭矩衰减）
             "weak_factor": 0.5,  # 衰减因子提高，故障程度减轻
         },
@@ -319,7 +319,7 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
+            "spike_prob": 0.005,  # 0.5%概率发生延迟尖峰
             "max_latency_steps": 10,  # 最大延迟10步
         },
     )
@@ -339,7 +339,7 @@ class TaksT1EventCfg(EventCfg):
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    base_link_name = "torso_link"
+    base_link_name = "torso_link|pelvis"
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
@@ -368,13 +368,13 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.actions.joint_pos.clip = {".*": (-100.0, 100.0)}
 
         # ------------------------------Events------------------------------
-        self.events.push_robot.params["velocity_range"] = {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}
+        self.events.push_robot.params["velocity_range"] = {"x": (-5.0, 5.0), "y": (-5.0, 5.0)}
         self.events.push_robot.interval_range_s = (0.0, 5.0)
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
-        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
+        self.events.add_base_mass.params["mass_distribution_params"] = (-3.0, 3.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
-        self.events.base_external_force_torque.params["force_range"] = (-2.5, 2.5)
-        self.events.base_external_force_torque.params["torque_range"] = (-1.0, 1.0)
+        self.events.base_external_force_torque.params["force_range"] = (-5.0, 5.0)
+        self.events.base_external_force_torque.params["torque_range"] = (-2.5, 2.5)
 
         # 重置机器人关节时增加随机性
         self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
@@ -399,13 +399,13 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                 "yaw": (-0.78, 0.78),
             },
         }
-        self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
-        self.events.base_com.params["com_range"] = {"x": (-0.025, 0.025), "y": (-0.05, 0.05), "z": (-0.05, 0.05)}
+        self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.1, 0.1)}
 
         # 机器人摩擦力随机化 - 只对脚踝关节应用
-        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
-        self.events.physics_material.params["static_friction_range"] = (0.2, 1.8)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.2, 1.8)
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.foot_link_name)
+        self.events.physics_material.params["static_friction_range"] = (0.1, 2.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.1, 2.0)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
@@ -426,7 +426,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # ------------------------------Terminations------------------------------
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
-            "pelvis",
             self.base_link_name,
             ".*_shoulder_pitch_link",
             ".*_shoulder_roll_link",
