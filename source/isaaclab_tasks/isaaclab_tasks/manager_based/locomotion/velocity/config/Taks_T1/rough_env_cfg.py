@@ -222,6 +222,28 @@ class TaksT1Rewards(RewardsCfg):
         params={"command_name": "base_velocity"},
     )
 
+    # 重心稳定性奖励 - 鼓励重心保持在支撑区域内
+    com_stability = RewTerm(
+        func=mdp.center_of_mass_stability,
+        weight=0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "std": 0.05,
+        },
+    )
+
+    # 重心在支撑多边形内奖励 - 鼓励重心投影在双脚之间
+    com_in_support = RewTerm(
+        func=mdp.center_of_mass_in_support_polygon,
+        weight=0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "margin": 0.05,
+        },
+    )
+
 @configclass
 class TaksT1EventCfg(EventCfg):
     """域随机化配置，包含电机老化、关节摩擦等corner case。"""
@@ -254,7 +276,7 @@ class TaksT1EventCfg(EventCfg):
     action_noise = EventTerm(
         func=mdp.randomize_action_noise,
         mode="interval",
-        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
+        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "noise_std": 0.05,
@@ -266,7 +288,7 @@ class TaksT1EventCfg(EventCfg):
     action_delay = EventTerm(
         func=mdp.randomize_action_delay,
         mode="interval",
-        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
+        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "max_delay_steps": 5,  # 最大延迟5步
@@ -277,7 +299,7 @@ class TaksT1EventCfg(EventCfg):
     encoder_noise = EventTerm(
         func=mdp.randomize_joint_encoder_noise,
         mode="interval",
-        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
+        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "pos_noise_std": 0.01,  # 位置噪声标准差 (rad)
@@ -291,7 +313,7 @@ class TaksT1EventCfg(EventCfg):
     imu_noise = EventTerm(
         func=mdp.randomize_imu_noise_and_bias,
         mode="interval",
-        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
+        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "ang_vel_noise_std": 0.05,  # 角速度噪声 (rad/s)
@@ -306,10 +328,10 @@ class TaksT1EventCfg(EventCfg):
     observation_dropout = EventTerm(
         func=mdp.randomize_observation_dropout,
         mode="interval",
-        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
+        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "dropout_prob": 0.005,  # 每个维度丢包概率 0.5%
+            "dropout_prob": 0.001,  # 每个维度丢包概率 0.1%
             "dropout_mode": "hold",  # 丢包时保持上一帧值
         },
     )
@@ -320,7 +342,7 @@ class TaksT1EventCfg(EventCfg):
         mode="reset",  # 每次reset时重新采样故障状态
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "failure_prob": 0.0005,  # 每个关节失效概率 0.05%
+            "failure_prob": 0.0001,  # 每个关节失效概率 0.01%
             "failure_mode": "weak",  # 弱化模式（扭矩衰减）
             "weak_factor": 0.5,  # 衰减因子提高，故障程度减轻
         },
@@ -330,10 +352,10 @@ class TaksT1EventCfg(EventCfg):
     sensor_latency_spike = EventTerm(
         func=mdp.randomize_sensor_latency_spike,
         mode="interval",
-        interval_range_s=(40.0, 60.0),  # 40-60秒触发一次
+        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "spike_prob": 0.005,  # 0.5%概率发生延迟尖峰
+            "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
             "max_latency_steps": 10,  # 最大延迟10步
         },
     )
@@ -410,7 +432,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
         self.events.push_robot.params["velocity_range"] = {"x": (-1.5, 1.5), "y": (-1.5, 1.5)}
-        self.events.push_robot.interval_range_s = (0.0, 5.0)
+        self.events.push_robot.interval_range_s = (0.0, 4.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
         self.events.base_external_force_torque.params["force_range"] = (-1.5, 1.5)
         self.events.base_external_force_torque.params["torque_range"] = (-1.5, 1.5)

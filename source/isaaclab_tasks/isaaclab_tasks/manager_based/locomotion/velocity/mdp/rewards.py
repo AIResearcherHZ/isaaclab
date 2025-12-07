@@ -382,3 +382,201 @@ def foot_flat_contact_reward(
     reward = roll_reward * pitch_reward * in_contact.float()
     
     return torch.sum(reward, dim=1)
+
+
+def center_of_mass_stability(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    std: float = 0.1,
+) -> torch.Tensor:
+    """奖励重心在支撑区域内保持稳定。
+    
+    计算机器人重心在水平面上的投影与双脚中心的距离，
+    距离越小奖励越高，鼓励重心保持在支撑多边形内。
+    
+    Args:
+        env: 环境对象
+        asset_cfg: 资产配置
+        sensor_cfg: 接触传感器配置，用于获取脚部位置
+        std: 指数核的标准差，控制奖励衰减速度
+    
+    Returns:
+        重心稳定性奖励值
+    """
+    asset = env.scene[asset_cfg.name]
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    
+    # 获取机器人根重心在世界坐标系下的位置 (num_envs, 3)
+    com_pos_w = asset.data.root_com_pos_w
+    
+    # 获取双脚位置 (num_envs, num_feet, 3)
+    foot_pos_w = asset.data.body_pos_w[:, sensor_cfg.body_ids, :]
+    
+    # 获取接触状态
+    contact_forces = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :]
+    in_contact = torch.norm(contact_forces[:, 0, :, :], dim=-1) > 1.0  # (num_envs, num_feet)
+    
+    # 计算支撑区域中心（接触脚的平均位置）
+    # 如果没有脚接触地面，使用双脚中心
+    contact_weights = in_contact.float()
+    total_weight = contact_weights.sum(dim=1, keepdim=True).clamp(min=1.0)
+    
+    # 加权平均计算支撑中心 (num_envs, 3)
+    support_center = (foot_pos_w * contact_weights.unsqueeze(-1)).sum(dim=1) / total_weight
+    
+    # 计算重心在水平面(xy)上与支撑中心的距离
+    com_xy = com_pos_w[:, :2]
+    support_xy = support_center[:, :2]
+    distance = torch.norm(com_xy - support_xy, dim=1)
+    
+    # 使用指数核计算奖励
+    reward = torch.exp(-distance / std)
+    
+    return reward
+
+
+def center_of_mass_velocity_penalty(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    max_velocity: float = 0.5,
+) -> torch.Tensor:
+    """惩罚重心水平速度过大，鼓励平稳运动。
+    
+    Args:
+        env: 环境对象
+        asset_cfg: 资产配置
+        max_velocity: 最大允许的重心水平速度 (m/s)
+    
+    Returns:
+        重心速度超限的惩罚值
+    """
+    asset = env.scene[asset_cfg.name]
+    
+    # 获取根重心速度 (num_envs, 6) - 前3个是线速度
+    com_vel = asset.data.root_com_lin_vel_w
+    
+    # 计算水平速度大小
+    horizontal_speed = torch.norm(com_vel[:, :2], dim=1)
+    
+    # 计算超出阈值的部分
+    excess_speed = torch.clamp(horizontal_speed - max_velocity, min=0.0)
+    
+    return excess_speed
+
+
+def center_of_mass_height_reward(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    target_height: float = 0.8,
+    tolerance: float = 0.1,
+) -> torch.Tensor:
+    """奖励重心高度保持在目标范围内。
+    
+    Args:
+        env: 环境对象
+        asset_cfg: 资产配置
+        target_height: 目标重心高度 (m)
+        tolerance: 高度容差
+    
+    Returns:
+        重心高度奖励值
+    """
+    asset = env.scene[asset_cfg.name]
+    
+    # 获取根重心高度
+    com_height = asset.data.root_com_pos_w[:, 2]
+    
+    # 计算高度误差
+    height_error = torch.abs(com_height - target_height)
+    
+    # 使用指数核计算奖励
+    reward = torch.exp(-height_error / tolerance)
+    
+    return reward
+
+
+def center_of_mass_in_support_polygon(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    margin: float = 0.05,
+) -> torch.Tensor:
+    """奖励重心投影在支撑多边形内部。
+    
+    对于双足机器人，支撑多边形由接触脚的位置定义。
+    当只有一只脚接触时，奖励重心靠近该脚；
+    当双脚接触时，奖励重心在两脚连线之间。
+    
+    Args:
+        env: 环境对象
+        asset_cfg: 资产配置
+        sensor_cfg: 接触传感器配置
+        margin: 安全边距 (m)
+    
+    Returns:
+        重心在支撑区域内的奖励值
+    """
+    asset = env.scene[asset_cfg.name]
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    
+    # 获取重心位置
+    com_pos_w = asset.data.root_com_pos_w
+    com_xy = com_pos_w[:, :2]
+    
+    # 获取双脚位置
+    foot_pos_w = asset.data.body_pos_w[:, sensor_cfg.body_ids, :]
+    
+    # 获取接触状态
+    contact_forces = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :]
+    in_contact = torch.norm(contact_forces[:, 0, :, :], dim=-1) > 1.0  # (num_envs, num_feet)
+    
+    num_contacts = in_contact.sum(dim=1)
+    
+    # 初始化奖励
+    reward = torch.zeros(env.num_envs, device=env.device)
+    
+    if foot_pos_w.shape[1] >= 2:
+        left_foot_xy = foot_pos_w[:, 0, :2]
+        right_foot_xy = foot_pos_w[:, 1, :2]
+        
+        # 双脚支撑：检查重心是否在两脚连线之间
+        both_contact = num_contacts == 2
+        if both_contact.any():
+            # 计算重心到两脚连线的投影
+            foot_vec = right_foot_xy - left_foot_xy
+            foot_dist = torch.norm(foot_vec, dim=1, keepdim=True).clamp(min=1e-6)
+            foot_dir = foot_vec / foot_dist
+            
+            # 重心相对于左脚的向量
+            com_to_left = com_xy - left_foot_xy
+            
+            # 投影长度（沿两脚连线方向）
+            proj_length = (com_to_left * foot_dir).sum(dim=1)
+            
+            # 归一化到[0, 1]范围（0=左脚，1=右脚）
+            normalized_pos = proj_length / foot_dist.squeeze()
+            
+            # 计算到中心的距离作为奖励
+            center_dist = torch.abs(normalized_pos - 0.5)
+            double_support_reward = torch.exp(-center_dist * 4.0)
+            
+            reward = torch.where(both_contact, double_support_reward, reward)
+        
+        # 单脚支撑：奖励重心靠近支撑脚
+        single_contact = num_contacts == 1
+        if single_contact.any():
+            # 确定支撑脚位置
+            support_foot_xy = torch.where(
+                in_contact[:, 0:1].expand(-1, 2),
+                left_foot_xy,
+                right_foot_xy
+            )
+            
+            # 计算重心到支撑脚的距离
+            dist_to_support = torch.norm(com_xy - support_foot_xy, dim=1)
+            single_support_reward = torch.exp(-dist_to_support / 0.1)
+            
+            reward = torch.where(single_contact, single_support_reward, reward)
+
+    return reward
