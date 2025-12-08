@@ -39,6 +39,18 @@ class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        self.events.arms_external_force_torque = None
+        self.events.feet_external_force_torque = None
+
+        # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_noise = None
+        self.events.action_delay = None
+        self.events.encoder_noise = None
+        self.events.imu_noise = None
+        self.events.observation_dropout = None
+        self.events.joint_failure = None
+        self.events.sensor_latency_spike = None
+        self.events.slope_randomization = None
         self.events.randomize_body_inertia = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能

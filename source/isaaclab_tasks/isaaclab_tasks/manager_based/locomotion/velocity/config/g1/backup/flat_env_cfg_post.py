@@ -1,10 +1,11 @@
+from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
-from .rough_env_cfg import TaksT1RoughEnvCfg
+from .rough_env_cfg import G1RoughEnvCfg
 
 
 @configclass
-class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
+class G1FlatEnvCfg(G1RoughEnvCfg):
     def __post_init__(self):
         # 调用父类的 __post_init__ 以确保基类配置初始化完成
         super().__post_init__()
@@ -17,8 +18,20 @@ class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
         self.observations.policy.height_scan = None
         # 取消地形课程机制，因为地形固定为平坦
         self.curriculum.terrain_levels = None
+
         # 奖励函数配置部分
+        self.rewards.track_ang_vel_z_exp.weight = 1.0
+        self.rewards.lin_vel_z_l2.weight = -0.2
+        self.rewards.action_rate_l2.weight = -0.01
+        self.rewards.dof_acc_l2.weight = -5.0e-7
         self.rewards.feet_air_time.weight = 0.75
+        # 将抬脚时间阈值设置为 0.4 秒
+        self.rewards.feet_air_time.params["threshold"] = 0.4
+        self.rewards.dof_torques_l2.weight = -1.0e-5
+        # 仅针对特定的关节名称（髋部与膝部）应用扭矩惩罚
+        self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
+            "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
+        )
         # 命令空间限制配置：限制线速度和角速度范围
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
         self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
@@ -26,7 +39,7 @@ class TaksT1FlatEnvCfg(TaksT1RoughEnvCfg):
 
 
 @configclass
-class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
+class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
     def __post_init__(self) -> None:
         # 调用父类的后置初始化以确保基础配置有效
         super().__post_init__()
@@ -39,6 +52,18 @@ class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        self.events.arms_external_force_torque = None
+        self.events.feet_external_force_torque = None
+
+        # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_noise = None
+        self.events.action_delay = None
+        self.events.encoder_noise = None
+        self.events.imu_noise = None
+        self.events.observation_dropout = None
+        self.events.joint_failure = None
+        self.events.sensor_latency_spike = None
+        self.events.slope_randomization = None
         self.events.randomize_body_inertia = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
