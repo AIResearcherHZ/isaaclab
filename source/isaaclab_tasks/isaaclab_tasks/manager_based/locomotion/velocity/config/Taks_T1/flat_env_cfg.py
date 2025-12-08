@@ -34,11 +34,14 @@ class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
         # 为调试/试玩模式缩小场景规模
         self.scene.num_envs = 50
         self.scene.env_spacing = 2.5
-        # 试玩时关闭观测扰动，避免引入随机性
+        # 试玩模式关闭观测扰动，避免不确定性来源
         self.observations.policy.enable_corruption = False
-        # 移除试验中对机器人的随机推动事件
+        # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        self.events.arms_external_force_torque = None
+        self.events.feet_external_force_torque = None
+
         # 关闭所有新增的鲁棒性随机化事件（调试用）
         self.events.action_noise = None
         self.events.action_delay = None
