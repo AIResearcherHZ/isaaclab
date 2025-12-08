@@ -291,7 +291,7 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "max_delay_steps": 5,  # 最大延迟5步
+            "max_delay_steps": 8,  # 最大延迟8步
         },
     )
 
@@ -356,7 +356,7 @@ class TaksT1EventCfg(EventCfg):
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
-            "max_latency_steps": 10,  # 最大延迟10步
+            "max_latency_steps": 16,  # 最大延迟16步
         },
     )
 
