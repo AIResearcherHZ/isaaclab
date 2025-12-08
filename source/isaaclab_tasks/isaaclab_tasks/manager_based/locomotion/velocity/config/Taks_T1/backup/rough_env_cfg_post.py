@@ -276,7 +276,7 @@ class TaksT1EventCfg(EventCfg):
     action_noise = EventTerm(
         func=mdp.randomize_action_noise,
         mode="interval",
-        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "noise_std": 0.05,
@@ -288,7 +288,7 @@ class TaksT1EventCfg(EventCfg):
     action_delay = EventTerm(
         func=mdp.randomize_action_delay,
         mode="interval",
-        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "max_delay_steps": 5,  # 最大延迟5步
@@ -299,7 +299,7 @@ class TaksT1EventCfg(EventCfg):
     encoder_noise = EventTerm(
         func=mdp.randomize_joint_encoder_noise,
         mode="interval",
-        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "pos_noise_std": 0.01,  # 位置噪声标准差 (rad)
@@ -313,7 +313,7 @@ class TaksT1EventCfg(EventCfg):
     imu_noise = EventTerm(
         func=mdp.randomize_imu_noise_and_bias,
         mode="interval",
-        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "ang_vel_noise_std": 0.05,  # 角速度噪声 (rad/s)
@@ -328,7 +328,7 @@ class TaksT1EventCfg(EventCfg):
     observation_dropout = EventTerm(
         func=mdp.randomize_observation_dropout,
         mode="interval",
-        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "dropout_prob": 0.001,  # 每个维度丢包概率 0.1%
@@ -352,7 +352,7 @@ class TaksT1EventCfg(EventCfg):
     sensor_latency_spike = EventTerm(
         func=mdp.randomize_sensor_latency_spike,
         mode="interval",
-        interval_range_s=(10.0, 15.0),  # 10-15秒触发一次
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
