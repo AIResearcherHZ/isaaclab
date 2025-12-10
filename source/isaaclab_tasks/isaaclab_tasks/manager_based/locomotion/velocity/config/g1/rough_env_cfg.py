@@ -321,7 +321,7 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             mode="reset",
             params={
                 "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-                "inertia_distribution_params": (0.5, 2.0)
+                "inertia_distribution_params": (0.5, 2.0),
                 "armature_distribution_params": (0.5, 2.0),
                 "operation": "scale",
             },
