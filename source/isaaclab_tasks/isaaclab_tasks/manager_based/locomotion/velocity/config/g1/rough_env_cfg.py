@@ -306,6 +306,7 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         }
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.1, 0.1)}
+        self.events.base_external_force_torque.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
 
         # 机器人摩擦力随机化 - 只对脚踝关节应用
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.foot_link_name)

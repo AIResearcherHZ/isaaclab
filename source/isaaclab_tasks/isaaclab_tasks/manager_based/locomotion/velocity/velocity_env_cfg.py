@@ -263,8 +263,8 @@ class EventCfg:
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base"),
-            "force_range": (0.0, 0.0),  # 固定为 0 表示不施加随机外力
-            "torque_range": (-0.0, 0.0),  # 固定为 0（无随机扭矩）
+            "force_range": (-0.5, 0.5),  # 固定为 0 表示不施加随机外力
+            "torque_range": (-0.5, 0.5),  # 固定为 0（无随机扭矩）
         },
     )
 
