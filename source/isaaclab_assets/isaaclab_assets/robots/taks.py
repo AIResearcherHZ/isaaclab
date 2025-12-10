@@ -42,7 +42,7 @@ TAKS_T1_CFG = ArticulationCfg(
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.74),
+        pos=(0.0, 0.0, 0.76),
         rot=(0.7071, 0, 0, 0.7071),
         joint_pos={
             ".*_elbow_joint": 1.56,

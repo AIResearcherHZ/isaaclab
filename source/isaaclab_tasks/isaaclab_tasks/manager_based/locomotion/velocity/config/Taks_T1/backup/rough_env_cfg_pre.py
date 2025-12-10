@@ -251,7 +251,7 @@ class TaksT1EventCfg(EventCfg):
     # 关节摩擦随机化 - 模拟关节磨损
     randomize_joint_friction = EventTerm(
         func=mdp.randomize_joint_parameters,
-        mode="startup",
+        mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
             "armature_distribution_params": (0.1, 2.0),  # 电机转子惯量缩放
@@ -262,7 +262,7 @@ class TaksT1EventCfg(EventCfg):
     # 刚体惯性随机化 - 模拟连杆惯性不确定性
     randomize_body_inertia = EventTerm(
         func=mdp.randomize_rigid_body_inertia,
-        mode="startup",
+        mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
             "inertia_distribution_params": (0.1, 2.0),  # 刚体惯性缩放

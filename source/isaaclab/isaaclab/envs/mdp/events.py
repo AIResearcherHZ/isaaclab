@@ -450,9 +450,9 @@ class randomize_rigid_body_inertia(ManagerTermBase):
         self,
         env: ManagerBasedEnv,
         env_ids: torch.Tensor | None,
-        asset_cfg: SceneEntityCfg,
-        inertia_distribution_params: tuple[float, float],
-        operation: Literal["add", "scale", "abs"],
+        asset_cfg: SceneEntityCfg = None,
+        inertia_distribution_params: tuple[float, float] = None,
+        operation: Literal["add", "scale", "abs"] = "abs",
         distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
     ):
         # 解析环境 ID；为空则对所有环境随机化
@@ -789,7 +789,7 @@ class randomize_joint_parameters(ManagerTermBase):
         self,
         env: ManagerBasedEnv,
         env_ids: torch.Tensor | None,
-        asset_cfg: SceneEntityCfg,
+        asset_cfg: SceneEntityCfg = None,
         friction_distribution_params: tuple[float, float] | None = None,
         armature_distribution_params: tuple[float, float] | None = None,
         lower_limit_distribution_params: tuple[float, float] | None = None,
@@ -880,8 +880,13 @@ class randomize_joint_parameters(ManagerTermBase):
                 operation=operation,
                 distribution=distribution,
             )
+            # extract the armature for the concerned joints
+            if isinstance(joint_ids, slice):
+                armature_to_write = armature[env_ids]
+            else:
+                armature_to_write = armature[env_ids[:, None], joint_ids]
             self.asset.write_joint_armature_to_sim(
-                armature[env_ids[:, None], joint_ids], joint_ids=joint_ids, env_ids=env_ids
+                armature_to_write, joint_ids=joint_ids, env_ids=env_ids
             )
 
         # joint position limits
