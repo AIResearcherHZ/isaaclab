@@ -65,6 +65,7 @@ class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
         self.events.sensor_latency_spike = None
         self.events.slope_randomization = None
         self.events.inertia_randomization = None
+        self.events.push_robot = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
