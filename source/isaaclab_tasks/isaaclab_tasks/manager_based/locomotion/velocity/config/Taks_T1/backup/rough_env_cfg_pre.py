@@ -250,8 +250,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
-    # 使用扩展的事件配置（包含电机老化、关节摩擦等域随机化）
-    events: TaksT1EventCfg = TaksT1EventCfg()
+    # 使用基础事件配置
+    events: EventCfg = EventCfg()
 
     def __post_init__(self):
         # 调用父类后初始化逻辑，确保基础配置正确设置
