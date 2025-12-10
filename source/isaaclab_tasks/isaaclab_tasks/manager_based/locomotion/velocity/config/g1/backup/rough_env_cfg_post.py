@@ -224,28 +224,6 @@ class G1Rewards(RewardsCfg):
         params={"command_name": "base_velocity"},
     )
 
-    # 重心稳定性奖励 - 鼓励重心保持在支撑区域内
-    com_stability = RewTerm(
-        func=mdp.center_of_mass_stability,
-        weight=0.1,
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "std": 0.05,
-        },
-    )
-
-    # 重心在支撑多边形内奖励 - 鼓励重心投影在双脚之间
-    com_in_support = RewTerm(
-        func=mdp.center_of_mass_in_support_polygon,
-        weight=0.1,
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "margin": 0.05,
-        },
-    )
-
 @configclass
 class G1EventCfg(EventCfg):
     # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
