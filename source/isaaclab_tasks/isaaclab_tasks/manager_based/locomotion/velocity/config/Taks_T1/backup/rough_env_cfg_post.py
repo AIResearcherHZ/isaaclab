@@ -246,30 +246,6 @@ class TaksT1Rewards(RewardsCfg):
 
 @configclass
 class TaksT1EventCfg(EventCfg):
-    """域随机化配置，包含电机老化、关节摩擦等corner case。"""
-
-    # 关节摩擦随机化 - 模拟关节磨损
-    randomize_joint_friction = EventTerm(
-        func=mdp.randomize_joint_parameters,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-            "armature_distribution_params": (0.1, 2.0),  # 电机转子惯量缩放
-            "operation": "scale",
-        },
-    )
-
-    # 刚体惯性随机化 - 模拟连杆惯性不确定性
-    randomize_body_inertia = EventTerm(
-        func=mdp.randomize_rigid_body_inertia,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "inertia_distribution_params": (0.1, 2.0),  # 刚体惯性缩放
-            "operation": "scale",
-        },
-    )
-
     # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
 
     # 动作噪声 - 模拟控制信号不完美（量化误差、通讯抖动）
@@ -545,7 +521,6 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.joint_failure = None
         self.events.sensor_latency_spike = None
         self.events.slope_randomization = None
-        self.events.randomize_body_inertia = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True

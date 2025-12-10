@@ -247,32 +247,6 @@ class G1Rewards(RewardsCfg):
     )
 
 @configclass
-class G1EventCfg(EventCfg):
-    """域随机化配置，包含电机老化、关节摩擦等corner case。"""
-
-    # 关节摩擦随机化 - 模拟关节磨损
-    randomize_joint_friction = EventTerm(
-        func=mdp.randomize_joint_parameters,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-            "armature_distribution_params": (0.1, 2.0),  # 电机转子惯量缩放
-            "operation": "scale",
-        },
-    )
-
-    # 刚体惯性随机化 - 模拟连杆惯性不确定性
-    randomize_body_inertia = EventTerm(
-        func=mdp.randomize_rigid_body_inertia,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "inertia_distribution_params": (0.1, 2.0),  # 刚体惯性缩放
-            "operation": "scale",
-        },
-    )
-
-@configclass
 class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     base_link_name = "torso_link|pelvis"
     foot_link_name = ".*_ankle_roll_link"
@@ -395,7 +369,6 @@ class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
-        self.events.randomize_body_inertia = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
