@@ -252,7 +252,7 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base"),
-            "com_range": {"x": (-0.05, 0.05), "y": (-0.05, 0.05), "z": (-0.01, 0.01)},
+            "com_range": {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.05, 0.05)},
             # 质心（center of mass）偏移范围（米级），用于增加动力学多样性
         },
     )
@@ -272,25 +272,30 @@ class EventCfg:
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
-            # 重置底座在 XY 平面位置与朝向 yaw 的范围（均匀采样）
+            "pose_range": {
+                "x": (-0.5, 0.5),
+                "y": (-0.5, 0.5),
+                "z": (-0.05, 0.15),
+                "roll": (-0.18, 0.18),
+                "pitch": (-0.18, 0.18),
+                "yaw": (-3.14, 3.14),
+            },
             "velocity_range": {
                 "x": (-0.5, 0.5),
                 "y": (-0.5, 0.5),
-                "z": (-0.5, 0.5),
-                "roll": (-0.5, 0.5),
-                "pitch": (-0.5, 0.5),
-                "yaw": (-0.5, 0.5),
+                "z": (-0.2, 0.2),
+                "roll": (-0.52, 0.52),
+                "pitch": (-0.52, 0.52),
+                "yaw": (-0.78, 0.78),
             },
-            # 重置初始线速度和角速度的范围（小幅波动）
-        },
+        }
     )
 
     reset_robot_joints = EventTerm(
         func=mdp.reset_joints_by_scale,
         mode="reset",
         params={
-            "position_range": (0.5, 1.5),  # 以比例或比例缩放的方式设置关节初始位置
+            "position_range": (1.0, 1.0),  # 以比例或比例缩放的方式设置关节初始位置
             "velocity_range": (0.0, 0.0),  # 关节初始速度（此处固定为 0）
         },
     )
@@ -299,8 +304,8 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(0.0, 5.0),  # 触发时间间隔范围（随机或固定采样）
-        params={"velocity_range": {"x": (-2.5, 2.5), "y": (-2.5, 2.5)}},  # 推力对应的速度范围
+        interval_range_s=(0.0, 4.0),  # 触发时间间隔范围（随机或固定采样）
+        params={"velocity_range": {"x": (-1.5, 1.5), "y": (-1.5, 1.5)}},  # 推力对应的速度范围
     )
 
     inertia_randomization = EventTerm(

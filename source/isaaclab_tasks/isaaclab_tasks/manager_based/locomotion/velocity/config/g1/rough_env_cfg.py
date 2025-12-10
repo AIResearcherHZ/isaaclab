@@ -259,10 +259,6 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
-        # 重置机器人关节时增加随机性
-        self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
-        self.events.reset_robot_joints.params["velocity_range"] = (1.0, 1.0)
-
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
             "pose_range": {
@@ -283,7 +279,7 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             },
         }
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
-        self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.1, 0.1)}
+        self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.05, 0.05)}
         self.events.base_external_force_torque.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
 
         # 机器人摩擦力随机化 - 只对脚踝关节应用
