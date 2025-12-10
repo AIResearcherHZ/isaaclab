@@ -360,6 +360,166 @@ class randomize_rigid_body_mass(ManagerTermBase):
             self.asset.root_physx_view.set_inertias(inertias, env_ids)
 
 
+class randomize_inertia_properties(ManagerTermBase):
+    """随机化关节结构的惯性属性，包括 Link 的惯性张量和电机的 armature。
+
+    该函数允许对关节结构的惯性属性进行随机化，包括：
+    - 刚体的惯性张量（inertia tensor）
+    - 关节的 armature（电机转子惯量）
+
+    函数从给定的分布参数中采样随机值，并根据操作类型将其应用到惯性属性上。
+    如果某个属性的分布参数未提供，则不修改该属性。
+
+    .. tip::
+        该函数使用 CPU 张量来分配惯性属性。建议仅在环境初始化时使用此函数。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        """初始化随机化项。
+
+        Args:
+            cfg: 事件项配置。
+            env: 环境实例。
+
+        Raises:
+            ValueError: 如果操作类型不支持。
+        """
+        super().__init__(cfg, env)
+
+        # 从配置中提取资产配置
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+
+        # 校验 operation 是否有效
+        if cfg.params["operation"] == "scale":
+            if "inertia_distribution_params" in cfg.params:
+                _validate_scale_range(
+                    cfg.params["inertia_distribution_params"], "inertia_distribution_params", allow_zero=False
+                )
+            if "armature_distribution_params" in cfg.params:
+                _validate_scale_range(
+                    cfg.params["armature_distribution_params"], "armature_distribution_params"
+                )
+        elif cfg.params["operation"] not in ("abs", "add"):
+            raise ValueError(
+                "Randomization term 'randomize_inertia_properties' does not support operation:"
+                f" '{cfg.params['operation']}'."
+            )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        inertia_distribution_params: tuple[float, float] | None = None,
+        armature_distribution_params: tuple[float, float] | None = None,
+        operation: Literal["add", "scale", "abs"] = "scale",
+        distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
+    ):
+        """执行惯性属性随机化。
+
+        Args:
+            env: 环境实例。
+            env_ids: 需要随机化的环境 ID。如果为 None，则对所有环境进行随机化。
+            asset_cfg: 资产配置。
+            inertia_distribution_params: 惯性张量的分布参数 (min, max)。
+            armature_distribution_params: armature 的分布参数 (min, max)。
+            operation: 操作类型，可选 "add"、"scale"、"abs"。
+            distribution: 分布类型，可选 "uniform"、"log_uniform"、"gaussian"。
+        """
+        # 解析环境 ID；为空则对所有环境随机化
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device="cpu")
+        else:
+            env_ids = env_ids.cpu()
+
+        # 解析需要随机化的 body 索引
+        if self.asset_cfg.body_ids == slice(None):
+            body_ids = torch.arange(self.asset.num_bodies, dtype=torch.int, device="cpu")
+        else:
+            body_ids = torch.tensor(self.asset_cfg.body_ids, dtype=torch.int, device="cpu")
+
+        # 解析需要随机化的 joint 索引
+        if self.asset_cfg.joint_ids == slice(None):
+            joint_ids = slice(None)
+        else:
+            joint_ids = torch.tensor(self.asset_cfg.joint_ids, dtype=torch.int, device="cpu")
+
+        # 随机化惯性张量
+        if inertia_distribution_params is not None:
+            # 从 PhysX 视图获取当前惯性张量
+            inertias = self.asset.root_physx_view.get_inertias()
+
+            # 始终在默认惯性的基础上重新随机，避免多次调用时叠加误差
+            inertias[env_ids[:, None], body_ids] = self.asset.data.default_inertia[env_ids[:, None], body_ids].clone()
+
+            # 按指定分布与操作对惯性进行随机化
+            # 惯性张量形状为 (num_envs, num_bodies, 9)，我们对所有 9 个分量应用相同的缩放因子
+            n_envs = len(env_ids)
+            n_bodies = len(body_ids) if not isinstance(body_ids, slice) else self.asset.num_bodies
+
+            # 采样缩放因子
+            if distribution == "uniform":
+                scale_factors = math_utils.sample_uniform(
+                    inertia_distribution_params[0], inertia_distribution_params[1],
+                    (n_envs, n_bodies), device="cpu"
+                )
+            elif distribution == "log_uniform":
+                scale_factors = math_utils.sample_log_uniform(
+                    inertia_distribution_params[0], inertia_distribution_params[1],
+                    (n_envs, n_bodies), device="cpu"
+                )
+            elif distribution == "gaussian":
+                scale_factors = math_utils.sample_gaussian(
+                    inertia_distribution_params[0], inertia_distribution_params[1],
+                    (n_envs, n_bodies), device="cpu"
+                )
+            else:
+                raise NotImplementedError(f"Unknown distribution: '{distribution}'")
+
+            # 应用操作
+            if operation == "add":
+                # 对于 add 操作，将采样值添加到惯性张量的每个分量
+                inertias[env_ids[:, None], body_ids] += scale_factors[..., None]
+            elif operation == "scale":
+                # 对于 scale 操作，将惯性张量乘以缩放因子
+                inertias[env_ids[:, None], body_ids] *= scale_factors[..., None]
+            elif operation == "abs":
+                # 对于 abs 操作，直接设置惯性张量（保持原始形状）
+                inertias[env_ids[:, None], body_ids] *= scale_factors[..., None]
+
+            # 确保惯性张量为正值
+            inertias = torch.clamp(inertias, min=1e-6)
+
+            # 将随机后的惯性张量写回物理仿真
+            self.asset.root_physx_view.set_inertias(inertias, env_ids)
+
+        # 随机化 armature（电机转子惯量）
+        if armature_distribution_params is not None:
+            # 获取当前 armature
+            armature = _randomize_prop_by_op(
+                self.asset.data.default_joint_armature.clone(),
+                armature_distribution_params,
+                env_ids,
+                joint_ids,
+                operation=operation,
+                distribution=distribution,
+            )
+
+            # 确保 armature 为非负值
+            armature = torch.clamp(armature, min=0.0)
+
+            # 将随机后的 armature 写回物理仿真
+            if isinstance(joint_ids, slice):
+                self.asset.write_joint_armature_to_sim(
+                    armature[env_ids], joint_ids=joint_ids, env_ids=env_ids
+                )
+            else:
+                self.asset.write_joint_armature_to_sim(
+                    armature[env_ids[:, None], joint_ids], joint_ids=joint_ids, env_ids=env_ids
+                )
+
+
 def randomize_rigid_body_com(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,

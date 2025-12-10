@@ -454,6 +454,18 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
+        # 惯性属性随机化 - 包括 Link 惯性张量和电机 armature
+        self.events.inertia_randomization = EventTerm(
+            func=mdp.randomize_inertia_properties,
+            mode="reset",
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+                "inertia_distribution_params": (0.5, 2.0)
+                "armature_distribution_params": (0.5, 2.0),
+                "operation": "scale",
+            },
+        )
+
         # 奖励权重进一步细调
         self.rewards.lin_vel_z_l2.weight = 0.0
         self.rewards.undesired_contacts = None
@@ -521,6 +533,7 @@ class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
         self.events.joint_failure = None
         self.events.sensor_latency_spike = None
         self.events.slope_randomization = None
+        self.events.inertia_randomization = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
