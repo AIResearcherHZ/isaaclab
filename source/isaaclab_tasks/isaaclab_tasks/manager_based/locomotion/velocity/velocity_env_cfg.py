@@ -303,6 +303,17 @@ class EventCfg:
         params={"velocity_range": {"x": (-2.5, 2.5), "y": (-2.5, 2.5)}},  # 推力对应的速度范围
     )
 
+    inertia_randomization = EventTerm(
+        func=mdp.randomize_inertia_properties,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "inertia_distribution_params": (0.5, 2.0),
+            "armature_distribution_params": (0.5, 2.0),
+            "operation": "scale",
+        },
+    )
+
 
 @configclass
 class RewardsCfg:

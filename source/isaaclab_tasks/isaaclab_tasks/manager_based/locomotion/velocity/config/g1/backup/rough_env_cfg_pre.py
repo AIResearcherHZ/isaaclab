@@ -293,18 +293,6 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
-        # 惯性属性随机化 - 包括 Link 惯性张量和电机 armature
-        self.events.inertia_randomization = EventTerm(
-            func=mdp.randomize_inertia_properties,
-            mode="reset",
-            params={
-                "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-                "inertia_distribution_params": (0.5, 2.0),
-                "armature_distribution_params": (0.5, 2.0),
-                "operation": "scale",
-            },
-        )
-
         # 奖励权重进一步细调
         self.rewards.lin_vel_z_l2.weight = 0.0
         self.rewards.undesired_contacts = None
