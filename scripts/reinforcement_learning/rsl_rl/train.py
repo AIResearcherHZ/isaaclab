@@ -89,6 +89,7 @@ if version.parse(installed_version) < version.parse(RSL_RL_VERSION):
 import gymnasium as gym
 import logging
 import os
+import time
 import torch
 from datetime import datetime
 
@@ -215,6 +216,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         print_dict(video_kwargs, nesting=4)
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
 
+    start_time = time.time()
+
     # wrap around environment for rsl-rl
     # use command line arguments to override config if provided
     enable_torque_recording = args_cli.enable_torque_recording or getattr(agent_cfg, "enable_torque_recording", False)
@@ -254,6 +257,8 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # run training
     runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
+
+    print(f"Training time: {round(time.time() - start_time, 2)} seconds")
 
     # close the simulator
     env.close()
