@@ -305,6 +305,12 @@ class randomize_rigid_body_mass(ManagerTermBase):
                 "Randomization term 'randomize_rigid_body_mass' does not support operation:"
                 f" '{cfg.params['operation']}'."
             )
+        if cfg.params.get("min_mass") is not None:
+            if cfg.params.get("min_mass") < 1e-6:
+                raise ValueError(
+                    "Randomization term 'randomize_rigid_body_mass' does not support 'min_mass' less than 1e-6 to avoid"
+                    " physics errors."
+                )
 
     def __call__(
         self,
@@ -315,6 +321,7 @@ class randomize_rigid_body_mass(ManagerTermBase):
         operation: Literal["add", "scale", "abs"],
         distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
         recompute_inertia: bool = True,
+        min_mass: float = 1e-6,
     ):
         # 解析环境 ID；为空则对所有环境随机化
         if env_ids is None:
@@ -338,6 +345,7 @@ class randomize_rigid_body_mass(ManagerTermBase):
         masses = _randomize_prop_by_op(
             masses, mass_distribution_params, env_ids, body_ids, operation=operation, distribution=distribution
         )
+        masses = torch.clamp(masses, min=min_mass)  # ensure masses are positive
 
         # 将随机后的质量写回物理仿真
         self.asset.root_physx_view.set_masses(masses, env_ids)
