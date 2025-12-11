@@ -219,15 +219,14 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
-
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
             "pose_range": {
                 "x": (-0.5, 0.5),
                 "y": (-0.5, 0.5),
-                "z": (-0.05, 0.15),
-                "roll": (-0.18, 0.18),
-                "pitch": (-0.18, 0.18),
+                "z": (-0.02, 0.05),
+                "roll": (-0.15, 0.15),
+                "pitch": (-0.15, 0.15),
                 "yaw": (-3.14, 3.14),
             },
             "velocity_range": {
@@ -235,7 +234,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                 "y": (0.0, 0.0),
                 "z": (0.0, 0.0),
                 "roll": (0.0, 0.0),
-                "pitch":(0.0, 0.0),
+                "pitch": (0.0, 0.0),
                 "yaw": (0.0, 0.0),
             },
         }
