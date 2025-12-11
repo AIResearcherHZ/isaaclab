@@ -317,7 +317,7 @@ class TaksT1EventCfg(EventCfg):
     # 重力方向偏置 - 模拟基座倾斜/坡度
     slope_randomization = EventTerm(
         func=mdp.randomize_slope_or_base_frame,
-        mode="startup",  # 仿真开始时设置
+        mode="reset",  # 仿真开始时设置
         params={
             "gravity_bias_range": {
                 "x": (-0.1, 0.1),  # x方向重力偏置 (m/s^2)
