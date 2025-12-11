@@ -1954,34 +1954,40 @@ class randomize_action_delay(ManagerTermBase):
 
 class randomize_joint_encoder_noise(ManagerTermBase):
     """关节编码器噪声和偏置随机化。
-    
+
     模拟真实编码器的测量噪声和零点偏移：
     - 每个 env 采样一个固定的 bias（慢变化）
     - 每个 step 叠加高斯噪声（快变化）
+
+    优化版本：移除不必要的每次调用重新采样偏置的逻辑。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
-        
+        self._num_envs = env.scene.num_envs
+
         # 噪声参数
-        self.pos_noise_std = cfg.params.get("pos_noise_std", 0.01)  # rad
-        self.vel_noise_std = cfg.params.get("vel_noise_std", 0.1)   # rad/s
-        self.pos_bias_range = cfg.params.get("pos_bias_range", (-0.02, 0.02))  # rad
-        self.vel_bias_range = cfg.params.get("vel_bias_range", (-0.05, 0.05))  # rad/s
-        
+        self.pos_noise_std = cfg.params.get("pos_noise_std", 0.01)
+        self.vel_noise_std = cfg.params.get("vel_noise_std", 0.1)
+        self.pos_bias_range = cfg.params.get("pos_bias_range", (-0.02, 0.02))
+        self.vel_bias_range = cfg.params.get("vel_bias_range", (-0.05, 0.05))
+
         # 为每个 env 采样固定偏置
         self.pos_bias = math_utils.sample_uniform(
             self.pos_bias_range[0], self.pos_bias_range[1],
-            (env.scene.num_envs, self.asset.num_joints),
+            (self._num_envs, self.asset.num_joints),
             device=self.asset.device
         )
         self.vel_bias = math_utils.sample_uniform(
             self.vel_bias_range[0], self.vel_bias_range[1],
-            (env.scene.num_envs, self.asset.num_joints),
+            (self._num_envs, self.asset.num_joints),
             device=self.asset.device
         )
+
+        # 预计算环境索引
+        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
 
     def __call__(
         self,
@@ -1993,30 +1999,32 @@ class randomize_joint_encoder_noise(ManagerTermBase):
         pos_bias_range: tuple[float, float] = (-0.02, 0.02),
         vel_bias_range: tuple[float, float] = (-0.05, 0.05),
     ):
-        """在关节位置和速度观测上添加噪声和偏置。
-        
-        注意：这个函数修改 asset.data 中的值，应该在 observation 计算之前调用。
-        """
+        """在关节位置和速度观测上添加噪声和偏置（优化版）。"""
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
-        
+            env_ids = self.env_indices
+
+        n_envs = len(env_ids)
+
         # 添加位置噪声和偏置
-        pos_noise = torch.randn(len(env_ids), self.asset.num_joints, device=self.asset.device) * pos_noise_std
+        pos_noise = torch.randn(n_envs, self.asset.num_joints, device=self.asset.device) * pos_noise_std
         self.asset.data.joint_pos[env_ids] += pos_noise + self.pos_bias[env_ids]
-        
+
         # 添加速度噪声和偏置
-        vel_noise = torch.randn(len(env_ids), self.asset.num_joints, device=self.asset.device) * vel_noise_std
+        vel_noise = torch.randn(n_envs, self.asset.num_joints, device=self.asset.device) * vel_noise_std
         self.asset.data.joint_vel[env_ids] += vel_noise + self.vel_bias[env_ids]
-        
-        # reset 时重新采样偏置
-        if env_ids is not None and len(env_ids) > 0:
+
+    def reset(self, env_ids: torch.Tensor | None = None):
+        """重置时重新采样偏置。"""
+        if env_ids is None:
+            env_ids = self.env_indices
+        if len(env_ids) > 0:
             self.pos_bias[env_ids] = math_utils.sample_uniform(
-                pos_bias_range[0], pos_bias_range[1],
+                self.pos_bias_range[0], self.pos_bias_range[1],
                 (len(env_ids), self.asset.num_joints),
                 device=self.asset.device
             )
             self.vel_bias[env_ids] = math_utils.sample_uniform(
-                vel_bias_range[0], vel_bias_range[1],
+                self.vel_bias_range[0], self.vel_bias_range[1],
                 (len(env_ids), self.asset.num_joints),
                 device=self.asset.device
             )
@@ -2024,34 +2032,40 @@ class randomize_joint_encoder_noise(ManagerTermBase):
 
 class randomize_imu_noise_and_bias(ManagerTermBase):
     """IMU 噪声和漂移随机化。
-    
+
     模拟真实 IMU 的测量特性：
     - 角速度白噪声 + 固定偏置
     - 线加速度白噪声 + 固定偏置
     - 可选：偏置随机游走（慢漂移）
+
+    优化版本：移除不必要的每次调用重新采样偏置的逻辑。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
-        
+        self._num_envs = env.scene.num_envs
+
         # 噪声参数
-        self.ang_vel_noise_std = cfg.params.get("ang_vel_noise_std", 0.05)  # rad/s
-        self.lin_acc_noise_std = cfg.params.get("lin_acc_noise_std", 0.1)   # m/s^2
+        self.ang_vel_noise_std = cfg.params.get("ang_vel_noise_std", 0.05)
+        self.lin_acc_noise_std = cfg.params.get("lin_acc_noise_std", 0.1)
         self.ang_vel_bias_range = cfg.params.get("ang_vel_bias_range", (-0.02, 0.02))
         self.lin_acc_bias_range = cfg.params.get("lin_acc_bias_range", (-0.1, 0.1))
-        self.bias_drift_std = cfg.params.get("bias_drift_std", 0.001)  # 每步漂移
+        self.bias_drift_std = cfg.params.get("bias_drift_std", 0.001)
 
         # 为每个 env 采样固定偏置
         self.ang_vel_bias = math_utils.sample_uniform(
             self.ang_vel_bias_range[0], self.ang_vel_bias_range[1],
-            (env.scene.num_envs, 3), device=self.asset.device
+            (self._num_envs, 3), device=self.asset.device
         )
         self.lin_acc_bias = math_utils.sample_uniform(
             self.lin_acc_bias_range[0], self.lin_acc_bias_range[1],
-            (env.scene.num_envs, 3), device=self.asset.device
+            (self._num_envs, 3), device=self.asset.device
         )
+
+        # 预计算环境索引
+        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
 
     def __call__(
         self,
@@ -2064,52 +2078,71 @@ class randomize_imu_noise_and_bias(ManagerTermBase):
         lin_acc_bias_range: tuple[float, float] = (-0.1, 0.1),
         bias_drift_std: float = 0.001,
     ):
-        """在 IMU 观测上添加噪声和偏置。"""
+        """在 IMU 观测上添加噪声和偏置（优化版）。"""
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
-        
+            env_ids = self.env_indices
+
+        n_envs = len(env_ids)
+
         # 偏置随机游走
         self.ang_vel_bias += torch.randn_like(self.ang_vel_bias) * bias_drift_std
         self.lin_acc_bias += torch.randn_like(self.lin_acc_bias) * bias_drift_std
-        
+
         # 添加角速度噪声和偏置
-        ang_vel_noise = torch.randn(len(env_ids), 3, device=self.asset.device) * ang_vel_noise_std
+        ang_vel_noise = torch.randn(n_envs, 3, device=self.asset.device) * ang_vel_noise_std
         self.asset.data.root_ang_vel_b[env_ids] += ang_vel_noise + self.ang_vel_bias[env_ids]
-        
-        # 添加线加速度噪声和偏置（如果有的话）
-        lin_vel_noise = torch.randn(len(env_ids), 3, device=self.asset.device) * lin_acc_noise_std
+
+        # 添加线加速度噪声和偏置
+        lin_vel_noise = torch.randn(n_envs, 3, device=self.asset.device) * lin_acc_noise_std
         self.asset.data.root_lin_vel_b[env_ids] += lin_vel_noise + self.lin_acc_bias[env_ids]
-        
-        # reset 时重新采样偏置
-        if env_ids is not None and len(env_ids) > 0:
+
+    def reset(self, env_ids: torch.Tensor | None = None):
+        """重置时重新采样偏置。"""
+        if env_ids is None:
+            env_ids = self.env_indices
+        if len(env_ids) > 0:
             self.ang_vel_bias[env_ids] = math_utils.sample_uniform(
-                ang_vel_bias_range[0], ang_vel_bias_range[1],
+                self.ang_vel_bias_range[0], self.ang_vel_bias_range[1],
                 (len(env_ids), 3), device=self.asset.device
             )
             self.lin_acc_bias[env_ids] = math_utils.sample_uniform(
-                lin_acc_bias_range[0], lin_acc_bias_range[1],
+                self.lin_acc_bias_range[0], self.lin_acc_bias_range[1],
                 (len(env_ids), 3), device=self.asset.device
             )
 
 
 class randomize_observation_dropout(ManagerTermBase):
     """观测丢包/传感器失效随机化。
-    
+
     以一定概率将部分观测维度置零或保持上一帧值，
     模拟传感器偶发失效、通讯丢包等情况。
+
+    优化版本：预分配零张量，避免每次调用都创建新张量。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
-        
-        self.dropout_prob = cfg.params.get("dropout_prob", 0.01)  # 每个维度丢包概率
-        self.dropout_mode = cfg.params.get("dropout_mode", "zero")  # "zero" or "hold"
-        
+        self._num_envs = env.scene.num_envs
+
+        self.dropout_prob = cfg.params.get("dropout_prob", 0.01)
+        self.dropout_mode = cfg.params.get("dropout_mode", "zero")
+
         # 保存上一帧观测用于 hold 模式
         self.last_joint_pos = self.asset.data.joint_pos.clone()
         self.last_joint_vel = self.asset.data.joint_vel.clone()
+
+        # 预分配零张量用于 zero 模式
+        self._zeros_pos = torch.zeros(
+            self._num_envs, self.asset.num_joints, device=self.asset.device
+        )
+        self._zeros_vel = torch.zeros(
+            self._num_envs, self.asset.num_joints, device=self.asset.device
+        )
+
+        # 预计算环境索引
+        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
 
     def __call__(
         self,
@@ -2119,28 +2152,29 @@ class randomize_observation_dropout(ManagerTermBase):
         dropout_prob: float = 0.01,
         dropout_mode: str = "zero",
     ):
-        """随机丢弃部分观测。"""
+        """随机丢弃部分观测（优化版）。"""
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
-        
+            env_ids = self.env_indices
+
+        n_envs = len(env_ids)
+
         # 生成丢包掩码
-        pos_dropout_mask = torch.rand(len(env_ids), self.asset.num_joints, device=self.asset.device) < dropout_prob
-        vel_dropout_mask = torch.rand(len(env_ids), self.asset.num_joints, device=self.asset.device) < dropout_prob
-        
+        pos_dropout_mask = torch.rand(n_envs, self.asset.num_joints, device=self.asset.device) < dropout_prob
+        vel_dropout_mask = torch.rand(n_envs, self.asset.num_joints, device=self.asset.device) < dropout_prob
+
         if dropout_mode == "zero":
-            # 置零
+            # 使用预分配的零张量
             self.asset.data.joint_pos[env_ids] = torch.where(
-                pos_dropout_mask, 
-                torch.zeros_like(self.asset.data.joint_pos[env_ids]),
+                pos_dropout_mask,
+                self._zeros_pos[env_ids],
                 self.asset.data.joint_pos[env_ids]
             )
             self.asset.data.joint_vel[env_ids] = torch.where(
                 vel_dropout_mask,
-                torch.zeros_like(self.asset.data.joint_vel[env_ids]),
+                self._zeros_vel[env_ids],
                 self.asset.data.joint_vel[env_ids]
             )
         else:  # hold
-            # 保持上一帧值
             self.asset.data.joint_pos[env_ids] = torch.where(
                 pos_dropout_mask,
                 self.last_joint_pos[env_ids],
@@ -2151,7 +2185,7 @@ class randomize_observation_dropout(ManagerTermBase):
                 self.last_joint_vel[env_ids],
                 self.asset.data.joint_vel[env_ids]
             )
-        
+
         # 更新上一帧缓存
         self.last_joint_pos[env_ids] = self.asset.data.joint_pos[env_ids].clone()
         self.last_joint_vel[env_ids] = self.asset.data.joint_vel[env_ids].clone()
