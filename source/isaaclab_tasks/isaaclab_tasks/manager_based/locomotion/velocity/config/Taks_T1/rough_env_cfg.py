@@ -223,13 +223,141 @@ class TaksT1Rewards(RewardsCfg):
     )
 
 @configclass
+class TaksT1EventCfg(EventCfg):
+    # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
+
+    # 动作噪声 - 模拟控制信号不完美（量化误差、通讯抖动）
+    action_noise = EventTerm(
+        func=mdp.randomize_action_noise,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "noise_std": 0.05,
+            "noise_type": "gaussian",
+        },
+    )
+
+    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    action_delay = EventTerm(
+        func=mdp.randomize_action_delay,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "max_delay_steps": 8,  # 最大延迟8步
+        },
+    )
+
+    # 关节编码器噪声 - 模拟编码器测量误差和零点偏移
+    encoder_noise = EventTerm(
+        func=mdp.randomize_joint_encoder_noise,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "pos_noise_std": 0.01,  # 位置噪声标准差 (rad)
+            "vel_noise_std": 0.02,   # 速度噪声标准差 (rad/s)
+            "pos_bias_range": (-0.05, 0.05),  # 位置偏置范围 (rad)
+            "vel_bias_range": (-0.1, 0.1),  # 速度偏置范围 (rad/s)
+        },
+    )
+
+    # IMU噪声和漂移 - 模拟真实IMU的测量特性
+    imu_noise = EventTerm(
+        func=mdp.randomize_imu_noise_and_bias,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "ang_vel_noise_std": 0.05,  # 角速度噪声 (rad/s)
+            "lin_acc_noise_std": 0.1,  # 线加速度噪声 (m/s^2)
+            "ang_vel_bias_range": (-0.1, 0.1),
+            "lin_acc_bias_range": (-0.2, 0.2),
+            "bias_drift_std": 0.05,  # 偏置漂移
+        },
+    )
+
+    # 观测丢包 - 模拟传感器偶发失效
+    observation_dropout = EventTerm(
+        func=mdp.randomize_observation_dropout,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "dropout_prob": 0.001,  # 每个维度丢包概率 0.1%
+            "dropout_mode": "hold",  # 丢包时保持上一帧值
+        },
+    )
+
+    # 关节故障 - 模拟电机故障（极低概率）
+    joint_failure = EventTerm(
+        func=mdp.randomize_joint_failure,
+        mode="reset",  # 每次reset时重新采样故障状态
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "failure_prob": 0.0001,  # 每个关节失效概率 0.01%
+            "failure_mode": "weak",  # 弱化模式（扭矩衰减）
+            "weak_factor": 0.5,  # 衰减因子提高，故障程度减轻
+        },
+    )
+
+    # 传感器延迟尖峰 - 模拟偶发的通讯阻塞
+    sensor_latency_spike = EventTerm(
+        func=mdp.randomize_sensor_latency_spike,
+        mode="interval",
+        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
+            "max_latency_steps": 16,  # 最大延迟16步
+        },
+    )
+
+    # 重力方向偏置 - 模拟基座倾斜/坡度
+    slope_randomization = EventTerm(
+        func=mdp.randomize_slope_or_base_frame,
+        mode="startup",  # 仿真开始时设置
+        params={
+            "gravity_bias_range": {
+                "x": (-0.1, 0.1),  # x方向重力偏置 (m/s^2)
+                "y": (-0.1, 0.1),  # y方向重力偏置 (m/s^2)
+                "z": (-0.05, 0.05),  # z方向重力偏置 (m/s^2)
+            },
+        },
+    )
+
+    # 手臂末端外力 - 模拟手部受到的外部扰动
+    arms_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_wrist_yaw_link"]),
+            "force_range": (-5.0, 5.0),
+            "torque_range": (-5.0, 5.0),
+        },
+    )
+
+    # 脚末端外力 - 模拟脚部受到的外部扰动
+    feet_external_force_torque = EventTerm(
+        func=mdp.apply_external_force_torque,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
+            "force_range": (-5.0, 5.0),
+            "torque_range": (-5.0, 5.0),
+        },
+    )
+
+
+@configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     base_link_name = "torso_link|pelvis"
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
-    # 使用基础事件配置
-    events: EventCfg = EventCfg()
+    # 使用扩展的事件配置（包含电机老化、关节摩擦等域随机化）
+    events: TaksT1EventCfg = TaksT1EventCfg()
 
     def __post_init__(self):
         # 调用父类后初始化逻辑，确保基础配置正确设置
@@ -257,6 +385,17 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
+        self.events.push_robot.params["velocity_range"] = {"x": (-1.5, 1.5), "y": (-1.5, 1.5)}
+        self.events.push_robot.interval_range_s = (0.0, 4.0)
+        self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
+        self.events.base_external_force_torque.params["force_range"] = (-1.5, 1.5)
+        self.events.base_external_force_torque.params["torque_range"] = (-1.5, 1.5)
+
+        # 末端推力配置 - 手臂、颈部和脚
+        self.events.arms_external_force_torque.params["force_range"] = (-5.0, 5.0)
+        self.events.arms_external_force_torque.params["torque_range"] = (-5.0, 5.0)
+        self.events.feet_external_force_torque.params["force_range"] = (-5.0, 5.0)
+        self.events.feet_external_force_torque.params["torque_range"] = (-5.0, 5.0)
 
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
@@ -279,7 +418,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         }
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.05, 0.05)}
-        self.events.base_external_force_torque.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
 
         # 机器人摩擦力随机化 - 只对脚踝关节应用
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.foot_link_name)
@@ -345,6 +483,18 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
+        self.events.arms_external_force_torque = None
+        self.events.feet_external_force_torque = None
+
+        # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_noise = None
+        self.events.action_delay = None
+        self.events.encoder_noise = None
+        self.events.imu_noise = None
+        self.events.observation_dropout = None
+        self.events.joint_failure = None
+        self.events.sensor_latency_spike = None
+        self.events.slope_randomization = None
         self.events.inertia_randomization = None
         self.events.push_robot = None
 
