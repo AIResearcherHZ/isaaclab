@@ -102,7 +102,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 # 训练
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Rough-G1-v0 \
-  --num_envs 4096 \
+  --num_envs 15000 \
   --headless
 
 # IO描述符导出
@@ -115,7 +115,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 # 训练
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-  --num_envs 25000 \
+  --num_envs 30000 \
   --headless
 
 # TensorBoard 日志查看
@@ -147,7 +147,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
   --experiment_name Taks_T1_flat \
-  --num_envs 20000 \
+  --num_envs 30000 \
   --resume \
   --headless
 
@@ -161,7 +161,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 # 训练
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Rough-Taks_T1-v0 \
-  --num_envs 20000 \
+  --num_envs 15000 \
   --headless
 
 # IO描述符导出
