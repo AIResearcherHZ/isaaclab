@@ -74,8 +74,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_roll_joint": 32,
             },
             stiffness={
-                ".*_hip_yaw_joint": 100.0,
-                ".*_hip_roll_joint": 100.0,
+                ".*_hip_yaw_joint": 150.0,
+                ".*_hip_roll_joint": 150.0,
             },
             damping={
                 ".*_hip_yaw_joint": 8.0,
@@ -100,8 +100,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_knee_joint": 48,
             },
             stiffness={
-                ".*_hip_pitch_joint": 150.0,
-                ".*_knee_joint": 200.0,
+                ".*_hip_pitch_joint": 200.0,
+                ".*_knee_joint": 250.0,
             },
             damping={
                 ".*_hip_pitch_joint": 6.0,
@@ -178,8 +178,8 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=3,
             velocity_limit_sim=5.5,
-            stiffness=10.0,
-            damping=5.0,
+            stiffness=5.0,
+            damping=1.0,
             armature=0.01,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 峰值 3 Nm，额定 0.8 Nm
@@ -191,8 +191,8 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=0.8,
             velocity_limit_sim=15.7,
-            stiffness=10.0,
-            damping=5.0,
+            stiffness=5.0,
+            damping=1.0,
             armature=0.01,
         ),
     },

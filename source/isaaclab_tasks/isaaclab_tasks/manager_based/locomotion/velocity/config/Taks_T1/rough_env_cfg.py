@@ -1,8 +1,6 @@
-from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
@@ -11,7 +9,8 @@ from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
     RewardsCfg,
 )
 
-from isaaclab_assets import TAKS_T1_CFG  # isort: skip
+from isaaclab_assets.robots.taks import TAKS_T1_CFG  # isort: skip
+
 
 @configclass
 class TaksT1Rewards(RewardsCfg):
@@ -22,14 +21,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=2.0,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.0,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -64,7 +63,7 @@ class TaksT1Rewards(RewardsCfg):
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
@@ -94,31 +93,24 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 手臂俯仰轴扭矩惩罚：限制肩部 pitch 轴扭矩，避免动作过猛
-    arm_torque_penalty_pitch = RewTerm(
-        func=mdp.joint_torques_l2,
-        weight=-2.0e-5,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_pitch_joint"])},
-    )
-
     # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
     arm_torque_penalty_others = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-1.5e-4,
+        weight=-1.0e-4,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_elbow_joint", ".*_wrist_.*"])}
     )
-    
+
     # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
     waist_torques_penalty_l2 = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-5e-5,
+        weight=-5.0e-5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
 
     # 颈部扭矩惩罚：限制颈部扭矩，避免动作过猛
     neck_torques_penalty_l2 = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-5e-5,
+        weight=-2.0e-5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_pitch_joint", "neck_yaw_joint", "neck_roll_joint"])},
     )
 
@@ -142,7 +134,7 @@ class TaksT1Rewards(RewardsCfg):
     # 单脚支撑奖励 - 鼓励正常迈步
     single_leg_stance = RewTerm(
         func=mdp.single_leg_stance_reward,
-        weight=0.05,
+        weight=0.1,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "command_name": "base_velocity",
@@ -180,7 +172,7 @@ class TaksT1Rewards(RewardsCfg):
     # 速度方向对齐奖励 - 鼓励实际速度与命令方向一致
     velocity_alignment = RewTerm(
         func=mdp.velocity_direction_alignment,
-        weight=0.02,
+        weight=0.05,
         params={"command_name": "base_velocity"},
     )
 
@@ -190,7 +182,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
-    # 使用基础事件配置
     events: EventCfg = EventCfg()
 
     def __post_init__(self):
@@ -257,7 +248,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
         )
-        self.rewards.dof_torques_l2.weight = -5.0e-5
+        self.rewards.dof_torques_l2.weight = -5.0e-6
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
         )
@@ -307,7 +298,6 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.base_external_force_torque = None
         self.events.push_robot = None
         self.events.inertia_randomization = None
-        self.events.push_robot = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
