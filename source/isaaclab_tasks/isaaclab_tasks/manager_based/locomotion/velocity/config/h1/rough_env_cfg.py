@@ -20,7 +20,7 @@ from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
 class H1Rewards(RewardsCfg):
     """Reward terms for the MDP."""
 
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-250.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-300.0)
     lin_vel_z_l2 = None
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,

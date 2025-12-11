@@ -17,7 +17,7 @@ from isaaclab_assets import TAKS_T1_CFG  # isort: skip
 class TaksT1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的奖励项。"""
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-250.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-300.0)
 
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
@@ -162,7 +162,7 @@ class TaksT1Rewards(RewardsCfg):
     # 静止姿态奖励 - 无命令时保持标准站姿
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
-        weight=0.5,
+        weight=0.75,
         params={"command_name": "base_velocity", "command_threshold": 0.05},
     )
 
