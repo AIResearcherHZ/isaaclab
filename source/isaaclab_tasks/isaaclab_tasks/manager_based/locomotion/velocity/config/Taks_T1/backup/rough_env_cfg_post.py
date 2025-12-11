@@ -125,7 +125,7 @@ class TaksT1Rewards(RewardsCfg):
     # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
     double_support_penalty = RewTerm(
         func=mdp.double_support_time_penalty,
-        weight=-0.5,
+        weight=-2.5,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "max_double_support_time": 0.2,
@@ -145,7 +145,7 @@ class TaksT1Rewards(RewardsCfg):
     # 双脚交替接触奖励 - 鼓励一脚着地一脚离地
     feet_alternating = RewTerm(
         func=mdp.feet_alternating_contact,
-        weight=0.1,
+        weight=0.05,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "command_name": "base_velocity",
