@@ -56,7 +56,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 # 训练
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
-  --num_envs 20000 \
+  --num_envs 25000 \
   --headless
 
 # TensorBoard 日志查看
@@ -115,7 +115,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
 # 训练
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-  --num_envs 20000 \
+  --num_envs 25000 \
   --headless
 
 # TensorBoard 日志查看

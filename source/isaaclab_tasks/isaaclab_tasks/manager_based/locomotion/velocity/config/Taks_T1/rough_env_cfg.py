@@ -75,44 +75,6 @@ class TaksT1Rewards(RewardsCfg):
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
-    # 全身pitch惩罚 - 防止过度前倾或后仰（使用范围限制）
-    body_pitch_range = RewTerm(
-        func=mdp.body_pitch_range_penalty,
-        weight=-0.1,
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "min_pitch": -0.20,  # 后仰限制（约-11.5度）
-            "max_pitch": 0.20,   # 前倾限制（约11.5度）
-            "use_body_link": False,  # 使用root姿态
-        },
-    )
-
-    # 躯干pitch惩罚 - 防止过度前倾或后仰（使用范围限制）
-    body_pitch_range_torso = RewTerm(
-        func=mdp.body_pitch_range_penalty,
-        weight=-0.1,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=["torso_link"]),
-            "min_pitch": -0.25,  # 后仰限制（约-14.3度）
-            "max_pitch": 0.25,   # 前倾限制（约14.3度）
-            "use_body_link": True,  # 使用torso_link姿态
-        },
-    )
-
-    # 脚全掌着地奖励 - 鼓励脚平稳接触地面
-    foot_flat_contact = RewTerm(
-        func=mdp.foot_flat_contact_reward,
-        weight=0.1,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "ideal_roll": 0.0,
-            "ideal_pitch": 0.0,
-            "roll_tolerance": 0.02,
-            "pitch_tolerance": 0.10,
-        },
-    )
-
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
@@ -201,7 +163,7 @@ class TaksT1Rewards(RewardsCfg):
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
         weight=0.5,
-        params={"command_name": "base_velocity", "command_threshold": 0.05},
+        params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
@@ -269,12 +231,12 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                 "yaw": (-3.14, 3.14),
             },
             "velocity_range": {
-                "x": (-0.5, 0.5),
-                "y": (-0.5, 0.5),
-                "z": (-0.2, 0.2),
-                "roll": (-0.52, 0.52),
-                "pitch": (-0.52, 0.52),
-                "yaw": (-0.78, 0.78),
+                "x": (0.0, 0.0),
+                "y": (0.0, 0.0),
+                "z": (0.0, 0.0),
+                "roll": (0.0, 0.0),
+                "pitch":(0.0, 0.0),
+                "yaw": (0.0, 0.0),
             },
         }
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")

@@ -106,7 +106,7 @@ class CommandsCfg:
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",  # 命令对应的资产（机器人）名字，用于在环境中找对应实体
         resampling_time_range=(10.0, 10.0),  # 每隔多少秒重采样一次命令（固定为 10s）
-        rel_standing_envs=0.02,  # 与“静止”相关的环境比例（可能用于命令采样策略）
+        rel_standing_envs=0.05,  # 与“静止”相关的环境比例（可能用于命令采样策略）
         rel_heading_envs=1.0,  # 是否包含朝向命令的环境比例
         heading_command=True,  # 启用朝向（heading）命令
         heading_control_stiffness=0.5,  # 朝向控制器的刚性系数（用于软约束方向）
@@ -281,12 +281,12 @@ class EventCfg:
                 "yaw": (-3.14, 3.14),
             },
             "velocity_range": {
-                "x": (-0.5, 0.5),
-                "y": (-0.5, 0.5),
-                "z": (-0.2, 0.2),
-                "roll": (-0.52, 0.52),
-                "pitch": (-0.52, 0.52),
-                "yaw": (-0.78, 0.78),
+                "x": (0.0, 0.0),
+                "y": (0.0, 0.0),
+                "z": (0.0, 0.0),
+                "roll": (0.0, 0.0),
+                "pitch":(0.0, 0.0),
+                "yaw": (0.0, 0.0),
             },
         }
     )
@@ -310,7 +310,7 @@ class EventCfg:
 
     inertia_randomization = EventTerm(
         func=mdp.randomize_inertia_properties,
-        mode="reset",
+        mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
             "inertia_distribution_params": (0.5, 2.0),
