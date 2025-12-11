@@ -21,7 +21,7 @@ class G1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的所有奖励项。"""
 
     # 终止惩罚：如果任务终止则应用大的负奖励
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-250.0)
 
     # 追踪线速度奖励：基于期望命令，在机器人局部参考系中沿 XY 平面追踪目标速度
     track_lin_vel_xy_exp = RewTerm(

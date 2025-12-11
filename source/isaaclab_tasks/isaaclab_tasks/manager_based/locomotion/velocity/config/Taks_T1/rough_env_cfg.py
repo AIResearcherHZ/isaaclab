@@ -17,7 +17,7 @@ from isaaclab_assets import TAKS_T1_CFG  # isort: skip
 class TaksT1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的奖励项。"""
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-250.0)
 
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
