@@ -68,14 +68,14 @@ class G1Rewards(RewardsCfg):
     # 髋部偏差细则：使非关键关节保持较接近默认位置，避免不必要摆动
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢不必要摆动，保持干净的动作
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -113,7 +113,7 @@ class G1Rewards(RewardsCfg):
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["torso_joint"])},
     )
 
