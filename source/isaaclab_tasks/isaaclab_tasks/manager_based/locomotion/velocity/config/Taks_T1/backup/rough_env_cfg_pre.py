@@ -22,14 +22,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.25,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=1.25,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 

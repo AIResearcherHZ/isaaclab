@@ -26,14 +26,14 @@ class G1Rewards(RewardsCfg):
     # 追踪线速度奖励：基于期望命令，在机器人局部参考系中沿 XY 平面追踪目标速度
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.25,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励：鼓励机器人控制自身偏航角速率去匹配命令
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=1.25,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
