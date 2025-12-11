@@ -1877,32 +1877,40 @@ class randomize_action_noise(ManagerTermBase):
 
 class randomize_action_delay(ManagerTermBase):
     """模拟动作延迟，使用 FIFO 缓冲区延迟命令执行。
-    
+
     维护一个动作历史缓冲区，每次实际执行的是 delay_steps 之前的动作，
     模拟真实系统中的通讯延迟和控制周期不对齐。
+
+    优化版本：使用纯张量操作，避免Python for循环。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
-        
+        self._num_envs = env.scene.num_envs
+
         # 最大延迟步数
         self.max_delay_steps = cfg.params.get("max_delay_steps", 3)
+        self.buffer_size = self.max_delay_steps + 1
+
         # 为每个 env 采样一个固定的延迟步数
         self.delay_steps = torch.randint(
-            0, self.max_delay_steps + 1, 
-            (env.scene.num_envs,), 
+            0, self.buffer_size,
+            (self._num_envs,),
             device=self.asset.device
         )
-        # 动作历史缓冲区: (num_envs, max_delay_steps + 1, num_joints)
+        # 动作历史缓冲区: (num_envs, buffer_size, num_joints)
         self.action_buffer = torch.zeros(
-            env.scene.num_envs,
-            self.max_delay_steps + 1,
+            self._num_envs,
+            self.buffer_size,
             self.asset.num_joints,
             device=self.asset.device,
         )
         self.buffer_idx = 0
+
+        # 预计算环境索引用于gather操作
+        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
 
     def __call__(
         self,
@@ -1911,33 +1919,35 @@ class randomize_action_delay(ManagerTermBase):
         asset_cfg: SceneEntityCfg,
         max_delay_steps: int = 3,
     ):
-        """应用延迟后的动作。"""
+        """应用延迟后的动作（纯张量操作，无Python循环）。"""
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
-        
+            env_ids = self.env_indices
+
         # 获取当前动作目标
         current_action = self.asset.data.joint_pos_target.clone()
-        
+
         # 存入缓冲区
         self.action_buffer[:, self.buffer_idx] = current_action
-        
-        # 对每个 env，取出延迟后的动作
-        delayed_actions = torch.zeros_like(current_action)
-        for i in range(env.scene.num_envs):
-            delay = self.delay_steps[i].item()
-            delayed_idx = (self.buffer_idx - delay) % (self.max_delay_steps + 1)
-            delayed_actions[i] = self.action_buffer[i, delayed_idx]
-        
+
+        # 计算每个env的延迟索引（纯张量操作）
+        delayed_indices = (self.buffer_idx - self.delay_steps) % self.buffer_size
+
+        # 使用gather进行批量索引（避免for循环）
+        # action_buffer: (num_envs, buffer_size, num_joints)
+        # delayed_indices: (num_envs,) -> (num_envs, 1, num_joints) for gather
+        gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self.asset.num_joints)
+        delayed_actions = self.action_buffer.gather(1, gather_indices).squeeze(1)
+
         # 更新缓冲区索引
-        self.buffer_idx = (self.buffer_idx + 1) % (self.max_delay_steps + 1)
-        
+        self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
+
         # 应用延迟后的动作
         self.asset.set_joint_position_target(delayed_actions[env_ids], env_ids=env_ids)
-        
+
         # reset 时重新采样延迟
-        if env_ids is not None and len(env_ids) > 0:
+        if len(env_ids) > 0:
             self.delay_steps[env_ids] = torch.randint(
-                0, self.max_delay_steps + 1, (len(env_ids),), device=self.asset.device
+                0, self.buffer_size, (len(env_ids),), device=self.asset.device
             )
             self.action_buffer[env_ids] = 0.0
 
@@ -2032,7 +2042,7 @@ class randomize_imu_noise_and_bias(ManagerTermBase):
         self.ang_vel_bias_range = cfg.params.get("ang_vel_bias_range", (-0.02, 0.02))
         self.lin_acc_bias_range = cfg.params.get("lin_acc_bias_range", (-0.1, 0.1))
         self.bias_drift_std = cfg.params.get("bias_drift_std", 0.001)  # 每步漂移
-        
+
         # 为每个 env 采样固定偏置
         self.ang_vel_bias = math_utils.sample_uniform(
             self.ang_vel_bias_range[0], self.ang_vel_bias_range[1],
@@ -2275,18 +2285,20 @@ class randomize_joint_failure(ManagerTermBase):
 
 class randomize_contact_patch_slip(ManagerTermBase):
     """局部超低摩擦区域随机化。
-    
+
     随机将部分 env 的地面/脚底摩擦设置得很低，
     模拟踩到冰面、油污等滑溜区域。
+
+    优化版本：使用纯张量操作，避免Python for循环。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
-        
-        self.slip_prob = cfg.params.get("slip_prob", 0.05)  # 滑溜区域出现概率
-        self.slip_friction = cfg.params.get("slip_friction", 0.1)  # 滑溜时的摩擦系数
+
+        self.slip_prob = cfg.params.get("slip_prob", 0.05)
+        self.slip_friction = cfg.params.get("slip_friction", 0.1)
         self.normal_friction_range = cfg.params.get("normal_friction_range", (0.6, 1.0))
 
     def __call__(
@@ -2298,61 +2310,75 @@ class randomize_contact_patch_slip(ManagerTermBase):
         slip_friction: float = 0.1,
         normal_friction_range: tuple[float, float] = (0.6, 1.0),
     ):
-        """随机设置滑溜区域。"""
+        """随机设置滑溜区域（纯张量操作，无Python循环）。"""
         if env_ids is None:
             env_ids = torch.arange(env.scene.num_envs, device="cpu")
         else:
             env_ids = env_ids.cpu()
-        
+
         # 获取当前材质属性
         materials = self.asset.root_physx_view.get_material_properties()
-        
-        # 决定哪些 env 是滑溜的
-        is_slip = torch.rand(len(env_ids)) < slip_prob
-        
-        for i, env_id in enumerate(env_ids):
-            if is_slip[i]:
-                # 设置低摩擦
-                materials[env_id, :, 0] = slip_friction  # static friction
-                materials[env_id, :, 1] = slip_friction  # dynamic friction
-            else:
-                # 正常摩擦
-                friction = torch.empty(materials.shape[1]).uniform_(*normal_friction_range)
-                materials[env_id, :, 0] = friction
-                materials[env_id, :, 1] = friction * 0.8  # dynamic < static
-        
+        num_shapes = materials.shape[1]
+
+        # 决定哪些 env 是滑溜的（在CPU上计算，因为材质操作需要CPU）
+        is_slip = torch.rand(len(env_ids), device="cpu") < slip_prob
+
+        # 为所有env采样正常摩擦系数
+        normal_friction = torch.empty(len(env_ids), num_shapes, device="cpu").uniform_(
+            normal_friction_range[0], normal_friction_range[1]
+        )
+
+        # 构建滑溜摩擦张量
+        slip_friction_tensor = torch.full((len(env_ids), num_shapes), slip_friction, device="cpu")
+
+        # 使用where选择摩擦系数
+        is_slip_expanded = is_slip.unsqueeze(-1).expand(-1, num_shapes)
+        static_friction = torch.where(is_slip_expanded, slip_friction_tensor, normal_friction)
+        dynamic_friction = torch.where(is_slip_expanded, slip_friction_tensor, normal_friction * 0.8)
+
+        # 批量更新材质属性
+        materials[env_ids, :, 0] = static_friction
+        materials[env_ids, :, 1] = dynamic_friction
+
         self.asset.root_physx_view.set_material_properties(materials, env_ids)
 
 
 class randomize_sensor_latency_spike(ManagerTermBase):
     """传感器延迟尖峰随机化。
-    
+
     极少数 step 在观测上注入大延迟（使用很旧的一帧），
     模拟偶发的通讯阻塞、传感器卡顿等。
+
+    优化版本：使用纯张量操作，避免Python for循环。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
-        
-        self.spike_prob = cfg.params.get("spike_prob", 0.005)  # 延迟尖峰发生概率
-        self.max_latency_steps = cfg.params.get("max_latency_steps", 10)  # 最大延迟步数
-        
+        self._num_envs = env.scene.num_envs
+
+        self.spike_prob = cfg.params.get("spike_prob", 0.005)
+        self.max_latency_steps = cfg.params.get("max_latency_steps", 10)
+        self.buffer_size = self.max_latency_steps + 1
+
         # 观测历史缓冲区
         self.history_buffer_pos = torch.zeros(
-            env.scene.num_envs,
-            self.max_latency_steps + 1,
+            self._num_envs,
+            self.buffer_size,
             self.asset.num_joints,
             device=self.asset.device
         )
         self.history_buffer_vel = torch.zeros(
-            env.scene.num_envs,
-            self.max_latency_steps + 1,
+            self._num_envs,
+            self.buffer_size,
             self.asset.num_joints,
             device=self.asset.device
         )
         self.buffer_idx = 0
+
+        # 预计算环境索引
+        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
 
     def __call__(
         self,
@@ -2362,29 +2388,40 @@ class randomize_sensor_latency_spike(ManagerTermBase):
         spike_prob: float = 0.005,
         max_latency_steps: int = 10,
     ):
-        """偶发注入大延迟。"""
+        """偶发注入大延迟（纯张量操作，无Python循环）。"""
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
-        
+            env_ids = self.env_indices
+
         # 存储当前观测
         self.history_buffer_pos[:, self.buffer_idx] = self.asset.data.joint_pos.clone()
         self.history_buffer_vel[:, self.buffer_idx] = self.asset.data.joint_vel.clone()
-        
-        # 决定哪些 env 发生延迟尖峰
-        spike_mask = torch.rand(len(env_ids), device=self.asset.device) < spike_prob
-        
+
+        # 决定哪些 env 发生延迟尖峰（全部env一起处理）
+        spike_mask = torch.rand(self._num_envs, device=self.asset.device) < spike_prob
+
         if spike_mask.any():
-            # 随机选择延迟步数
-            latency = torch.randint(1, max_latency_steps + 1, (len(env_ids),), device=self.asset.device)
-            
-            for i, env_id in enumerate(env_ids):
-                if spike_mask[i]:
-                    delayed_idx = (self.buffer_idx - latency[i].item()) % (self.max_latency_steps + 1)
-                    self.asset.data.joint_pos[env_id] = self.history_buffer_pos[env_id, delayed_idx]
-                    self.asset.data.joint_vel[env_id] = self.history_buffer_vel[env_id, delayed_idx]
-        
+            # 随机选择延迟步数（为所有env采样）
+            latency = torch.randint(1, self.buffer_size, (self._num_envs,), device=self.asset.device)
+
+            # 计算延迟索引（纯张量操作）
+            delayed_indices = (self.buffer_idx - latency) % self.buffer_size
+
+            # 使用gather进行批量索引
+            gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self.asset.num_joints)
+            delayed_pos = self.history_buffer_pos.gather(1, gather_indices).squeeze(1)
+            delayed_vel = self.history_buffer_vel.gather(1, gather_indices).squeeze(1)
+
+            # 只对spike_mask为True的env应用延迟
+            spike_mask_expanded = spike_mask.unsqueeze(-1).expand(-1, self.asset.num_joints)
+            self.asset.data.joint_pos[:] = torch.where(
+                spike_mask_expanded, delayed_pos, self.asset.data.joint_pos
+            )
+            self.asset.data.joint_vel[:] = torch.where(
+                spike_mask_expanded, delayed_vel, self.asset.data.joint_vel
+            )
+
         # 更新缓冲区索引
-        self.buffer_idx = (self.buffer_idx + 1) % (self.max_latency_steps + 1)
+        self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
 
 
 """
