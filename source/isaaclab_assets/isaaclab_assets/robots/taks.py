@@ -78,11 +78,11 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_roll_joint": 150.0,
             },
             damping={
-                ".*_hip_yaw_joint": 8.0,
-                ".*_hip_roll_joint": 6.0,
+                ".*_hip_yaw_joint": 5.0,
+                ".*_hip_roll_joint": 5.0,
             },
             armature={
-                ".*_hip_.*": 0.03,
+                ".*_hip_.*": 0.01,
             },
             min_delay=0,
             max_delay=8,
@@ -102,15 +102,15 @@ TAKS_T1_CFG = ArticulationCfg(
             },
             stiffness={
                 ".*_hip_pitch_joint": 200.0,
-                ".*_knee_joint": 250.0,
+                ".*_knee_joint": 200.0,
             },
             damping={
-                ".*_hip_pitch_joint": 6.0,
-                ".*_knee_joint": 6.0,
+                ".*_hip_pitch_joint": 5.0,
+                ".*_knee_joint": 5.0,
             },
             armature={
-                ".*_hip_.*": 0.03,
-                ".*_knee_joint": 0.03,
+                ".*_hip_.*": 0.01,
+                ".*_knee_joint": 0.01,
             },
             min_delay=0,
             max_delay=8,
@@ -125,10 +125,10 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_ankle_roll_joint": 20.0,
             },
             damping={
-                ".*_ankle_pitch_joint": 0.2,
-                ".*_ankle_roll_joint": 0.1,
+                ".*_ankle_pitch_joint": 2.0,
+                ".*_ankle_roll_joint": 2.0,
             },
-            armature=0.03,
+            armature=0.01,
             min_delay=0,
             max_delay=8,
         ),
@@ -181,9 +181,9 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=3,
             velocity_limit_sim=5.5,
-            stiffness=5.0,
+            stiffness=4.0,
             damping=1.0,
-            armature=0.01,
+            armature=0.001,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 峰值 3 Nm，额定 0.8 Nm
         "neck": ImplicitActuatorCfg(
@@ -194,9 +194,9 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=0.8,
             velocity_limit_sim=15.7,
-            stiffness=5.0,
+            stiffness=4.0,
             damping=1.0,
-            armature=0.01,
+            armature=0.001,
         ),
     },
 )

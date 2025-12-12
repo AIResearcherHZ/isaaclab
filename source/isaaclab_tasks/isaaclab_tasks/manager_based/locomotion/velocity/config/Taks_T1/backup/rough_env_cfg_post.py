@@ -333,11 +333,11 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.base_link_name)
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
-        self.events.push_robot.params["velocity_range"] = {"x": (-1.5, 1.5), "y": (-1.5, 1.5)}
+        self.events.push_robot.params["velocity_range"] = {"x": (-1.0, 1.0), "y": (-1.0, 1.0)}
         self.events.push_robot.interval_range_s = (0.0, 4.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
-        self.events.base_external_force_torque.params["force_range"] = (-1.5, 1.5)
-        self.events.base_external_force_torque.params["torque_range"] = (-1.5, 1.5)
+        self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
+        self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
 
         # 末端推力配置 - 手臂、颈部和脚
         self.events.arms_external_force_torque.params["force_range"] = (-5.0, 5.0)
