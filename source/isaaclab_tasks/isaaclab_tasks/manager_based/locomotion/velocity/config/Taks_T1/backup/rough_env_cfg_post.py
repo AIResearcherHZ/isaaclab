@@ -348,8 +348,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
 
         # 末端推力配置 - 脚
-        self.events.feet_external_force_torque.params["force_range"] = (-5.0, 5.0)
-        self.events.feet_external_force_torque.params["torque_range"] = (-5.0, 5.0)
+        self.events.feet_external_force_torque.params["force_range"] = (-2.5, 2.5)
+        self.events.feet_external_force_torque.params["torque_range"] = (-2.5, 2.5)
 
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
