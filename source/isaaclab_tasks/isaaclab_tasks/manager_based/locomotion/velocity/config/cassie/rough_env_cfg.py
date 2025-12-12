@@ -84,7 +84,7 @@ class CassieRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # rewards
         self.rewards.undesired_contacts = None
-        self.rewards.dof_torques_l2.weight = -5.0e-6
+        self.rewards.dof_torques_l2.weight = -1.0e-5
         self.rewards.track_lin_vel_xy_exp.weight = 2.0
         self.rewards.track_ang_vel_z_exp.weight = 1.0
         self.rewards.action_rate_l2.weight *= 1.5

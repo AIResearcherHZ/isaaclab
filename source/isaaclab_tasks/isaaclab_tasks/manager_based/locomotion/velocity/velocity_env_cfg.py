@@ -263,8 +263,8 @@ class EventCfg:
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base"),
-            "force_range": (-0.5, 0.5),  # 固定为 0 表示不施加随机外力
-            "torque_range": (-0.5, 0.5),  # 固定为 0（无随机扭矩）
+            "force_range": (-0.1, 0.1),  # 固定为 0 表示不施加随机外力
+            "torque_range": (-0.1, 0.1),  # 固定为 0（无随机扭矩）
         },
     )
 
@@ -305,7 +305,7 @@ class EventCfg:
         func=mdp.push_by_setting_velocity,
         mode="interval",  # 在 interval 模式下周期性触发
         interval_range_s=(0.0, 4.0),  # 触发时间间隔范围（随机或固定采样）
-        params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},  # 推力对应的速度范围
+        params={"velocity_range": {"x": (-0.1, 0.1), "y": (-0.1, 0.1)}},  # 推力对应的速度范围
     )
 
     inertia_randomization = EventTerm(

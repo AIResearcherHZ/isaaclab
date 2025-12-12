@@ -17,7 +17,7 @@ class TaksT1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的奖励项。"""
     # 终止惩罚
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-300.0)
-
+    lin_vel_z_l2 = None
     # 追踪线速度奖励
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
@@ -77,7 +77,7 @@ class TaksT1Rewards(RewardsCfg):
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
 
@@ -237,11 +237,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.0
         self.rewards.action_rate_l2.weight = -0.01
-        self.rewards.dof_acc_l2.weight = -5.0e-7
-        self.rewards.dof_acc_l2.params["asset_cfg"] = SceneEntityCfg(
-            "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
-        )
-        self.rewards.dof_torques_l2.weight = -5.0e-6
+        self.rewards.dof_acc_l2.weight = -2.5e-7
+        self.rewards.dof_torques_l2.weight = -1.0e-5
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
         )

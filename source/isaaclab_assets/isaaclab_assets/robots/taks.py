@@ -9,7 +9,7 @@ The following configurations are available:
 import os
 
 import isaaclab.sim as sim_utils
-from isaaclab.actuators import DCMotorCfg, ImplicitActuatorCfg
+from isaaclab.actuators import DCMotorCfg, ImplicitActuatorCfg, DelayedPDActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 
 # Get the absolute path to the Taks_T1 USD file
@@ -60,16 +60,16 @@ TAKS_T1_CFG = ArticulationCfg(
     soft_joint_pos_limit_factor=0.99,
     actuators={
         # 腿部关节配置 - 扭矩来自URDF/XML
-        "legs_hip_yaw_roll": DCMotorCfg(
+        "legs_hip_yaw_roll": DelayedPDActuatorCfg(
             joint_names_expr=[
                 ".*_hip_yaw_joint",
                 ".*_hip_roll_joint",
             ],
-            effort_limit={
+            effort_limit_sim={
                 ".*_hip_yaw_joint": 97.0,
                 ".*_hip_roll_joint": 97.0,
             },
-            velocity_limit={
+            velocity_limit_sim={
                 ".*_hip_yaw_joint": 32,
                 ".*_hip_roll_joint": 32,
             },
@@ -84,18 +84,19 @@ TAKS_T1_CFG = ArticulationCfg(
             armature={
                 ".*_hip_.*": 0.03,
             },
-            saturation_effort=97.0,
+            min_delay=0,
+            max_delay=8,
         ),
-        "legs_hip_pitch_knee": DCMotorCfg(
+        "legs_hip_pitch_knee": DelayedPDActuatorCfg(
             joint_names_expr=[
                 ".*_hip_pitch_joint",
                 ".*_knee_joint",
             ],
-            effort_limit={
+            effort_limit_sim={
                 ".*_hip_pitch_joint": 120.0,
                 ".*_knee_joint": 120.0,
             },
-            velocity_limit={
+            velocity_limit_sim={
                 ".*_hip_pitch_joint": 48,
                 ".*_knee_joint": 48,
             },
@@ -111,13 +112,14 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_.*": 0.03,
                 ".*_knee_joint": 0.03,
             },
-            saturation_effort=120.0,
+            min_delay=0,
+            max_delay=8,
         ),
         # 脚踝关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
-        "feet": DCMotorCfg(
+        "feet": DelayedPDActuatorCfg(
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
-            effort_limit=27.0,
-            velocity_limit=37.0,
+            effort_limit_sim=27.0,
+            velocity_limit_sim=37.0,
             stiffness={
                 ".*_ankle_pitch_joint": 20.0,
                 ".*_ankle_roll_joint": 20.0,
@@ -127,7 +129,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_ankle_roll_joint": 0.1,
             },
             armature=0.03,
-            saturation_effort=27.0,
+            min_delay=0,
+            max_delay=8,
         ),
         # 腰部关节配置 - 扭矩来自URDF/XML: 峰值 97 Nm，额定 30 Nm
         "waist": ImplicitActuatorCfg(
