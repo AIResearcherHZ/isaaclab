@@ -45,15 +45,13 @@ TAKS_T1_CFG = ArticulationCfg(
         pos=(0.0, 0.0, 0.75),
         rot=(0.7071, 0, 0, 0.7071),
         joint_pos={
-            ".*_elbow_joint": 1.56,
-            "left_shoulder_roll_joint": 0.15,
-            "right_shoulder_roll_joint": -0.15,
-            "left_hip_pitch_joint": -0.20,
-            "right_hip_pitch_joint": -0.20,
-            "left_knee_joint": 0.60,
-            "right_knee_joint": 0.60,
-            "left_ankle_pitch_joint": -0.40,
-            "right_ankle_pitch_joint": -0.40,
+            ".*_elbow_joint": 1.22,
+            "left_shoulder_roll_joint": 0.14,
+            "right_shoulder_roll_joint": -0.14,
+            ".*_shoulder_pitch_joint": 0.17,
+            ".*_hip_pitch_joint": -0.22,
+            ".*_knee_joint": 0.52,
+            ".*_ankle_pitch_joint": -0.30,
         },
         joint_vel={".*": 0.0},
     ),
@@ -133,7 +131,7 @@ TAKS_T1_CFG = ArticulationCfg(
             max_delay=8,
         ),
         # 腰部关节配置 - 扭矩来自URDF/XML: 峰值 97 Nm，额定 30 Nm
-        "waist": ImplicitActuatorCfg(
+        "waist": DelayedPDActuatorCfg(
             joint_names_expr=[
                 "waist_yaw_joint",
                 "waist_roll_joint",
@@ -144,9 +142,11 @@ TAKS_T1_CFG = ArticulationCfg(
             stiffness=200.0,
             damping=5.0,
             armature=0.01,
+            min_delay=0,
+            max_delay=8,
         ),
         # 手臂关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
-        "arms": ImplicitActuatorCfg(
+        "arms": DelayedPDActuatorCfg(
             joint_names_expr=[
                 ".*_shoulder_pitch_joint",
                 ".*_shoulder_roll_joint",
@@ -171,9 +171,11 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_shoulder_.*": 0.01,
                 ".*_elbow_joint": 0.01,
             },
+            min_delay=0,
+            max_delay=8,
         ),
         # 手腕关节配置 - 扭矩来自URDF/XML: 峰值 7 Nm，额定 3 Nm
-        "wrists": ImplicitActuatorCfg(
+        "wrists": DelayedPDActuatorCfg(
             joint_names_expr=[
                 ".*_wrist_roll_joint",
                 ".*_wrist_pitch_joint",
@@ -184,9 +186,11 @@ TAKS_T1_CFG = ArticulationCfg(
             stiffness=4.0,
             damping=1.0,
             armature=0.001,
+            min_delay=0,
+            max_delay=8,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 峰值 3 Nm，额定 0.8 Nm
-        "neck": ImplicitActuatorCfg(
+        "neck": DelayedPDActuatorCfg(
             joint_names_expr=[
                 "neck_yaw_joint",
                 "neck_roll_joint",
@@ -197,6 +201,8 @@ TAKS_T1_CFG = ArticulationCfg(
             stiffness=4.0,
             damping=1.0,
             armature=0.001,
+            min_delay=0,
+            max_delay=8,
         ),
     },
 )
