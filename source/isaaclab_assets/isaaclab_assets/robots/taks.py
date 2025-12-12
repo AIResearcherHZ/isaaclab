@@ -9,7 +9,7 @@ The following configurations are available:
 import os
 
 import isaaclab.sim as sim_utils
-from isaaclab.actuators import DCMotorCfg, ImplicitActuatorCfg, DelayedPDActuatorCfg
+from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 
 # Get the absolute path to the Taks_T1 USD file
@@ -58,7 +58,7 @@ TAKS_T1_CFG = ArticulationCfg(
     soft_joint_pos_limit_factor=0.99,
     actuators={
         # 腿部关节配置 - 扭矩来自URDF/XML
-        "legs_hip_yaw_roll": DelayedPDActuatorCfg(
+        "legs_hip_yaw_roll": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_hip_yaw_joint",
                 ".*_hip_roll_joint",
@@ -72,8 +72,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_roll_joint": 32,
             },
             stiffness={
-                ".*_hip_yaw_joint": 150.0,
-                ".*_hip_roll_joint": 150.0,
+                ".*_hip_yaw_joint": 200.0,
+                ".*_hip_roll_joint": 200.0,
             },
             damping={
                 ".*_hip_yaw_joint": 5.0,
@@ -82,10 +82,8 @@ TAKS_T1_CFG = ArticulationCfg(
             armature={
                 ".*_hip_.*": 0.01,
             },
-            min_delay=0,
-            max_delay=8,
         ),
-        "legs_hip_pitch_knee": DelayedPDActuatorCfg(
+        "legs_hip_pitch_knee": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_hip_pitch_joint",
                 ".*_knee_joint",
@@ -99,8 +97,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_knee_joint": 48,
             },
             stiffness={
-                ".*_hip_pitch_joint": 200.0,
-                ".*_knee_joint": 200.0,
+                ".*_hip_pitch_joint": 250.0,
+                ".*_knee_joint": 250.0,
             },
             damping={
                 ".*_hip_pitch_joint": 5.0,
@@ -110,11 +108,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_.*": 0.01,
                 ".*_knee_joint": 0.01,
             },
-            min_delay=0,
-            max_delay=8,
         ),
         # 脚踝关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
-        "feet": DelayedPDActuatorCfg(
+        "feet": ImplicitActuatorCfg(
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
             effort_limit_sim=27.0,
             velocity_limit_sim=37.0,
@@ -127,11 +123,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_ankle_roll_joint": 2.0,
             },
             armature=0.01,
-            min_delay=0,
-            max_delay=8,
         ),
         # 腰部关节配置 - 扭矩来自URDF/XML: 峰值 97 Nm，额定 30 Nm
-        "waist": DelayedPDActuatorCfg(
+        "waist": ImplicitActuatorCfg(
             joint_names_expr=[
                 "waist_yaw_joint",
                 "waist_roll_joint",
@@ -142,11 +136,9 @@ TAKS_T1_CFG = ArticulationCfg(
             stiffness=200.0,
             damping=5.0,
             armature=0.01,
-            min_delay=0,
-            max_delay=8,
         ),
         # 手臂关节配置 - 扭矩来自URDF/XML: 峰值 27 Nm，额定 9 Nm
-        "arms": DelayedPDActuatorCfg(
+        "arms": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_shoulder_pitch_joint",
                 ".*_shoulder_roll_joint",
@@ -171,11 +163,9 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_shoulder_.*": 0.01,
                 ".*_elbow_joint": 0.01,
             },
-            min_delay=0,
-            max_delay=8,
         ),
         # 手腕关节配置 - 扭矩来自URDF/XML: 峰值 7 Nm，额定 3 Nm
-        "wrists": DelayedPDActuatorCfg(
+        "wrists": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_wrist_roll_joint",
                 ".*_wrist_pitch_joint",
@@ -186,11 +176,9 @@ TAKS_T1_CFG = ArticulationCfg(
             stiffness=4.0,
             damping=1.0,
             armature=0.001,
-            min_delay=0,
-            max_delay=8,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 峰值 3 Nm，额定 0.8 Nm
-        "neck": DelayedPDActuatorCfg(
+        "neck": ImplicitActuatorCfg(
             joint_names_expr=[
                 "neck_yaw_joint",
                 "neck_roll_joint",
@@ -201,8 +189,6 @@ TAKS_T1_CFG = ArticulationCfg(
             stiffness=4.0,
             damping=1.0,
             armature=0.001,
-            min_delay=0,
-            max_delay=8,
         ),
     },
 )
