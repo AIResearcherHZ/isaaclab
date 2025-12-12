@@ -15,7 +15,6 @@ from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
 ##
 from isaaclab_assets import G1_MINIMAL_CFG  # isort: skip
 
-
 @configclass
 class G1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的所有奖励项。"""

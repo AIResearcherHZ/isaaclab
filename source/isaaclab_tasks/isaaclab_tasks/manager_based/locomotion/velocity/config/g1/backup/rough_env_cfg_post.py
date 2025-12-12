@@ -15,7 +15,6 @@ from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
 ##
 from isaaclab_assets import G1_MINIMAL_CFG  # isort: skip
 
-
 @configclass
 class G1Rewards(RewardsCfg):
     """定义用于 MDP 训练中的所有奖励项。"""
@@ -291,17 +290,6 @@ class G1EventCfg(EventCfg):
         },
     )
 
-    # 手臂末端外力 - 模拟手部受到的外部扰动
-    arms_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_elbow_roll_link"]),
-            "force_range": (-5.0, 5.0),
-            "torque_range": (-5.0, 5.0),
-        },
-    )
-
     # 脚末端外力 - 模拟脚部受到的外部扰动
     feet_external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
@@ -356,8 +344,6 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
 
         # 末端推力配置 - 手臂、头部和脚
-        self.events.arms_external_force_torque.params["force_range"] = (-5.0, 5.0)
-        self.events.arms_external_force_torque.params["torque_range"] = (-5.0, 5.0)
         self.events.feet_external_force_torque.params["force_range"] = (-5.0, 5.0)
         self.events.feet_external_force_torque.params["torque_range"] = (-5.0, 5.0)
 
@@ -445,7 +431,6 @@ class G1RoughEnvCfg_PLAY(G1RoughEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
-        self.events.arms_external_force_torque = None
         self.events.feet_external_force_torque = None
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）

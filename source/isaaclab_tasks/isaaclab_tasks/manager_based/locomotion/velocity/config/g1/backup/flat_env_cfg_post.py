@@ -52,7 +52,6 @@ class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
-        self.events.arms_external_force_torque = None
         self.events.feet_external_force_torque = None
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）
