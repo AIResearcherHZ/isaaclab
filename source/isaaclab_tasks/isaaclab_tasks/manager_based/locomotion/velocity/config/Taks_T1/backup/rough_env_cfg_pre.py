@@ -122,7 +122,7 @@ class TaksT1Rewards(RewardsCfg):
     # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
     waist_torques_penalty_l2 = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-2.5e-5,
+        weight=-5.0e-6,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
 
