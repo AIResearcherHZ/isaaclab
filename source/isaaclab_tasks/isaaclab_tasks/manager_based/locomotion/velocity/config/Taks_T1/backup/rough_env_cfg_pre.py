@@ -95,16 +95,28 @@ class TaksT1Rewards(RewardsCfg):
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=[".*_shoulder_.*", ".*_elbow_joint", ".*_wrist_.*"],
+                joint_names=[".*_shoulder_pitch_joint"],
             )
         },
     )
 
-    # 其余手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
+    # 其余手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
+    joint_deviation_arms_others = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_elbow_joint", ".*_wrist_.*"],
+            )
+        },
+    )
+
+    # 手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
     arm_torque_penalty = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-1.0e-5,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*", ".*_elbow_joint", ".*_wrist_.*"])}
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_elbow_joint", ".*_wrist_.*"])}
     )
 
     # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
