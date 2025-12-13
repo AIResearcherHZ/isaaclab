@@ -99,7 +99,7 @@ class H1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # Rewards
         self.rewards.undesired_contacts = None
-        self.rewards.flat_orientation_l2.weight = -1.0
+        self.rewards.flat_orientation_l2.weight = -1.5
         self.rewards.dof_torques_l2.weight = 0.0
         self.rewards.action_rate_l2.weight = -0.005
         self.rewards.dof_acc_l2.weight = -1.25e-7

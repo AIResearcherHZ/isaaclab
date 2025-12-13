@@ -22,8 +22,8 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         # 奖励函数配置部分
         self.rewards.track_ang_vel_z_exp.weight = 1.0
         self.rewards.lin_vel_z_l2.weight = -0.2
-        self.rewards.action_rate_l2.weight = -0.01
-        self.rewards.dof_acc_l2.weight = -2.5e-7
+        self.rewards.action_rate_l2.weight = -0.005
+        self.rewards.dof_acc_l2.weight = -2.0e-7
         self.rewards.feet_air_time.weight = 0.75
         # 将抬脚时间阈值设置为 0.4 秒
         self.rewards.feet_air_time.params["threshold"] = 0.4

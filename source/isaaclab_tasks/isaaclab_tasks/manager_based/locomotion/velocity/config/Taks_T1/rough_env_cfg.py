@@ -124,7 +124,7 @@ class TaksT1Rewards(RewardsCfg):
     waist_torques_penalty_l2 = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-5.0e-6,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
     )
 
     # 步态对称性奖励 - 鼓励左右脚交替接触
@@ -132,36 +132,6 @@ class TaksT1Rewards(RewardsCfg):
         func=mdp.gait_symmetry,
         weight=0.1,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
-    )
-
-    # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
-    double_support_penalty = RewTerm(
-        func=mdp.double_support_time_penalty,
-        weight=-2.5,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "max_double_support_time": 0.2,
-        }
-    )
-
-    # 单脚支撑奖励 - 鼓励正常迈步
-    single_leg_stance = RewTerm(
-        func=mdp.single_leg_stance_reward,
-        weight=0.1,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "command_name": "base_velocity",
-        },
-    )
-
-    # 双脚交替接触奖励 - 鼓励一脚着地一脚离地
-    feet_alternating = RewTerm(
-        func=mdp.feet_alternating_contact,
-        weight=0.05,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "command_name": "base_velocity",
-        },
     )
 
     # 静止姿态奖励 - 无命令时保持标准站姿
@@ -382,9 +352,9 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # ------------------------------Rewards------------------------------
         self.rewards.undesired_contacts = None
-        self.rewards.flat_orientation_l2.weight = -1.0
-        self.rewards.action_rate_l2.weight = -0.01
-        self.rewards.dof_acc_l2.weight = -2.5e-7
+        self.rewards.flat_orientation_l2.weight = -1.5
+        self.rewards.action_rate_l2.weight = -0.005
+        self.rewards.dof_acc_l2.weight = -2.0e-7
         self.rewards.dof_torques_l2.weight = -1.0e-5
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]
