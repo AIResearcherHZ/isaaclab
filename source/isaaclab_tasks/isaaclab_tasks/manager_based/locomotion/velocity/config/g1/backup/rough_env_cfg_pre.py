@@ -187,7 +187,7 @@ class G1Rewards(RewardsCfg):
 
 @configclass
 class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    base_link_name = "torso_link|pelvis"
+    base_link_name = "pelvis|torso_link"
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: G1Rewards = G1Rewards()

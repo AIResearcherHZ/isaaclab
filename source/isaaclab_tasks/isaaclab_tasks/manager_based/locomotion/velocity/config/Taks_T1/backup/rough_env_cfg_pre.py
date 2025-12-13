@@ -166,14 +166,14 @@ class TaksT1Rewards(RewardsCfg):
     # 静止姿态奖励 - 无命令时保持标准站姿
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
-        weight=0.75,
+        weight=0.8,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
     stand_still_joint_deviation = RewTerm(
         func=mdp.stand_still_joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.3,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.05,
@@ -190,7 +190,7 @@ class TaksT1Rewards(RewardsCfg):
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    base_link_name = "torso_link|pelvis"
+    base_link_name = "pelvis|torso_link"
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
@@ -263,9 +263,9 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         )
 
         # ------------------------------Commands------------------------------
-        self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
-        self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
+        self.commands.base_velocity.ranges.lin_vel_x = (-1.2, 1.2)
+        self.commands.base_velocity.ranges.lin_vel_y = (-1.2, 1.2)
+        self.commands.base_velocity.ranges.ang_vel_z = (-1.2, 1.2)
 
         # ------------------------------Terminations------------------------------
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
