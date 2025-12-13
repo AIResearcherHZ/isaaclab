@@ -77,7 +77,7 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.35,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
@@ -91,7 +91,7 @@ class TaksT1Rewards(RewardsCfg):
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.25,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -116,7 +116,7 @@ class TaksT1Rewards(RewardsCfg):
     arm_torque_penalty = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-1.0e-5,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_elbow_joint", ".*_wrist_.*"])}
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_roll_joint", ".*_shoulder_yaw_joint", ".*_wrist_.*"])}
     )
 
     # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
@@ -131,36 +131,6 @@ class TaksT1Rewards(RewardsCfg):
         func=mdp.gait_symmetry,
         weight=0.1,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")},
-    )
-
-    # 双脚同时接触惩罚 - 防止双脚同时离地或同时着地过久
-    double_support_penalty = RewTerm(
-        func=mdp.double_support_time_penalty,
-        weight=-2.5,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "max_double_support_time": 0.2,
-        }
-    )
-
-    # 单脚支撑奖励 - 鼓励正常迈步
-    single_leg_stance = RewTerm(
-        func=mdp.single_leg_stance_reward,
-        weight=0.1,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "command_name": "base_velocity",
-        },
-    )
-
-    # 双脚交替接触奖励 - 鼓励一脚着地一脚离地
-    feet_alternating = RewTerm(
-        func=mdp.feet_alternating_contact,
-        weight=0.05,
-        params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "command_name": "base_velocity",
-        },
     )
 
     # 静止姿态奖励 - 无命令时保持标准站姿
