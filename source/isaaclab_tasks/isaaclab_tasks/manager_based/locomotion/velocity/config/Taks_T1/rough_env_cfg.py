@@ -138,7 +138,7 @@ class TaksT1Rewards(RewardsCfg):
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
         weight=0.75,
-        params={"command_name": "base_velocity", "command_threshold": 0.1},
+        params={"command_name": "base_velocity", "command_threshold": 0.05},
     )
 
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
