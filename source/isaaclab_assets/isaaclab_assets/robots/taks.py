@@ -45,10 +45,10 @@ TAKS_T1_CFG = ArticulationCfg(
         pos=(0.0, 0.0, 0.75),
         rot=(0.7071, 0, 0, 0.7071),
         joint_pos={
-            ".*_elbow_joint": 1.22,
             "left_shoulder_roll_joint": 0.14,
             "right_shoulder_roll_joint": -0.14,
             ".*_shoulder_pitch_joint": 0.17,
+            ".*_elbow_joint": 1.22,
             ".*_hip_pitch_joint": -0.22,
             ".*_knee_joint": 0.52,
             ".*_ankle_pitch_joint": -0.30,
