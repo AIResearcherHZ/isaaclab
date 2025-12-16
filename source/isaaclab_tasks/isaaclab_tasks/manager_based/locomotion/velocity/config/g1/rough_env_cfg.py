@@ -252,7 +252,6 @@ class G1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.physics_material.params["num_buckets"] = 64
 
         # 奖励权重进一步细调
-        self.rewards.lin_vel_z_l2.weight = 0.0
         self.rewards.undesired_contacts = None
         self.rewards.flat_orientation_l2.weight = -1.25
         self.rewards.action_rate_l2.weight = -0.005
