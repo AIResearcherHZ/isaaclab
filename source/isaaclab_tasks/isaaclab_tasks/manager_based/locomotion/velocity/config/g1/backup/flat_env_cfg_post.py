@@ -27,7 +27,7 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         self.rewards.feet_air_time.weight = 0.75
         # 将抬脚时间阈值设置为 0.4 秒
         self.rewards.feet_air_time.params["threshold"] = 0.4
-        self.rewards.dof_torques_l2.weight = -1.0e-5
+        self.rewards.dof_torques_l2.weight = -1.0e-6
         # 仅针对特定的关节名称（髋部与膝部）应用扭矩惩罚
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]

@@ -112,17 +112,10 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 手臂关节扭矩惩罚：使非 pitch 轴保持低扭矩，避免抖动
-    arm_torque_penalty = RewTerm(
-        func=mdp.joint_torques_l2,
-        weight=-1.0e-5,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_yaw_joint", ".*_wrist_.*"])}
-    )
-
     # 腰部扭矩惩罚：限制腰部扭矩，避免动作过猛
     waist_torques_penalty_l2 = RewTerm(
         func=mdp.joint_torques_l2,
-        weight=-5.0e-6,
+        weight=-5.0e-7,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
     )
 
@@ -257,7 +250,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.flat_orientation_l2.weight = -1.5
         self.rewards.action_rate_l2.weight = -0.005
         self.rewards.dof_acc_l2.weight = -2.0e-7
-        self.rewards.dof_torques_l2.weight = -1.0e-5
+        self.rewards.dof_torques_l2.weight = -1.0e-6
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_pitch_joint", ".*_knee_joint", ".*_ankle_.*"]
         )
