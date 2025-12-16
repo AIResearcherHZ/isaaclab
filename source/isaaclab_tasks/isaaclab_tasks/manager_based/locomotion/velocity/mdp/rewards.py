@@ -226,92 +226,6 @@ def velocity_direction_alignment(
     return reward * valid_mask.float()
 
 
-def body_pitch_range_penalty(
-    env,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    min_pitch: float = -0.3,
-    max_pitch: float = 0.3,
-    use_body_link: bool = False,
-) -> torch.Tensor:
-    """惩罚pitch角度超出指定范围（支持前倾和后仰分别限制）。
-    
-    Args:
-        env: 环境对象
-        asset_cfg: 资产配置，可指定body_names来选择特定link
-        min_pitch: 最小允许pitch角度（负值表示后仰），单位弧度
-        max_pitch: 最大允许pitch角度（正值表示前倾），单位弧度
-        use_body_link: 是否使用指定body link的姿态，False则使用root姿态
-    
-    Returns:
-        超出范围的惩罚值（越界越大）
-    """
-    asset = env.scene[asset_cfg.name]
-    
-    if use_body_link and asset_cfg.body_ids is not None:
-        # 使用指定body link的世界姿态
-        quat = asset.data.body_quat_w[:, asset_cfg.body_ids[0], :]
-    else:
-        # 使用机器人根节点姿态
-        quat = asset.data.root_quat_w
-    
-    # 计算pitch角度 (正值=前倾, 负值=后仰)
-    pitch = torch.asin(torch.clamp(2.0 * (quat[:, 0] * quat[:, 2] - quat[:, 3] * quat[:, 1]), -1.0, 1.0))
-    
-    # 分别计算前倾和后仰的越界量
-    excess_forward = torch.clamp(pitch - max_pitch, min=0.0)
-    excess_backward = torch.clamp(min_pitch - pitch, min=0.0)
-    return excess_forward + excess_backward
-
-
-def foot_roll_penalty(
-    env,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    max_roll: float = 0.15,
-) -> torch.Tensor:
-    """惩罚脚踝roll角度过大（防止脚侧面着地）。"""
-    asset = env.scene[asset_cfg.name]
-    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-    # 获取脚踝link的世界姿态四元数
-    foot_quat = asset.data.body_quat_w[:, asset_cfg.body_ids, :]
-    w, x, y, z = foot_quat[..., 0], foot_quat[..., 1], foot_quat[..., 2], foot_quat[..., 3]
-    roll = torch.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
-    # 获取接触状态
-    contact_forces = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :]
-    in_contact = torch.norm(contact_forces[:, 0, :, :], dim=-1) > 1.0
-    # 只在接触时惩罚roll角度超限
-    excess_roll = torch.clamp(torch.abs(roll) - max_roll, min=0.0)
-    return torch.sum(excess_roll * in_contact.float(), dim=1)
-
-
-def foot_flat_contact_reward(
-    env,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    ideal_roll: float = 0.0,
-    ideal_pitch: float = 0.0,
-    roll_tolerance: float = 0.02,
-    pitch_tolerance: float = 0.10,
-) -> torch.Tensor:
-    """奖励脚全掌平稳着地（roll和pitch都接近理想值）。"""
-    asset = env.scene[asset_cfg.name]
-    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-    # 获取脚踝link的世界姿态四元数
-    foot_quat = asset.data.body_quat_w[:, asset_cfg.body_ids, :]
-    w, x, y, z = foot_quat[..., 0], foot_quat[..., 1], foot_quat[..., 2], foot_quat[..., 3]
-    # 计算roll和pitch
-    roll = torch.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
-    pitch = torch.asin(torch.clamp(2.0 * (w * y - z * x), -1.0, 1.0))
-    # 获取接触状态
-    contact_forces = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :]
-    in_contact = torch.norm(contact_forces[:, 0, :, :], dim=-1) > 1.0
-    # 计算与理想姿态的偏差并给予奖励
-    roll_reward = torch.exp(-torch.abs(roll - ideal_roll) / roll_tolerance)
-    pitch_reward = torch.exp(-torch.abs(pitch - ideal_pitch) / pitch_tolerance)
-    # 只在接触时奖励
-    return torch.sum(roll_reward * pitch_reward * in_contact.float(), dim=1)
-
-
 def center_of_mass_stability(
     env,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
@@ -422,3 +336,115 @@ def center_of_mass_in_support_polygon(
                          torch.where(single_contact, single_support_reward,
                                      torch.zeros_like(double_support_reward)))
     return reward
+
+
+# ==================== 条件奖励函数（根据指令状态切换） ====================
+
+
+def _get_command_mask(env, command_name: str, threshold: float = 0.1) -> torch.Tensor:
+    """获取指令掩码：有指令时为1，无指令时为0。
+    
+    GPU并行友好的纯张量操作。
+    """
+    command = env.command_manager.get_command(command_name)
+    # 计算指令幅度（线速度xy + 角速度z）
+    cmd_magnitude = torch.norm(command[:, :2], dim=1) + torch.abs(command[:, 2])
+    return (cmd_magnitude > threshold).float()
+
+
+def action_rate_l2_conditional(
+    env, command_name: str, command_threshold: float = 0.1
+) -> torch.Tensor:
+    """条件动作变化率惩罚：仅在有指令时应用。
+    
+    无指令时不惩罚动作变化，允许机器人自由调整以保持平衡。
+    """
+    action_rate = torch.sum(torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return action_rate * cmd_mask
+
+
+def dof_acc_l2_conditional(
+    env, command_name: str, command_threshold: float = 0.1, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """条件关节加速度惩罚：仅在有指令时应用。
+    
+    无指令时不惩罚加速度，允许机器人快速响应外部扰动。
+    """
+    asset = env.scene[asset_cfg.name]
+    acc = torch.sum(torch.square(asset.data.joint_acc[:, asset_cfg.joint_ids]), dim=1)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return acc * cmd_mask
+
+
+def dof_torques_l2_conditional(
+    env, command_name: str, command_threshold: float = 0.1, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """条件关节扭矩惩罚：仅在有指令时应用。
+    
+    无指令时不惩罚扭矩，允许机器人使用必要的扭矩来抵抗外部干扰。
+    """
+    asset = env.scene[asset_cfg.name]
+    torques = torch.sum(torch.square(asset.data.applied_torque[:, asset_cfg.joint_ids]), dim=1)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return torques * cmd_mask
+
+
+def joint_torques_l2_conditional(
+    env, command_name: str, command_threshold: float = 0.1, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """条件关节扭矩L2惩罚：仅在有指令时应用。
+    
+    与dof_torques_l2_conditional相同，用于特定关节组。
+    """
+    return dof_torques_l2_conditional(env, command_name, command_threshold, asset_cfg)
+
+
+def gait_symmetry_conditional(
+    env, command_name: str, command_threshold: float = 0.1, sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces")
+) -> torch.Tensor:
+    """条件步态对称性奖励：仅在有指令时应用。"""
+    reward = gait_symmetry(env, sensor_cfg)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return reward * cmd_mask
+
+
+def double_support_time_penalty_conditional(
+    env, command_name: str, command_threshold: float = 0.1,
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces"),
+    max_double_support_time: float = 0.4
+) -> torch.Tensor:
+    """条件双脚支撑时间惩罚：仅在有指令时应用。"""
+    reward = double_support_time_penalty(env, sensor_cfg, max_double_support_time)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return reward * cmd_mask
+
+
+def single_leg_stance_reward_conditional(
+    env, command_name: str, command_threshold: float = 0.1,
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces")
+) -> torch.Tensor:
+    """条件单脚支撑奖励：仅在有指令时应用。"""
+    reward = single_leg_stance_reward(env, sensor_cfg, command_name)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return reward * cmd_mask
+
+
+def feet_alternating_contact_conditional(
+    env, command_name: str, command_threshold: float = 0.1,
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("contact_forces")
+) -> torch.Tensor:
+    """条件双脚交替接触奖励：仅在有指令时应用。"""
+    reward = feet_alternating_contact(env, sensor_cfg, command_name)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return reward * cmd_mask
+
+
+def velocity_direction_alignment_conditional(
+    env, command_name: str, command_threshold: float = 0.1,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """条件速度方向对齐奖励：仅在有指令时应用。"""
+    reward = velocity_direction_alignment(env, command_name, asset_cfg)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return reward * cmd_mask
