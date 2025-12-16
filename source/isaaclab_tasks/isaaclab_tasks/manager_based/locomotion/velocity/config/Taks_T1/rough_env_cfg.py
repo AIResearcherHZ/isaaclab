@@ -117,7 +117,7 @@ class TaksT1Rewards(RewardsCfg):
     waist_torques_penalty_l2 = RewTerm(
         func=mdp.joint_torques_l2,
         weight=-5.0e-7,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"])},
     )
 
     # 步态对称性奖励 - 鼓励左右脚交替接触
@@ -345,7 +345,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # ------------------------------Rewards------------------------------
         self.rewards.undesired_contacts = None
-        self.rewards.flat_orientation_l2.weight = -1.5
+        self.rewards.flat_orientation_l2.weight = -1.25
         self.rewards.action_rate_l2.weight = -0.005
         self.rewards.dof_acc_l2.weight = -2.0e-7
         self.rewards.dof_torques_l2.weight = -1.0e-6
@@ -365,6 +365,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             ".*_shoulder_pitch_link",
             ".*_shoulder_roll_link",
             ".*_shoulder_yaw_link",
+            ".*_wrist_pitch_link",
         ]
 
 

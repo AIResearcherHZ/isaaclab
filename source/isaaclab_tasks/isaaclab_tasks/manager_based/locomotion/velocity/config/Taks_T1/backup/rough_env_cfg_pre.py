@@ -159,7 +159,7 @@ class TaksT1Rewards(RewardsCfg):
     # 静止姿态奖励 - 无命令时保持标准站姿
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
-        weight=0.8,
+        weight=0.75,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
@@ -247,7 +247,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # ------------------------------Rewards------------------------------
         self.rewards.undesired_contacts = None
-        self.rewards.flat_orientation_l2.weight = -1.5
+        self.rewards.flat_orientation_l2.weight = -1.25
         self.rewards.action_rate_l2.weight = -0.005
         self.rewards.dof_acc_l2.weight = -2.0e-7
         self.rewards.dof_torques_l2.weight = -1.0e-6
