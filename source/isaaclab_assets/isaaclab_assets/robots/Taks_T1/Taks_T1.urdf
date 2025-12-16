@@ -203,9 +203,27 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="-0.08 0.025 -0.05" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/left_ankle_roll_link.STL"/>
+        <sphere radius="0.005"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.08 -0.025 -0.05" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.08 0.025 -0.05" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.08 -0.025 -0.05" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.005"/>
       </geometry>
     </collision>
   </link>
@@ -384,9 +402,27 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="-0.08 0.025 -0.05" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/right_ankle_roll_link.STL"/>
+        <sphere radius="0.005"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.08 -0.025 -0.05" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.08 0.025 -0.05" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.08 -0.025 -0.05" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.005"/>
       </geometry>
     </collision>
   </link>
@@ -693,9 +729,9 @@
 
   <link name="left_wrist_pitch_link">
     <inertial>
-      <origin xyz="0.076857 -0.017165 0.011311" rpy="0 0 0"/>
-      <mass value="0.28"/>
-      <inertia ixx="0.000121333" ixy="0.0" ixz="0.0" iyy="0.000373333" iyz="0.0" izz="0.00042"/>
+      <origin xyz="0.0920 -0.0265 0.0015" rpy="0 0 0"/>
+      <mass value="0.308"/>
+      <inertia ixx="0.000256667" ixy="0.0" ixz="0.0" iyy="0.00133467" iyz="0.0" izz="0.00140653"/>
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -918,9 +954,9 @@
 
   <link name="right_wrist_pitch_link">
     <inertial>
-      <origin xyz="0.076858 0.017168 0.01131" rpy="0 0 0"/>
-      <mass value="0.28"/>
-      <inertia ixx="0.000121333" ixy="0.0" ixz="0.0" iyy="0.000373333" iyz="0.0" izz="0.00042"/>
+      <origin xyz="0.0920 0.0265 0.0015" rpy="0 0 0"/>
+      <mass value="0.308"/>
+      <inertia ixx="0.000256667" ixy="0.0" ixz="0.0" iyy="0.00133467" iyz="0.0" izz="0.00140653"/>
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
