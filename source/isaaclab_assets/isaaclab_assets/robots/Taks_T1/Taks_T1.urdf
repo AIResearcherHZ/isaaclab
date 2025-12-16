@@ -203,27 +203,9 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.08 0.025 -0.05" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <sphere radius="0.005"/>
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.08 -0.025 -0.05" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="0.005"/>
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0.08 0.025 -0.05" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="0.005"/>
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0.08 -0.025 -0.05" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="0.005"/>
+        <mesh filename="meshes/left_ankle_roll_link.STL"/>
       </geometry>
     </collision>
   </link>
@@ -402,27 +384,9 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.08 0.025 -0.05" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <sphere radius="0.005"/>
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.08 -0.025 -0.05" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="0.005"/>
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0.08 0.025 -0.05" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="0.005"/>
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0.08 -0.025 -0.05" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="0.005"/>
+        <mesh filename="meshes/right_ankle_roll_link.STL"/>
       </geometry>
     </collision>
   </link>
