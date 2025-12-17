@@ -151,39 +151,39 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 条件双脚同时接触惩罚：仅有指令时惩罚
-    double_support_penalty_cond = RewTerm(
-        func=mdp.double_support_time_penalty_conditional,
-        weight=-2.5,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "max_double_support_time": 0.2,
-        },
-    )
+    # # 条件双脚同时接触惩罚：仅有指令时惩罚
+    # double_support_penalty_cond = RewTerm(
+    #     func=mdp.double_support_time_penalty_conditional,
+    #     weight=-2.5,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #         "max_double_support_time": 0.2,
+    #     },
+    # )
 
-    # 条件单脚支撑奖励：仅有指令时奖励
-    single_leg_stance_cond = RewTerm(
-        func=mdp.single_leg_stance_reward_conditional,
-        weight=0.1,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        },
-    )
+    # # 条件单脚支撑奖励：仅有指令时奖励
+    # single_leg_stance_cond = RewTerm(
+    #     func=mdp.single_leg_stance_reward_conditional,
+    #     weight=0.1,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #     },
+    # )
 
-    # 条件双脚交替接触奖励：仅有指令时奖励
-    feet_alternating_cond = RewTerm(
-        func=mdp.feet_alternating_contact_conditional,
-        weight=0.05,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        },
-    )
+    # # 条件双脚交替接触奖励：仅有指令时奖励
+    # feet_alternating_cond = RewTerm(
+    #     func=mdp.feet_alternating_contact_conditional,
+    #     weight=0.05,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #     },
+    # )
 
     # 条件速度方向对齐奖励：仅有指令时奖励
     velocity_alignment_cond = RewTerm(
