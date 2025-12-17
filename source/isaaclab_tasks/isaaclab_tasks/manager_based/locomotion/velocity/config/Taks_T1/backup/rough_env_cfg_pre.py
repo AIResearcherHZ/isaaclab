@@ -220,7 +220,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件腰部扭矩惩罚：仅有指令时惩罚
     waist_torques_l2_cond = RewTerm(
         func=mdp.joint_torques_l2_conditional,
-        weight=-1.0e-6,
+        weight=-5.0e-7,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
