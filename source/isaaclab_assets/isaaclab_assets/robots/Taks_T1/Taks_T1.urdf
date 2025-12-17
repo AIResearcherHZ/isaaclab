@@ -980,7 +980,7 @@
     <parent link="torso_link"/>
     <child link="neck_yaw_link"/>
     <axis xyz="0.0 0.0 1.0"/>
-    <limit lower="-1.57" upper="1.57" effort="3.0" velocity="15.71"/>
+    <limit lower="-0.001" upper="0.001" effort="3.0" velocity="15.71"/>
   </joint>
 
   <link name="neck_roll_link">
@@ -1013,7 +1013,7 @@
     <parent link="neck_yaw_link"/>
     <child link="neck_roll_link"/>
     <axis xyz="1.0 0.0 0.0"/>
-    <limit lower="-0.873" upper="0.873" effort="3.0" velocity="15.71"/>
+    <limit lower="-0.001" upper="0.001" effort="3.0" velocity="15.71"/>
   </joint>
 
   <link name="neck_pitch_link">
@@ -1046,7 +1046,7 @@
     <parent link="neck_roll_link"/>
     <child link="neck_pitch_link"/>
     <axis xyz="0.0 1.0 0.0"/>
-    <limit lower="-0.873" upper="0.873" effort="3.0" velocity="15.71"/>
+    <limit lower="-0.001" upper="0.001" effort="3.0" velocity="15.71"/>
   </joint>
 
 </robot>
