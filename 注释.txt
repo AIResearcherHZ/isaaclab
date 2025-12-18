@@ -53,22 +53,22 @@ ln -s /home/xhz/isaacsim _isaac_sim
 --------------------------------------------------------------------------------
 【G1 机器人 - 平坦地形】
 --------------------------------------------------------------------------------
- # 训练
- ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-G1-v0 \
-   --num_envs 35000 \
-   --headless
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --num_envs 35000 \
+  --headless
 
- # 单节点多GPU训练（DDP）
- python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-G1-v0 \
-   --num_envs 35000 \
-   --headless \
-   --distributed
- 
- # TensorBoard 日志查看
- ./isaaclab.sh -p -m tensorboard.main \
-   --logdir=logs/rsl_rl/g1_flat
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --num_envs 35000 \
+  --headless \
+  --distributed
+
+# TensorBoard 日志查看
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir=logs/rsl_rl/g1_flat
 
 # 普通播放（能生成onnx）
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
@@ -81,26 +81,26 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --num_envs 1 \
   --keyboard
 
- # 断点重训
- ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-G1-v0 \
-   --experiment_name g1_flat \
-   --num_envs 35000 \
-   --resume \
-   --headless
+# 断点重训
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --experiment_name g1_flat \
+  --num_envs 35000 \
+  --resume \
+  --headless
 
- # 单节点多GPU断点重训（DDP）
- python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-G1-v0 \
-   --experiment_name g1_flat \
-   --num_envs 35000 \
-   --resume \
-   --headless \
-   --distributed
- 
- # 扭矩录制
- ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
-   --task Isaac-Velocity-Flat-G1-Play-v0 \
+# 单节点多GPU断点重训（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --experiment_name g1_flat \
+  --num_envs 35000 \
+  --resume \
+  --headless \
+  --distributed
+
+# 扭矩录制
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
   --num_envs 1 \
   --enable_torque_recording \
   --torque_recording_dir logs/my_torque_data \
@@ -109,48 +109,52 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --headless
 
 # IO描述符导出
-./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Flat-G1-v0 --output_dir ./io_descriptors
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --output_dir ./io_descriptors
 
 
 --------------------------------------------------------------------------------
 【G1 机器人 - 粗糙地形】
 --------------------------------------------------------------------------------
- # 训练
- ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Rough-G1-v0 \
-   --num_envs 15000 \
-   --headless
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-G1-v0 \
+  --num_envs 15000 \
+  --headless
 
- # 单节点多GPU训练（DDP）
- python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Rough-G1-v0 \
-   --num_envs 15000 \
-   --headless \
-   --distributed
- 
- # IO描述符导出
- ./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Rough-G1-v0 --output_dir ./io_descriptors
- 
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-G1-v0 \
+  --num_envs 15000 \
+  --headless \
+  --distributed
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Rough-G1-v0 \
+  --output_dir ./io_descriptors
+
 
 --------------------------------------------------------------------------------
 【Taks_T1 机器人 - 平坦地形】
 --------------------------------------------------------------------------------
- # 训练
- ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-   --num_envs 35000 \
-   --headless
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --num_envs 35000 \
+  --headless
 
- # 单节点多GPU训练（DDP）
- python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-   --num_envs 35000 \
-   --headless \
-   --distributed
- 
- # TensorBoard 日志查看
- ./isaaclab.sh -p -m tensorboard.main \
-   --logdir=logs/rsl_rl/Taks_T1_flat
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --num_envs 35000 \
+  --headless \
+  --distributed
+
+# TensorBoard 日志查看
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir=logs/rsl_rl/Taks_T1_flat
 
 # 普通播放（能生成onnx）
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
@@ -173,42 +177,46 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --torque_recording_duration 5.0 \
   --headless
 
- # 断点重训
- ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-   --experiment_name Taks_T1_flat \
-   --num_envs 35000 \
-   --resume \
-   --headless
+# 断点重训
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --experiment_name Taks_T1_flat \
+  --num_envs 35000 \
+  --resume \
+  --headless
 
- # 单节点多GPU断点重训（DDP）
- python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-   --experiment_name Taks_T1_flat \
-   --num_envs 35000 \
-   --resume \
-   --headless \
-   --distributed
- 
- # IO描述符导出
- ./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Flat-Taks_T1-v0 --output_dir ./io_descriptors
- 
+# 单节点多GPU断点重训（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --experiment_name Taks_T1_flat \
+  --num_envs 35000 \
+  --resume \
+  --headless \
+  --distributed
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --output_dir ./io_descriptors
+
 
 --------------------------------------------------------------------------------
 【Taks_T1 机器人 - 粗糙地形】
 --------------------------------------------------------------------------------
- # 训练
- ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Rough-Taks_T1-v0 \
-   --num_envs 15000 \
-   --headless
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-Taks_T1-v0 \
+  --num_envs 15000 \
+  --headless
 
- # 单节点多GPU训练（DDP）
- python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
-   --task Isaac-Velocity-Rough-Taks_T1-v0 \
-   --num_envs 15000 \
-   --headless \
-   --distributed
- 
- # IO描述符导出
- ./isaaclab.sh -p scripts/environments/export_IODescriptors.py --task Isaac-Velocity-Rough-Taks_T1-v0 --output_dir ./io_descriptors
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-Taks_T1-v0 \
+  --num_envs 15000 \
+  --headless \
+  --distributed
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Rough-Taks_T1-v0 \
+  --output_dir ./io_descriptors
