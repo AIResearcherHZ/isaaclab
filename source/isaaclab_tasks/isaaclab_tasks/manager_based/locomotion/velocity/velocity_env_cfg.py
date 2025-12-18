@@ -105,8 +105,8 @@ class CommandsCfg:
 
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",  # 命令对应的资产（机器人）名字，用于在环境中找对应实体
-        resampling_time_range=(5.0, 5.0),  # 每隔多少秒重采样一次命令（固定为 10s）
-        rel_standing_envs=0.1,  # 与“静止”相关的环境比例（可能用于命令采样策略）
+        resampling_time_range=(10.0, 10.0),  # 每隔多少秒重采样一次命令（固定为 10s）
+        rel_standing_envs=0.05,  # 与“静止”相关的环境比例（可能用于命令采样策略）
         rel_heading_envs=1.0,  # 是否包含朝向命令的环境比例
         heading_command=True,  # 启用朝向（heading）命令
         heading_control_stiffness=0.5,  # 朝向控制器的刚性系数（用于软约束方向）
