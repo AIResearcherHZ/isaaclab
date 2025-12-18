@@ -188,7 +188,7 @@ def get_checkpoint_path(
     """
     # check if runs present in directory
     try:
-        # find all runs in the directory that math the regex expression
+        # find all runs in the directory that match the regex expression
         runs = [
             os.path.join(log_path, run) for run in os.scandir(log_path) if run.is_dir() and re.match(run_dir, run.name)
         ]
@@ -197,19 +197,28 @@ def get_checkpoint_path(
             runs.sort()
         else:
             runs = sorted(runs, key=os.path.getmtime)
-        # create last run file path
-        if other_dirs is not None:
-            run_path = os.path.join(runs[-1], *other_dirs)
-        else:
-            run_path = runs[-1]
+        
+        # find the latest run that actually contains checkpoint files
+        run_path = None
+        for run in reversed(runs):
+            if other_dirs is not None:
+                candidate_path = os.path.join(run, *other_dirs)
+            else:
+                candidate_path = run
+            # check if this directory has any matching checkpoint files
+            if os.path.isdir(candidate_path):
+                checkpoints_in_dir = [f for f in os.listdir(candidate_path) if re.match(checkpoint, f)]
+                if len(checkpoints_in_dir) > 0:
+                    run_path = candidate_path
+                    break
+        
+        if run_path is None:
+            raise IndexError("No runs with checkpoints found")
     except IndexError:
-        raise ValueError(f"No runs present in the directory: '{log_path}' match: '{run_dir}'.")
+        raise ValueError(f"No runs present in the directory: '{log_path}' match: '{run_dir}' with checkpoints matching '{checkpoint}'.")
 
-    # list all model checkpoints in the directory
+    # list all model checkpoints in the directory (already verified above)
     model_checkpoints = [f for f in os.listdir(run_path) if re.match(checkpoint, f)]
-    # check if any checkpoints are present
-    if len(model_checkpoints) == 0:
-        raise ValueError(f"No checkpoints in the directory: '{run_path}' match '{checkpoint}'.")
     # sort alphabetically while ensuring that *_10 comes after *_9
     model_checkpoints.sort(key=lambda m: f"{m:0>15}")
     # get latest matched checkpoint file
