@@ -108,14 +108,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.5,
+        weight=1.75,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=1.5,
+        weight=1.75,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -195,7 +195,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件动作变化率惩罚：仅有指令时惩罚，无指令时允许自由调整以保持平衡
     action_rate_l2_cond = RewTerm(
         func=mdp.action_rate_l2_conditional,
-        weight=-0.01,
+        weight=-0.005,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 

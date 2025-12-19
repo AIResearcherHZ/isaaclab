@@ -195,7 +195,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件动作变化率惩罚：仅有指令时惩罚，无指令时允许自由调整以保持平衡
     action_rate_l2_cond = RewTerm(
         func=mdp.action_rate_l2_conditional,
-        weight=-0.01,
+        weight=-0.005,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
