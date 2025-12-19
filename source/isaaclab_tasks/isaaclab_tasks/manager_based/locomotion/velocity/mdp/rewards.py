@@ -338,6 +338,45 @@ def center_of_mass_in_support_polygon(
     return reward
 
 
+def feet_jitter_penalty(
+    env, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """惩罚脚部抖动：通过计算脚部速度的变化率来检测不必要的抖动。
+    
+    该函数通过计算脚部线速度的二阶导数（加速度变化率）来检测抖动。
+    使用GPU友好的向量化操作确保训练效率。
+    """
+    asset = env.scene[asset_cfg.name]
+    
+    # 获取脚部身体ID
+    foot_body_ids = asset_cfg.body_ids
+    
+    # 获取当前脚部线速度 [num_envs, num_feet, 3]
+    current_foot_vel = asset.data.body_lin_vel_w[:, foot_body_ids, :]
+    
+    # 从环境中获取历史速度（如果存在）
+    if not hasattr(env, '_prev_foot_vel'):
+        # 初始化历史速度
+        env._prev_foot_vel = torch.zeros_like(current_foot_vel)
+        env._prev_prev_foot_vel = torch.zeros_like(current_foot_vel)
+    
+    # 计算速度的一阶导数（加速度）
+    foot_acc = current_foot_vel - env._prev_foot_vel
+    prev_foot_acc = env._prev_foot_vel - env._prev_prev_foot_vel
+    
+    # 计算加速度的变化率（jerk - 三阶导数）
+    foot_jerk = foot_acc - prev_foot_acc
+    
+    # 计算抖动惩罚：使用L2范数的平方来惩罚高频抖动
+    jitter_penalty = torch.sum(torch.sum(foot_jerk**2, dim=-1), dim=-1)
+    
+    # 更新历史速度
+    env._prev_prev_foot_vel = env._prev_foot_vel.clone()
+    env._prev_foot_vel = current_foot_vel.clone()
+    
+    return jitter_penalty
+
+    
 # ==================== 条件奖励函数（根据指令状态切换） ====================
 
 
@@ -448,3 +487,17 @@ def velocity_direction_alignment_conditional(
     reward = velocity_direction_alignment(env, command_name, asset_cfg)
     cmd_mask = _get_command_mask(env, command_name, command_threshold)
     return reward * cmd_mask
+
+
+def feet_jitter_penalty_conditional(
+    env, command_name: str, command_threshold: float = 0.1,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """条件脚部抖动惩罚：仅在有指令时应用。
+    
+    在静止状态下允许一定的调整动作来保持平衡，
+    只在运动时惩罚不必要的脚部抖动。
+    """
+    penalty = feet_jitter_penalty(env, asset_cfg)
+    cmd_mask = _get_command_mask(env, command_name, command_threshold)
+    return penalty * cmd_mask
