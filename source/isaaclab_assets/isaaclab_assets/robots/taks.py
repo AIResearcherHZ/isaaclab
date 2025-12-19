@@ -68,8 +68,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_roll_joint": 97.0,
             },
             velocity_limit_sim={
-                ".*_hip_yaw_joint": 32,
-                ".*_hip_roll_joint": 32,
+                ".*_hip_yaw_joint": 4.19,
+                ".*_hip_roll_joint": 4.19,
             },
             stiffness={
                 ".*_hip_yaw_joint": 200.0,
@@ -93,8 +93,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_knee_joint": 120.0,
             },
             velocity_limit_sim={
-                ".*_hip_pitch_joint": 48,
-                ".*_knee_joint": 48,
+                ".*_hip_pitch_joint": 7.33,
+                ".*_knee_joint": 7.33,
             },
             stiffness={
                 ".*_hip_pitch_joint": 250.0,
@@ -113,7 +113,7 @@ TAKS_T1_CFG = ArticulationCfg(
         "feet": ImplicitActuatorCfg(
             joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
             effort_limit_sim=27.0,
-            velocity_limit_sim=37.0,
+            velocity_limit_sim=5.4454,
             stiffness={
                 ".*_ankle_pitch_joint": 20.0,
                 ".*_ankle_roll_joint": 20.0,
@@ -132,7 +132,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 "waist_pitch_joint",
             ],
             effort_limit_sim=97,
-            velocity_limit_sim=6.28,
+            velocity_limit_sim=4.19,
             stiffness=200.0,
             damping=5.0,
             armature=0.01,
@@ -146,7 +146,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_elbow_joint",
             ],
             effort_limit_sim=9,
-            velocity_limit_sim=21.0,
+            velocity_limit_sim=5.4454,
             stiffness={
                 ".*_shoulder_pitch_joint": 40.0,
                 ".*_shoulder_roll_joint": 40.0,
@@ -172,7 +172,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_wrist_yaw_joint",
             ],
             effort_limit_sim=3,
-            velocity_limit_sim=5.5,
+            velocity_limit_sim=20.944,
             stiffness=20.0,
             damping=5.0,
             armature=0.001,
@@ -185,7 +185,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 "neck_pitch_joint",
             ],
             effort_limit_sim=0.8,
-            velocity_limit_sim=15.7,
+            velocity_limit_sim=15.71,
             stiffness=5.0,
             damping=1.0,
             armature=0.001,

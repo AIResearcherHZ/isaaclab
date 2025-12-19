@@ -24,7 +24,7 @@ class TaksT1Rewards(RewardsCfg):
     """
     # ==================== 始终生效的奖励（平衡与安全） ====================
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-300.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1000.0)
     lin_vel_z_l2 = None
 
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
@@ -44,7 +44,7 @@ class TaksT1Rewards(RewardsCfg):
     # 踝关节偏差惩罚
     joint_deviation_ankle = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.05,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"])},
     )
 
@@ -232,18 +232,6 @@ class TaksT1Rewards(RewardsCfg):
 class TaksT1EventCfg(EventCfg):
     # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
 
-    # 动作噪声 - 模拟控制信号不完美（量化误差、通讯抖动）
-    action_noise = EventTerm(
-        func=mdp.randomize_action_noise,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "noise_std": 0.05,
-            "noise_type": "gaussian",
-        },
-    )
-
     # 动作延迟 - 模拟通讯延迟和控制周期不对齐
     action_delay = EventTerm(
         func=mdp.randomize_action_delay,
@@ -254,36 +242,7 @@ class TaksT1EventCfg(EventCfg):
             "max_delay_steps": 8,  # 最大延迟8步
         },
     )
-
-    # 关节编码器噪声 - 模拟编码器测量误差和零点偏移
-    encoder_noise = EventTerm(
-        func=mdp.randomize_joint_encoder_noise,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "pos_noise_std": 0.01,  # 位置噪声标准差 (rad)
-            "vel_noise_std": 0.02,   # 速度噪声标准差 (rad/s)
-            "pos_bias_range": (-0.05, 0.05),  # 位置偏置范围 (rad)
-            "vel_bias_range": (-0.1, 0.1),  # 速度偏置范围 (rad/s)
-        },
-    )
-
-    # IMU噪声和漂移 - 模拟真实IMU的测量特性
-    imu_noise = EventTerm(
-        func=mdp.randomize_imu_noise_and_bias,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "ang_vel_noise_std": 0.05,  # 角速度噪声 (rad/s)
-            "lin_acc_noise_std": 0.1,  # 线加速度噪声 (m/s^2)
-            "ang_vel_bias_range": (-0.1, 0.1),
-            "lin_acc_bias_range": (-0.2, 0.2),
-            "bias_drift_std": 0.05,  # 偏置漂移
-        },
-    )
-
+    
     # 观测丢包 - 模拟传感器偶发失效
     observation_dropout = EventTerm(
         func=mdp.randomize_observation_dropout,
@@ -317,19 +276,6 @@ class TaksT1EventCfg(EventCfg):
             "asset_cfg": SceneEntityCfg("robot"),
             "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
             "max_latency_steps": 16,  # 最大延迟16步
-        },
-    )
-
-    # 重力方向偏置 - 模拟基座倾斜/坡度
-    slope_randomization = EventTerm(
-        func=mdp.randomize_slope_or_base_frame,
-        mode="startup",  # 仿真开始时设置
-        params={
-            "gravity_bias_range": {
-                "x": (-0.1, 0.1),  # x方向重力偏置 (m/s^2)
-                "y": (-0.1, 0.1),  # y方向重力偏置 (m/s^2)
-                "z": (-0.05, 0.05),  # z方向重力偏置 (m/s^2)
-            },
         },
     )
 
