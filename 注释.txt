@@ -60,7 +60,7 @@ ln -s /home/xhz/isaacsim _isaac_sim
   --headless
 
 # 单节点多GPU训练（DDP）
-python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
   --num_envs 35000 \
   --headless \
@@ -90,7 +90,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforc
   --headless
 
 # 单节点多GPU断点重训（DDP）
-python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
   --experiment_name g1_flat \
   --num_envs 35000 \
@@ -124,7 +124,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforc
   --headless
 
 # 单节点多GPU训练（DDP）
-python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Rough-G1-v0 \
   --num_envs 15000 \
   --headless \
@@ -146,7 +146,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforc
   --headless
 
 # 单节点多GPU训练（DDP）
-python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
   --num_envs 35000 \
   --headless \
@@ -186,7 +186,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforc
   --headless
 
 # 单节点多GPU断点重训（DDP）
-python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
   --experiment_name Taks_T1_flat \
   --num_envs 35000 \
@@ -210,7 +210,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforc
   --headless
 
 # 单节点多GPU训练（DDP）
-python -m torch.distributed.run --standalone --nproc-per-node=3 scripts/reinforcement_learning/rsl_rl/train.py \
+python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Rough-Taks_T1-v0 \
   --num_envs 15000 \
   --headless \
