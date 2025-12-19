@@ -1837,59 +1837,24 @@ class randomize_visual_color(ManagerTermBase):
 
 
 ##############################################################################
-# 额外的鲁棒性随机化事件（动作/传感器/故障类）
+# 鲁棒性随机化事件（动作/传感器/故障类）
+# 用于模拟真实系统中的各种不确定性和故障情况
 ##############################################################################
 
 
-class randomize_action_noise(ManagerTermBase):
-    """在动作上添加噪声，模拟控制信号不完美。
-    
-    每个 step 在 policy 输出的动作上叠加高斯噪声或均匀噪声，
-    模拟真实控制链路中的量化误差、通讯抖动等。
-    """
-
-    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
-        super().__init__(cfg, env)
-        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        self.asset: Articulation = env.scene[self.asset_cfg.name]
-        # 噪声标准差或范围
-        self.noise_std = cfg.params.get("noise_std", 0.02)
-        self.noise_type = cfg.params.get("noise_type", "gaussian")  # "gaussian" or "uniform"
-
-    def __call__(
-        self,
-        env: ManagerBasedEnv,
-        env_ids: torch.Tensor | None,
-        asset_cfg: SceneEntityCfg,
-        noise_std: float = 0.02,
-        noise_type: str = "gaussian",
-    ):
-        """对关节位置目标添加噪声。"""
-        if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
-        
-        # 获取当前关节位置目标
-        joint_pos_target = self.asset.data.joint_pos_target[env_ids].clone()
-        
-        # 添加噪声
-        if noise_type == "gaussian":
-            noise = torch.randn_like(joint_pos_target) * noise_std
-        else:  # uniform
-            noise = (torch.rand_like(joint_pos_target) * 2 - 1) * noise_std
-        
-        joint_pos_target += noise
-        
-        # 写回（注意：这会在下一个 step 生效）
-        self.asset.set_joint_position_target(joint_pos_target, env_ids=env_ids)
-
-
 class randomize_action_delay(ManagerTermBase):
-    """模拟动作延迟，使用 FIFO 缓冲区延迟命令执行。
+    """动作延迟随机化。
 
-    维护一个动作历史缓冲区，每次实际执行的是 delay_steps 之前的动作，
-    模拟真实系统中的通讯延迟和控制周期不对齐。
+    功能说明:
+        维护 FIFO 动作历史缓冲区，每次实际执行 delay_steps 之前的动作，
+        模拟真实系统中的通讯延迟和控制周期不对齐。
 
-    优化版本：使用纯张量操作，避免Python for循环。
+    参数:
+        asset_cfg: 目标资产配置
+        max_delay_steps: 最大延迟步数，默认 3
+
+    优化:
+        使用纯张量操作和 gather 索引，避免 Python for 循环。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
@@ -1897,28 +1862,25 @@ class randomize_action_delay(ManagerTermBase):
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
         self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
 
-        # 最大延迟步数
+        # 缓冲区配置
         self.max_delay_steps = cfg.params.get("max_delay_steps", 3)
         self.buffer_size = self.max_delay_steps + 1
 
-        # 为每个 env 采样一个固定的延迟步数
+        # 每个 env 的延迟步数 (num_envs,)
         self.delay_steps = torch.randint(
-            0, self.buffer_size,
-            (self._num_envs,),
-            device=self.asset.device
+            0, self.buffer_size, (self._num_envs,), device=self._device
         )
-        # 动作历史缓冲区: (num_envs, buffer_size, num_joints)
+
+        # 动作历史缓冲区 (num_envs, buffer_size, num_joints)
         self.action_buffer = torch.zeros(
-            self._num_envs,
-            self.buffer_size,
-            self.asset.num_joints,
-            device=self.asset.device,
+            self._num_envs, self.buffer_size, self.asset.num_joints, device=self._device
         )
         self.buffer_idx = 0
 
-        # 预计算环境索引用于gather操作
-        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
 
     def __call__(
         self,
@@ -1927,205 +1889,46 @@ class randomize_action_delay(ManagerTermBase):
         asset_cfg: SceneEntityCfg,
         max_delay_steps: int = 3,
     ):
-        """应用延迟后的动作（纯张量操作，无Python循环）。"""
+        """应用延迟后的动作。"""
         if env_ids is None:
-            env_ids = self.env_indices
+            env_ids = self._env_indices
 
-        # 获取当前动作目标
-        current_action = self.asset.data.joint_pos_target.clone()
+        # 存储当前动作到缓冲区
+        self.action_buffer[:, self.buffer_idx] = self.asset.data.joint_pos_target
 
-        # 存入缓冲区
-        self.action_buffer[:, self.buffer_idx] = current_action
-
-        # 计算每个env的延迟索引（纯张量操作）
+        # 计算延迟索引并使用 gather 批量获取
         delayed_indices = (self.buffer_idx - self.delay_steps) % self.buffer_size
-
-        # 使用gather进行批量索引（避免for循环）
-        # action_buffer: (num_envs, buffer_size, num_joints)
-        # delayed_indices: (num_envs,) -> (num_envs, 1, num_joints) for gather
         gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self.asset.num_joints)
         delayed_actions = self.action_buffer.gather(1, gather_indices).squeeze(1)
 
         # 更新缓冲区索引
         self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
 
-        # 应用延迟后的动作
+        # 应用延迟动作
         self.asset.set_joint_position_target(delayed_actions[env_ids], env_ids=env_ids)
 
-        # reset 时重新采样延迟
+        # reset 时重新采样延迟并清空缓冲区
         if len(env_ids) > 0:
             self.delay_steps[env_ids] = torch.randint(
-                0, self.buffer_size, (len(env_ids),), device=self.asset.device
+                0, self.buffer_size, (len(env_ids),), device=self._device
             )
             self.action_buffer[env_ids] = 0.0
 
 
-class randomize_joint_encoder_noise(ManagerTermBase):
-    """关节编码器噪声和偏置随机化。
-
-    模拟真实编码器的测量噪声和零点偏移：
-    - 每个 env 采样一个固定的 bias（慢变化）
-    - 每个 step 叠加高斯噪声（快变化）
-
-    优化版本：移除不必要的每次调用重新采样偏置的逻辑。
-    """
-
-    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
-        super().__init__(cfg, env)
-        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        self.asset: Articulation = env.scene[self.asset_cfg.name]
-        self._num_envs = env.scene.num_envs
-
-        # 噪声参数
-        self.pos_noise_std = cfg.params.get("pos_noise_std", 0.01)
-        self.vel_noise_std = cfg.params.get("vel_noise_std", 0.1)
-        self.pos_bias_range = cfg.params.get("pos_bias_range", (-0.02, 0.02))
-        self.vel_bias_range = cfg.params.get("vel_bias_range", (-0.05, 0.05))
-
-        # 为每个 env 采样固定偏置
-        self.pos_bias = math_utils.sample_uniform(
-            self.pos_bias_range[0], self.pos_bias_range[1],
-            (self._num_envs, self.asset.num_joints),
-            device=self.asset.device
-        )
-        self.vel_bias = math_utils.sample_uniform(
-            self.vel_bias_range[0], self.vel_bias_range[1],
-            (self._num_envs, self.asset.num_joints),
-            device=self.asset.device
-        )
-
-        # 预计算环境索引
-        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
-
-    def __call__(
-        self,
-        env: ManagerBasedEnv,
-        env_ids: torch.Tensor | None,
-        asset_cfg: SceneEntityCfg,
-        pos_noise_std: float = 0.01,
-        vel_noise_std: float = 0.1,
-        pos_bias_range: tuple[float, float] = (-0.02, 0.02),
-        vel_bias_range: tuple[float, float] = (-0.05, 0.05),
-    ):
-        """在关节位置和速度观测上添加噪声和偏置（优化版）。"""
-        if env_ids is None:
-            env_ids = self.env_indices
-
-        n_envs = len(env_ids)
-
-        # 添加位置噪声和偏置
-        pos_noise = torch.randn(n_envs, self.asset.num_joints, device=self.asset.device) * pos_noise_std
-        self.asset.data.joint_pos[env_ids] += pos_noise + self.pos_bias[env_ids]
-
-        # 添加速度噪声和偏置
-        vel_noise = torch.randn(n_envs, self.asset.num_joints, device=self.asset.device) * vel_noise_std
-        self.asset.data.joint_vel[env_ids] += vel_noise + self.vel_bias[env_ids]
-
-    def reset(self, env_ids: torch.Tensor | None = None):
-        """重置时重新采样偏置。"""
-        if env_ids is None:
-            env_ids = self.env_indices
-        if len(env_ids) > 0:
-            self.pos_bias[env_ids] = math_utils.sample_uniform(
-                self.pos_bias_range[0], self.pos_bias_range[1],
-                (len(env_ids), self.asset.num_joints),
-                device=self.asset.device
-            )
-            self.vel_bias[env_ids] = math_utils.sample_uniform(
-                self.vel_bias_range[0], self.vel_bias_range[1],
-                (len(env_ids), self.asset.num_joints),
-                device=self.asset.device
-            )
-
-
-class randomize_imu_noise_and_bias(ManagerTermBase):
-    """IMU 噪声和漂移随机化。
-
-    模拟真实 IMU 的测量特性：
-    - 角速度白噪声 + 固定偏置
-    - 线加速度白噪声 + 固定偏置
-    - 可选：偏置随机游走（慢漂移）
-
-    优化版本：移除不必要的每次调用重新采样偏置的逻辑。
-    """
-
-    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
-        super().__init__(cfg, env)
-        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        self.asset: Articulation = env.scene[self.asset_cfg.name]
-        self._num_envs = env.scene.num_envs
-
-        # 噪声参数
-        self.ang_vel_noise_std = cfg.params.get("ang_vel_noise_std", 0.05)
-        self.lin_acc_noise_std = cfg.params.get("lin_acc_noise_std", 0.1)
-        self.ang_vel_bias_range = cfg.params.get("ang_vel_bias_range", (-0.02, 0.02))
-        self.lin_acc_bias_range = cfg.params.get("lin_acc_bias_range", (-0.1, 0.1))
-        self.bias_drift_std = cfg.params.get("bias_drift_std", 0.001)
-
-        # 为每个 env 采样固定偏置
-        self.ang_vel_bias = math_utils.sample_uniform(
-            self.ang_vel_bias_range[0], self.ang_vel_bias_range[1],
-            (self._num_envs, 3), device=self.asset.device
-        )
-        self.lin_acc_bias = math_utils.sample_uniform(
-            self.lin_acc_bias_range[0], self.lin_acc_bias_range[1],
-            (self._num_envs, 3), device=self.asset.device
-        )
-
-        # 预计算环境索引
-        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
-
-    def __call__(
-        self,
-        env: ManagerBasedEnv,
-        env_ids: torch.Tensor | None,
-        asset_cfg: SceneEntityCfg,
-        ang_vel_noise_std: float = 0.05,
-        lin_acc_noise_std: float = 0.1,
-        ang_vel_bias_range: tuple[float, float] = (-0.02, 0.02),
-        lin_acc_bias_range: tuple[float, float] = (-0.1, 0.1),
-        bias_drift_std: float = 0.001,
-    ):
-        """在 IMU 观测上添加噪声和偏置（优化版）。"""
-        if env_ids is None:
-            env_ids = self.env_indices
-
-        n_envs = len(env_ids)
-
-        # 偏置随机游走
-        self.ang_vel_bias += torch.randn_like(self.ang_vel_bias) * bias_drift_std
-        self.lin_acc_bias += torch.randn_like(self.lin_acc_bias) * bias_drift_std
-
-        # 添加角速度噪声和偏置
-        ang_vel_noise = torch.randn(n_envs, 3, device=self.asset.device) * ang_vel_noise_std
-        self.asset.data.root_ang_vel_b[env_ids] += ang_vel_noise + self.ang_vel_bias[env_ids]
-
-        # 添加线加速度噪声和偏置
-        lin_vel_noise = torch.randn(n_envs, 3, device=self.asset.device) * lin_acc_noise_std
-        self.asset.data.root_lin_vel_b[env_ids] += lin_vel_noise + self.lin_acc_bias[env_ids]
-
-    def reset(self, env_ids: torch.Tensor | None = None):
-        """重置时重新采样偏置。"""
-        if env_ids is None:
-            env_ids = self.env_indices
-        if len(env_ids) > 0:
-            self.ang_vel_bias[env_ids] = math_utils.sample_uniform(
-                self.ang_vel_bias_range[0], self.ang_vel_bias_range[1],
-                (len(env_ids), 3), device=self.asset.device
-            )
-            self.lin_acc_bias[env_ids] = math_utils.sample_uniform(
-                self.lin_acc_bias_range[0], self.lin_acc_bias_range[1],
-                (len(env_ids), 3), device=self.asset.device
-            )
-
-
 class randomize_observation_dropout(ManagerTermBase):
-    """观测丢包/传感器失效随机化。
+    """观测丢包随机化。
 
-    以一定概率将部分观测维度置零或保持上一帧值，
-    模拟传感器偶发失效、通讯丢包等情况。
+    功能说明:
+        以一定概率将部分观测维度置零或保持上一帧值，
+        模拟传感器偶发失效、通讯丢包等情况。
 
-    优化版本：预分配零张量，避免每次调用都创建新张量。
+    参数:
+        asset_cfg: 目标资产配置
+        dropout_prob: 每个观测维度的丢包概率，默认 0.01
+        dropout_mode: 丢包处理模式，"zero"(置零) 或 "hold"(保持上帧)
+
+    优化:
+        预分配零张量，避免每次调用创建新张量。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
@@ -2133,24 +1936,18 @@ class randomize_observation_dropout(ManagerTermBase):
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
         self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+        self._num_joints = self.asset.num_joints
 
-        self.dropout_prob = cfg.params.get("dropout_prob", 0.01)
-        self.dropout_mode = cfg.params.get("dropout_mode", "zero")
-
-        # 保存上一帧观测用于 hold 模式
+        # 上一帧观测缓存 (hold 模式使用)
         self.last_joint_pos = self.asset.data.joint_pos.clone()
         self.last_joint_vel = self.asset.data.joint_vel.clone()
 
-        # 预分配零张量用于 zero 模式
-        self._zeros_pos = torch.zeros(
-            self._num_envs, self.asset.num_joints, device=self.asset.device
-        )
-        self._zeros_vel = torch.zeros(
-            self._num_envs, self.asset.num_joints, device=self.asset.device
-        )
+        # 预分配零张量 (zero 模式使用)
+        self._zeros = torch.zeros(self._num_envs, self._num_joints, device=self._device)
 
-        # 预计算环境索引
-        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
 
     def __call__(
         self,
@@ -2160,132 +1957,84 @@ class randomize_observation_dropout(ManagerTermBase):
         dropout_prob: float = 0.01,
         dropout_mode: str = "zero",
     ):
-        """随机丢弃部分观测（优化版）。"""
+        """随机丢弃部分观测。"""
         if env_ids is None:
-            env_ids = self.env_indices
+            env_ids = self._env_indices
 
         n_envs = len(env_ids)
 
-        # 生成丢包掩码
-        pos_dropout_mask = torch.rand(n_envs, self.asset.num_joints, device=self.asset.device) < dropout_prob
-        vel_dropout_mask = torch.rand(n_envs, self.asset.num_joints, device=self.asset.device) < dropout_prob
+        # 生成丢包掩码 (num_envs, num_joints)
+        pos_mask = torch.rand(n_envs, self._num_joints, device=self._device) < dropout_prob
+        vel_mask = torch.rand(n_envs, self._num_joints, device=self._device) < dropout_prob
 
+        # 根据模式选择替换值
         if dropout_mode == "zero":
-            # 使用预分配的零张量
-            self.asset.data.joint_pos[env_ids] = torch.where(
-                pos_dropout_mask,
-                self._zeros_pos[env_ids],
-                self.asset.data.joint_pos[env_ids]
-            )
-            self.asset.data.joint_vel[env_ids] = torch.where(
-                vel_dropout_mask,
-                self._zeros_vel[env_ids],
-                self.asset.data.joint_vel[env_ids]
-            )
+            replace_pos = self._zeros[env_ids]
+            replace_vel = self._zeros[env_ids]
         else:  # hold
-            self.asset.data.joint_pos[env_ids] = torch.where(
-                pos_dropout_mask,
-                self.last_joint_pos[env_ids],
-                self.asset.data.joint_pos[env_ids]
-            )
-            self.asset.data.joint_vel[env_ids] = torch.where(
-                vel_dropout_mask,
-                self.last_joint_vel[env_ids],
-                self.asset.data.joint_vel[env_ids]
-            )
+            replace_pos = self.last_joint_pos[env_ids]
+            replace_vel = self.last_joint_vel[env_ids]
+
+        # 应用丢包
+        self.asset.data.joint_pos[env_ids] = torch.where(
+            pos_mask, replace_pos, self.asset.data.joint_pos[env_ids]
+        )
+        self.asset.data.joint_vel[env_ids] = torch.where(
+            vel_mask, replace_vel, self.asset.data.joint_vel[env_ids]
+        )
 
         # 更新上一帧缓存
         self.last_joint_pos[env_ids] = self.asset.data.joint_pos[env_ids].clone()
         self.last_joint_vel[env_ids] = self.asset.data.joint_vel[env_ids].clone()
 
 
-def randomize_constant_wind_like_force(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor | None,
-    force_range: dict[str, tuple[float, float]],
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-):
-    """施加持续的类风力/拖拽力。
-    
-    为每个 env 采样一个固定方向的力，整个 episode 保持不变，
-    模拟持续的侧向风、线缆拉扯等恒定偏置力。
-    """
-    asset: RigidObject | Articulation = env.scene[asset_cfg.name]
-    
-    if env_ids is None:
-        env_ids = torch.arange(env.scene.num_envs, device=asset.device)
-    
-    # 采样持续力（每个 env 一个固定值）
-    range_list = [force_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z"]]
-    ranges = torch.tensor(range_list, device=asset.device)
-    forces = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (len(env_ids), 3), device=asset.device)
-    
-    # 扩展到所有 body（只对 base/torso 施加）
-    num_bodies = len(asset_cfg.body_ids) if isinstance(asset_cfg.body_ids, list) else 1
-    forces = forces.unsqueeze(1).expand(-1, num_bodies, -1)
-    torques = torch.zeros_like(forces)
-    
-    # 设置外力
-    asset.set_external_force_and_torque(forces, torques, env_ids=env_ids, body_ids=asset_cfg.body_ids)
-
-
-def randomize_slope_or_base_frame(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor | None,
-    gravity_bias_range: dict[str, tuple[float, float]],
-):
-    """通过修改重力方向模拟基座倾斜/坡度。
-    
-    在重力向量的 x, y 分量上添加小偏置，
-    等效于机器人站在轻微倾斜的地面上。
-    """
-    if env_ids is None:
-        env_ids = torch.arange(env.scene.num_envs, device="cpu")
-    
-    # 获取当前重力
-    gravity = torch.tensor(env.sim.cfg.gravity, device="cpu").unsqueeze(0)
-    
-    # 采样重力偏置（主要在 x, y 方向）
-    range_list = [gravity_bias_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z"]]
-    ranges = torch.tensor(range_list, device="cpu")
-    bias = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (1, 3), device="cpu")
-    
-    # 应用偏置
-    gravity = gravity + bias
-    gravity = gravity[0].tolist()
-    
-    # 设置新重力
-    physics_sim_view: physx.SimulationView = sim_utils.SimulationContext.instance().physics_sim_view
-    physics_sim_view.set_gravity(carb.Float3(*gravity))
-
-
 class randomize_joint_failure(ManagerTermBase):
     """关节故障随机化。
-    
-    以一定概率让某些关节"失效"：
-    - 扭矩输出减半或归零
-    - 关节卡死在某个位置
-    模拟电机故障、驱动器失效等极端情况。
+
+    功能说明:
+        以一定概率让某些关节"失效"，模拟电机故障、驱动器失效等极端情况。
+
+    故障模式:
+        - weak: 扭矩输出按 weak_factor 衰减（如 0.3 表示只有 30% 扭矩）
+        - stuck: 关节卡死在故障发生时的位置
+        - dead: 关节完全不响应（扭矩归零）
+
+    参数:
+        asset_cfg: 目标资产配置
+        failure_prob: 每个关节的失效概率，默认 0.01
+        failure_mode: 故障模式，"weak"/"stuck"/"dead"，默认 "weak"
+        weak_factor: weak 模式下的扭矩保留因子，默认 0.3
+
+    优化:
+        预分配所有张量，使用纯张量操作实现故障效果。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
-        
-        self.failure_prob = cfg.params.get("failure_prob", 0.01)  # 每个关节失效概率
-        self.failure_mode = cfg.params.get("failure_mode", "weak")  # "weak", "stuck", "dead"
-        self.weak_factor = cfg.params.get("weak_factor", 0.3)  # weak 模式下的扭矩衰减因子
-        
-        # 记录哪些关节失效
+        self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+        self._num_joints = self.asset.num_joints
+
+        # 故障状态张量 (num_envs, num_joints)
         self.failed_joints = torch.zeros(
-            env.scene.num_envs, self.asset.num_joints, 
-            dtype=torch.bool, device=self.asset.device
+            self._num_envs, self._num_joints, dtype=torch.bool, device=self._device
         )
+
+        # stuck 模式：记录卡死位置
         self.stuck_positions = torch.zeros(
-            env.scene.num_envs, self.asset.num_joints,
-            device=self.asset.device
+            self._num_envs, self._num_joints, device=self._device
         )
+
+        # weak 模式：扭矩衰减因子张量 (num_envs, num_joints)
+        # 正常关节为 1.0，故障关节为 weak_factor
+        self.torque_scale = torch.ones(
+            self._num_envs, self._num_joints, device=self._device
+        )
+
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
 
     def __call__(
         self,
@@ -2298,100 +2047,69 @@ class randomize_joint_failure(ManagerTermBase):
     ):
         """应用关节故障效果。"""
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device=self.asset.device)
-        
-        # 对 reset 的 env 重新采样故障状态
-        new_failures = torch.rand(len(env_ids), self.asset.num_joints, device=self.asset.device) < failure_prob
+            env_ids = self._env_indices
+
+        n_envs = len(env_ids)
+
+        # 采样新的故障状态
+        new_failures = torch.rand(n_envs, self._num_joints, device=self._device) < failure_prob
         self.failed_joints[env_ids] = new_failures
-        self.stuck_positions[env_ids] = self.asset.data.joint_pos[env_ids].clone()
-        
-        # 应用故障效果
+
+        # 根据故障模式应用效果
         if failure_mode == "weak":
-            # 获取当前关节扭矩限制并衰减
-            # 注意：这里简化处理，实际应该修改 actuator 的 effort_limit
-            pass  # 在 actuator 层面处理更合适
+            # 更新扭矩衰减因子：故障关节使用 weak_factor，正常关节为 1.0
+            self.torque_scale[env_ids] = torch.where(
+                new_failures, 
+                torch.full_like(self.torque_scale[env_ids], weak_factor),
+                torch.ones_like(self.torque_scale[env_ids])
+            )
+            # 直接修改 applied_torque（如果存在）
+            if self.asset.data.applied_torque is not None:
+                self.asset.data.applied_torque[env_ids] *= self.torque_scale[env_ids]
+
         elif failure_mode == "stuck":
-            # 强制关节保持在失效时的位置
-            stuck_mask = self.failed_joints[env_ids]
-            current_pos = self.asset.data.joint_pos[env_ids].clone()
-            current_pos = torch.where(stuck_mask, self.stuck_positions[env_ids], current_pos)
-            self.asset.set_joint_position_target(current_pos, env_ids=env_ids)
-        elif failure_mode == "dead":
-            # 关节完全不响应（目标位置设为当前位置）
-            dead_mask = self.failed_joints[env_ids]
-            current_pos = self.asset.data.joint_pos[env_ids].clone()
+            # 记录卡死位置
+            self.stuck_positions[env_ids] = self.asset.data.joint_pos[env_ids].clone()
+            # 强制关节保持在卡死位置
             target_pos = self.asset.data.joint_pos_target[env_ids].clone()
-            target_pos = torch.where(dead_mask, current_pos, target_pos)
+            target_pos = torch.where(new_failures, self.stuck_positions[env_ids], target_pos)
             self.asset.set_joint_position_target(target_pos, env_ids=env_ids)
 
+        elif failure_mode == "dead":
+            # 关节完全不响应：将扭矩置零
+            self.torque_scale[env_ids] = torch.where(
+                new_failures,
+                torch.zeros_like(self.torque_scale[env_ids]),
+                torch.ones_like(self.torque_scale[env_ids])
+            )
+            if self.asset.data.applied_torque is not None:
+                self.asset.data.applied_torque[env_ids] *= self.torque_scale[env_ids]
 
-class randomize_contact_patch_slip(ManagerTermBase):
-    """局部超低摩擦区域随机化。
-
-    随机将部分 env 的地面/脚底摩擦设置得很低，
-    模拟踩到冰面、油污等滑溜区域。
-
-    优化版本：使用纯张量操作，避免Python for循环。
-    """
-
-    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
-        super().__init__(cfg, env)
-        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        self.asset: RigidObject | Articulation = env.scene[self.asset_cfg.name]
-
-        self.slip_prob = cfg.params.get("slip_prob", 0.05)
-        self.slip_friction = cfg.params.get("slip_friction", 0.1)
-        self.normal_friction_range = cfg.params.get("normal_friction_range", (0.6, 1.0))
-
-    def __call__(
-        self,
-        env: ManagerBasedEnv,
-        env_ids: torch.Tensor | None,
-        asset_cfg: SceneEntityCfg,
-        slip_prob: float = 0.05,
-        slip_friction: float = 0.1,
-        normal_friction_range: tuple[float, float] = (0.6, 1.0),
-    ):
-        """随机设置滑溜区域（纯张量操作，无Python循环）。"""
+    def apply_torque_scale(self, env_ids: torch.Tensor | None = None):
+        """在每步仿真前调用，应用扭矩衰减（用于 interval 模式）。
+        
+        如果使用 interval 模式而非 reset 模式，需要在每步调用此方法。
+        """
         if env_ids is None:
-            env_ids = torch.arange(env.scene.num_envs, device="cpu")
-        else:
-            env_ids = env_ids.cpu()
-
-        # 获取当前材质属性
-        materials = self.asset.root_physx_view.get_material_properties()
-        num_shapes = materials.shape[1]
-
-        # 决定哪些 env 是滑溜的（在CPU上计算，因为材质操作需要CPU）
-        is_slip = torch.rand(len(env_ids), device="cpu") < slip_prob
-
-        # 为所有env采样正常摩擦系数
-        normal_friction = torch.empty(len(env_ids), num_shapes, device="cpu").uniform_(
-            normal_friction_range[0], normal_friction_range[1]
-        )
-
-        # 构建滑溜摩擦张量
-        slip_friction_tensor = torch.full((len(env_ids), num_shapes), slip_friction, device="cpu")
-
-        # 使用where选择摩擦系数
-        is_slip_expanded = is_slip.unsqueeze(-1).expand(-1, num_shapes)
-        static_friction = torch.where(is_slip_expanded, slip_friction_tensor, normal_friction)
-        dynamic_friction = torch.where(is_slip_expanded, slip_friction_tensor, normal_friction * 0.8)
-
-        # 批量更新材质属性
-        materials[env_ids, :, 0] = static_friction
-        materials[env_ids, :, 1] = dynamic_friction
-
-        self.asset.root_physx_view.set_material_properties(materials, env_ids)
+            env_ids = self._env_indices
+        if self.asset.data.applied_torque is not None:
+            self.asset.data.applied_torque[env_ids] *= self.torque_scale[env_ids]
 
 
 class randomize_sensor_latency_spike(ManagerTermBase):
     """传感器延迟尖峰随机化。
 
-    极少数 step 在观测上注入大延迟（使用很旧的一帧），
-    模拟偶发的通讯阻塞、传感器卡顿等。
+    功能说明:
+        极少数 step 在观测上注入大延迟（使用历史帧），
+        模拟偶发的通讯阻塞、传感器卡顿等。
 
-    优化版本：使用纯张量操作，避免Python for循环。
+    参数:
+        asset_cfg: 目标资产配置
+        spike_prob: 每步发生延迟尖峰的概率，默认 0.005
+        max_latency_steps: 最大延迟步数，默认 10
+
+    优化:
+        使用纯张量操作和 gather 索引，避免 Python for 循环。
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
@@ -2399,28 +2117,24 @@ class randomize_sensor_latency_spike(ManagerTermBase):
         self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.asset: Articulation = env.scene[self.asset_cfg.name]
         self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+        self._num_joints = self.asset.num_joints
 
-        self.spike_prob = cfg.params.get("spike_prob", 0.005)
+        # 缓冲区配置
         self.max_latency_steps = cfg.params.get("max_latency_steps", 10)
         self.buffer_size = self.max_latency_steps + 1
 
-        # 观测历史缓冲区
+        # 观测历史缓冲区 (num_envs, buffer_size, num_joints)
         self.history_buffer_pos = torch.zeros(
-            self._num_envs,
-            self.buffer_size,
-            self.asset.num_joints,
-            device=self.asset.device
+            self._num_envs, self.buffer_size, self._num_joints, device=self._device
         )
         self.history_buffer_vel = torch.zeros(
-            self._num_envs,
-            self.buffer_size,
-            self.asset.num_joints,
-            device=self.asset.device
+            self._num_envs, self.buffer_size, self._num_joints, device=self._device
         )
         self.buffer_idx = 0
 
-        # 预计算环境索引
-        self.env_indices = torch.arange(self._num_envs, device=self.asset.device)
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
 
     def __call__(
         self,
@@ -2430,31 +2144,26 @@ class randomize_sensor_latency_spike(ManagerTermBase):
         spike_prob: float = 0.005,
         max_latency_steps: int = 10,
     ):
-        """偶发注入大延迟（纯张量操作，无Python循环）。"""
-        if env_ids is None:
-            env_ids = self.env_indices
+        """偶发注入大延迟。"""
+        # 存储当前观测到缓冲区
+        self.history_buffer_pos[:, self.buffer_idx] = self.asset.data.joint_pos
+        self.history_buffer_vel[:, self.buffer_idx] = self.asset.data.joint_vel
 
-        # 存储当前观测
-        self.history_buffer_pos[:, self.buffer_idx] = self.asset.data.joint_pos.clone()
-        self.history_buffer_vel[:, self.buffer_idx] = self.asset.data.joint_vel.clone()
-
-        # 决定哪些 env 发生延迟尖峰（全部env一起处理）
-        spike_mask = torch.rand(self._num_envs, device=self.asset.device) < spike_prob
+        # 生成延迟尖峰掩码 (num_envs,)
+        spike_mask = torch.rand(self._num_envs, device=self._device) < spike_prob
 
         if spike_mask.any():
-            # 随机选择延迟步数（为所有env采样）
-            latency = torch.randint(1, self.buffer_size, (self._num_envs,), device=self.asset.device)
-
-            # 计算延迟索引（纯张量操作）
+            # 采样延迟步数并计算延迟索引
+            latency = torch.randint(1, self.buffer_size, (self._num_envs,), device=self._device)
             delayed_indices = (self.buffer_idx - latency) % self.buffer_size
 
-            # 使用gather进行批量索引
-            gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self.asset.num_joints)
+            # 使用 gather 批量获取历史观测
+            gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self._num_joints)
             delayed_pos = self.history_buffer_pos.gather(1, gather_indices).squeeze(1)
             delayed_vel = self.history_buffer_vel.gather(1, gather_indices).squeeze(1)
 
-            # 只对spike_mask为True的env应用延迟
-            spike_mask_expanded = spike_mask.unsqueeze(-1).expand(-1, self.asset.num_joints)
+            # 仅对发生尖峰的 env 应用延迟
+            spike_mask_expanded = spike_mask.unsqueeze(-1).expand(-1, self._num_joints)
             self.asset.data.joint_pos[:] = torch.where(
                 spike_mask_expanded, delayed_pos, self.asset.data.joint_pos
             )
@@ -2469,7 +2178,6 @@ class randomize_sensor_latency_spike(ManagerTermBase):
 """
 Internal helper functions.
 """
-
 
 def _randomize_prop_by_op(
     data: torch.Tensor,

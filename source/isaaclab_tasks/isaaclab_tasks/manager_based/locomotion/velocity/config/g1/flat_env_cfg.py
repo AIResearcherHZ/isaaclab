@@ -1,3 +1,8 @@
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
@@ -7,51 +12,45 @@ from .rough_env_cfg import G1RoughEnvCfg
 @configclass
 class G1FlatEnvCfg(G1RoughEnvCfg):
     def __post_init__(self):
-        # 调用父类的 __post_init__ 以确保基类配置初始化完成
+        # post init of parent
         super().__post_init__()
 
-        # 将地形切换为平面
+        # change terrain to flat
         self.scene.terrain.terrain_type = "plane"
         self.scene.terrain.terrain_generator = None
-        # 不使用地面高度扫描器
+        # no height scan
         self.scene.height_scanner = None
         self.observations.policy.height_scan = None
-        # 取消地形课程机制，因为地形固定为平坦
+        # no terrain curriculum
         self.curriculum.terrain_levels = None
 
-        # 奖励函数配置部分
+        # Rewards
         self.rewards.track_ang_vel_z_exp.weight = 1.0
+        self.rewards.lin_vel_z_l2.weight = -0.2
         self.rewards.action_rate_l2.weight = -0.005
-        self.rewards.dof_acc_l2.weight = -2.5e-7
+        self.rewards.dof_acc_l2.weight = -1.0e-7
         self.rewards.feet_air_time.weight = 0.75
-        # 将抬脚时间阈值设置为 0.4 秒
         self.rewards.feet_air_time.params["threshold"] = 0.4
-        self.rewards.dof_torques_l2.weight = -5.0e-6
-        # 仅针对特定的关节名称（髋部与膝部）应用扭矩惩罚
+        self.rewards.dof_torques_l2.weight = -2.0e-6
         self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
             "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
         )
-        # 命令空间限制配置：限制线速度和角速度范围
-        self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-1.0, 1.0)
+        # Commands
+        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
         self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
 
-@configclass
 class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
     def __post_init__(self) -> None:
-        # 调用父类的后置初始化以确保基础配置有效
+        # post init of parent
         super().__post_init__()
 
-        # 为调试/试玩模式缩小场景规模
+        # make a smaller scene for play
         self.scene.num_envs = 50
         self.scene.env_spacing = 2.5
-        # 试玩模式关闭观测扰动，避免不确定性来源
+        # disable randomization for play
         self.observations.policy.enable_corruption = False
-        # 移除所有随机推力事件以便于调试
+        # remove random pushing
         self.events.base_external_force_torque = None
         self.events.push_robot = None
-        self.events.inertia_randomization = None
-
-        # 启用场景查询支持,用于碰撞检测和射线投射等功能
-        self.sim.enable_scene_query_support = True
