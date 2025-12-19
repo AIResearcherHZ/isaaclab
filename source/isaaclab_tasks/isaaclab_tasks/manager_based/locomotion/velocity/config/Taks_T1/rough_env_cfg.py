@@ -30,14 +30,14 @@ class TaksT1Rewards(RewardsCfg):
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
     dof_pos_limits = RewTerm(
         func=mdp.joint_pos_limits,
-        weight=-1.0,
+        weight=-1.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"])},
     )
 
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.15,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
@@ -58,14 +58,14 @@ class TaksT1Rewards(RewardsCfg):
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.25,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.35,
+        weight=-0.4,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -108,14 +108,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.5,
+        weight=1.8,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=1.5,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -185,12 +185,12 @@ class TaksT1Rewards(RewardsCfg):
     #     },
     # )
 
-    # 条件速度方向对齐奖励：仅有指令时奖励
-    velocity_alignment_cond = RewTerm(
-        func=mdp.velocity_direction_alignment_conditional,
-        weight=0.05,
-        params={"command_name": "base_velocity", "command_threshold": 0.1},
-    )
+    # # 条件速度方向对齐奖励：仅有指令时奖励
+    # velocity_alignment_cond = RewTerm(
+    #     func=mdp.velocity_direction_alignment_conditional,
+    #     weight=0.05,
+    #     params={"command_name": "base_velocity", "command_threshold": 0.1},
+    # )
 
     # 条件动作变化率惩罚：仅有指令时惩罚，无指令时允许自由调整以保持平衡
     action_rate_l2_cond = RewTerm(
