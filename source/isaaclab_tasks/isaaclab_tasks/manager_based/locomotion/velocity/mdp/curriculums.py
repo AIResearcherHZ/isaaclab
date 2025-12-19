@@ -3,10 +3,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Common functions that can be used to create curriculum for the learning environment.
+"""用于构建学习环境的课程学习通用函数。
 
-The functions can be passed to the :class:`isaaclab.managers.CurriculumTermCfg` object to enable
-the curriculum introduced by the function.
+这些函数用于根据训练表现动态调整环境难度（例如地形等级）。
 """
 
 from __future__ import annotations
@@ -26,30 +25,31 @@ if TYPE_CHECKING:
 def terrain_levels_vel(
     env: ManagerBasedRLEnv, env_ids: Sequence[int], asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
-    """Curriculum based on the distance the robot walked when commanded to move at a desired velocity.
+    """基于“机器人在期望速度指令下实际走了多远”来调节地形难度。
 
-    This term is used to increase the difficulty of the terrain when the robot walks far enough and decrease the
-    difficulty when the robot walks less than half of the distance required by the commanded velocity.
+    规则：
+        - 如果机器人走得足够远：提升到更难地形。
+        - 如果机器人走得不足（小于指令期望距离的一半）：降低到更简单地形。
 
-    .. note::
-        It is only possible to use this term with the terrain type ``generator``. For further information
-        on different terrain types, check the :class:`isaaclab.terrains.TerrainImporter` class.
+    说明：
+        该规则只适用于可按等级逐步提升难度的生成式地形。
 
-    Returns:
-        The mean terrain level for the given environment ids.
+    返回：
+        当前所有环境的地形等级均值。
     """
-    # extract the used quantities (to enable type-hinting)
+    # 显式声明类型，方便类型提示与代码跳转。
     asset: Articulation = env.scene[asset_cfg.name]
     terrain: TerrainImporter = env.scene.terrain
     command = env.command_manager.get_command("base_velocity")
-    # compute the distance the robot walked
+    # 计算机器人相对环境原点位置的水平位移距离。
     distance = torch.norm(asset.data.root_pos_w[env_ids, :2] - env.scene.env_origins[env_ids, :2], dim=1)
-    # robots that walked far enough progress to harder terrains
+    # 走到足够远则升级地形（阈值为子地形尺寸的一半）。
     move_up = distance > terrain.cfg.terrain_generator.size[0] / 2
-    # robots that walked less than half of their required distance go to simpler terrains
+    # 若走的距离小于“期望速度 * 回合时长”的一半，则降低地形难度。
     move_down = distance < torch.norm(command[env_ids, :2], dim=1) * env.max_episode_length_s * 0.5
+    # 若已经升级，就不要同时降级（避免冲突）。
     move_down *= ~move_up
-    # update terrain levels
+    # 根据升级/降级标记更新每个环境对应的地形等级与原点位置。
     terrain.update_env_origins(env_ids, move_up, move_down)
-    # return the mean terrain level
+    # 返回全体环境的地形等级均值（可用于日志记录或监控课程进度）。
     return torch.mean(terrain.terrain_levels.float())
