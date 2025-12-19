@@ -30,14 +30,14 @@ class TaksT1Rewards(RewardsCfg):
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
     dof_pos_limits = RewTerm(
         func=mdp.joint_pos_limits,
-        weight=-1.2,
+        weight=-1.0,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"])},
     )
 
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
@@ -51,21 +51,21 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.3,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.3,
+        weight=-0.2,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -77,7 +77,7 @@ class TaksT1Rewards(RewardsCfg):
     # 其余手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms_others = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -108,14 +108,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.8,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.0,
+        weight=1.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -133,7 +133,7 @@ class TaksT1Rewards(RewardsCfg):
     # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.3,
+        weight=-0.25,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -143,7 +143,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件步态对称性奖励：仅有指令时奖励
     gait_symmetry_cond = RewTerm(
         func=mdp.gait_symmetry_conditional,
-        weight=0.15,
+        weight=0.1,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
