@@ -59,7 +59,7 @@ class TaksT1Rewards(RewardsCfg):
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.25,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_waist_.*"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_.*"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净

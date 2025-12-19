@@ -56,13 +56,13 @@ ln -s /home/xhz/isaacsim _isaac_sim
 # 训练
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --headless
 
 # 单节点多GPU训练（DDP）
 python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --headless \
   --distributed
 
@@ -85,7 +85,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforc
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
   --experiment_name g1_flat \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --resume \
   --headless
 
@@ -93,7 +93,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforc
 python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-G1-v0 \
   --experiment_name g1_flat \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --resume \
   --headless \
   --distributed
@@ -142,13 +142,13 @@ python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforc
 # 训练
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --headless
 
 # 单节点多GPU训练（DDP）
 python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --headless \
   --distributed
 
@@ -181,7 +181,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforc
 ./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
   --experiment_name Taks_T1_flat \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --resume \
   --headless
 
@@ -189,7 +189,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforc
 python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforcement_learning/rsl_rl/train.py \
   --task Isaac-Velocity-Flat-Taks_T1-v0 \
   --experiment_name Taks_T1_flat \
-  --num_envs 38500 \
+  --num_envs 40000 \
   --resume \
   --headless \
   --distributed

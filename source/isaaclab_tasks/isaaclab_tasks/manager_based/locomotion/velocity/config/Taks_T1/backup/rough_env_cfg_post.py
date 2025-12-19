@@ -31,27 +31,27 @@ class TaksT1Rewards(RewardsCfg):
     dof_pos_limits = RewTerm(
         func=mdp.joint_pos_limits,
         weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_.*"])},
     )
 
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
+        weight=-0.2,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*"])},
     )
 
     # 踝关节偏差惩罚
     joint_deviation_ankle = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.05,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_.*"])},
     )
 
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.3,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
@@ -59,13 +59,13 @@ class TaksT1Rewards(RewardsCfg):
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.25,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_pitch_joint", "waist_yaw_joint", "waist_roll_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_.*"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.35,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -77,7 +77,7 @@ class TaksT1Rewards(RewardsCfg):
     # 其余手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms_others = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.15,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -108,14 +108,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.75,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=1.75,
+        weight=2.2,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -202,14 +202,14 @@ class TaksT1Rewards(RewardsCfg):
     # 条件关节加速度惩罚：仅有指令时惩罚，无指令时允许快速响应扰动
     dof_acc_l2_cond = RewTerm(
         func=mdp.dof_acc_l2_conditional,
-        weight=-2.5e-7,
+        weight=-1.5e-7,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
     # 条件关节扭矩惩罚：仅有指令时惩罚，无指令时允许使用必要扭矩抵抗干扰
     dof_torques_l2_cond = RewTerm(
         func=mdp.dof_torques_l2_conditional,
-        weight=-5.0e-6,
+        weight=-5.0e-7,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -220,11 +220,22 @@ class TaksT1Rewards(RewardsCfg):
     # 条件腰部扭矩惩罚：仅有指令时惩罚
     waist_torques_l2_cond = RewTerm(
         func=mdp.joint_torques_l2_conditional,
-        weight=-5.0e-7,
+        weight=-2.5e-7,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
             "asset_cfg": SceneEntityCfg("robot", joint_names=["waist_yaw_joint", "waist_roll_joint"]),
+        },
+    )
+
+    # 条件脚部抖动惩罚：仅有指令时惩罚，减少运动中的脚部不必要抖动
+    feet_jitter_penalty_cond = RewTerm(
+        func=mdp.feet_jitter_penalty_conditional,
+        weight=-0.01,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
         },
     )
 
@@ -285,8 +296,8 @@ class TaksT1EventCfg(EventCfg):
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
-            "force_range": (-5.0, 5.0),
-            "torque_range": (-5.0, 5.0),
+            "force_range": (-2.5, 2.5),
+            "torque_range": (-2.5, 2.5),
         },
     )
 
