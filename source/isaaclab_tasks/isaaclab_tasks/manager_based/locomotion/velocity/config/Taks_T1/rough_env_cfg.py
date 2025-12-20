@@ -58,7 +58,7 @@ class TaksT1Rewards(RewardsCfg):
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.25,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_.*"])},
     )
 
@@ -143,7 +143,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件步态对称性奖励：仅有指令时奖励
     gait_symmetry_cond = RewTerm(
         func=mdp.gait_symmetry_conditional,
-        weight=0.1,
+        weight=0.15,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
