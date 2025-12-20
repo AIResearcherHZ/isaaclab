@@ -37,7 +37,7 @@ class TaksT1Rewards(RewardsCfg):
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.3,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*"])},
     )
 
@@ -51,21 +51,21 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.4,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.35,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_.*"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.45,
+        weight=-0.5,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -77,7 +77,7 @@ class TaksT1Rewards(RewardsCfg):
     # 其余手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms_others = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.15,
+        weight=-0.1,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -115,7 +115,7 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.2,
+        weight=2.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -143,7 +143,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件步态对称性奖励：仅有指令时奖励
     gait_symmetry_cond = RewTerm(
         func=mdp.gait_symmetry_conditional,
-        weight=0.15,
+        weight=0.1,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -352,7 +352,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             "pose_range": {
                 "x": (-0.5, 0.5),
                 "y": (-0.5, 0.5),
-                "z": (-0.02, 0.05),
+                "z": (-0.02, 0.08),
                 "roll": (-0.15, 0.15),
                 "pitch": (-0.15, 0.15),
                 "yaw": (-3.14, 3.14),

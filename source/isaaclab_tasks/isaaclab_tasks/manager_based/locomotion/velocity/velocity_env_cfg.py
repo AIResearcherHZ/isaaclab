@@ -74,7 +74,7 @@ class MySceneCfg(InteractiveSceneCfg):
     )
 
     # 接触力传感器配置，监听机器人各部分（足端等）与环境接触信息
-    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=5, track_air_time=True)
+    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
     # 说明：
     # - prim_path 支持通配符，用于匹配机器人下多个部位（如腿、脚）
     # - history_length: 保存接触历史的长度（用于计算接触时间、抖动等）
@@ -275,7 +275,7 @@ class EventCfg:
             "pose_range": {
                 "x": (-0.5, 0.5),
                 "y": (-0.5, 0.5),
-                "z": (-0.02, 0.05),
+                "z": (-0.02, 0.08),
                 "roll": (-0.15, 0.15),
                 "pitch": (-0.15, 0.15),
                 "yaw": (-3.14, 3.14),

@@ -267,7 +267,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             "pose_range": {
                 "x": (-0.5, 0.5),
                 "y": (-0.5, 0.5),
-                "z": (-0.02, 0.05),
+                "z": (-0.02, 0.08),
                 "roll": (-0.15, 0.15),
                 "pitch": (-0.15, 0.15),
                 "yaw": (-3.14, 3.14),
