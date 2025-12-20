@@ -80,15 +80,15 @@ class MySceneCfg(InteractiveSceneCfg):
     # - history_length: 保存接触历史的长度（用于计算接触时间、抖动等）
     # - track_air_time: 是否跟踪“离地时间”（用于奖励计算如 feet_air_time）
 
-    # # 天空光（环境光照）设置，使用 DomeLight 提供环境 HDRI 光照
-    # sky_light = AssetBaseCfg(
-    #     prim_path="/World/skyLight",
-    #     spawn=sim_utils.DomeLightCfg(
-    #         intensity=750.0,  # 光强度（数值越大越亮）
-    #         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
-    #         # 使用 Nucleus 中的 HDR 天空贴图以获得逼真光照和环境反射
-    #     ),
-    # )
+    # 天空光（环境光照）设置，使用 DomeLight 提供环境 HDRI 光照
+    sky_light = AssetBaseCfg(
+        prim_path="/World/skyLight",
+        spawn=sim_utils.DomeLightCfg(
+            intensity=750.0,  # 光强度（数值越大越亮）
+            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
+            # 使用 Nucleus 中的 HDR 天空贴图以获得逼真光照和环境反射
+        ),
+    )
 
 
 ##
@@ -106,7 +106,7 @@ class CommandsCfg:
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",  # 命令对应的资产（机器人）名字，用于在环境中找对应实体
         resampling_time_range=(4.0, 4.0),  # 每隔多少秒重采样一次命令（固定为 10s）
-        rel_standing_envs=0.15,  # 与“静止”相关的环境比例（可能用于命令采样策略）
+        rel_standing_envs=0.1,  # 与“静止”相关的环境比例（可能用于命令采样策略）
         rel_heading_envs=1.0,  # 是否包含朝向命令的环境比例
         heading_command=True,  # 启用朝向（heading）命令
         heading_control_stiffness=0.5,  # 朝向控制器的刚性系数（用于软约束方向）
