@@ -44,7 +44,7 @@ class TaksT1Rewards(RewardsCfg):
     # 踝关节偏差惩罚
     joint_deviation_ankle = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.05,
+        weight=-0.25,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_.*"])},
     )
 
@@ -143,7 +143,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件步态对称性奖励：仅有指令时奖励
     gait_symmetry_cond = RewTerm(
         func=mdp.gait_symmetry_conditional,
-        weight=0.15,
+        weight=0.1,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -433,6 +433,7 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.feet_external_force_torque = None
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_delay = None
         self.events.observation_dropout = None
         self.events.joint_failure = None
         self.events.sensor_latency_spike = None

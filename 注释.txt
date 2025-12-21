@@ -183,6 +183,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=4 scripts/reinforc
   --experiment_name Taks_T1_flat \
   --num_envs 40000 \
   --resume \
+  --seed 1 \
   --headless
 
 # 单节点多GPU断点重训（DDP）

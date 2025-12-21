@@ -42,6 +42,7 @@ class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
         self.events.feet_external_force_torque = None
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）
+        self.events.action_delay = None
         self.events.observation_dropout = None
         self.events.joint_failure = None
         self.events.sensor_latency_spike = None
