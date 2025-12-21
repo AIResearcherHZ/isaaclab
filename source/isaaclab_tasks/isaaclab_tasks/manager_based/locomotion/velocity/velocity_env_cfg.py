@@ -80,15 +80,15 @@ class MySceneCfg(InteractiveSceneCfg):
     # - history_length: 保存接触历史的长度（用于计算接触时间、抖动等）
     # - track_air_time: 是否跟踪“离地时间”（用于奖励计算如 feet_air_time）
 
-    # # 天空光（环境光照）设置，使用 DomeLight 提供环境 HDRI 光照
-    # sky_light = AssetBaseCfg(
-    #     prim_path="/World/skyLight",
-    #     spawn=sim_utils.DomeLightCfg(
-    #         intensity=750.0,  # 光强度（数值越大越亮）
-    #         texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
-    #         # 使用 Nucleus 中的 HDR 天空贴图以获得逼真光照和环境反射
-    #     ),
-    # )
+    # 天空光（环境光照）设置，使用 DomeLight 提供环境 HDRI 光照
+    sky_light = AssetBaseCfg(
+        prim_path="/World/skyLight",
+        spawn=sim_utils.DomeLightCfg(
+            intensity=750.0,  # 光强度（数值越大越亮）
+            texture_file=f"{ISAAC_NUCLEUS_DIR}/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
+            # 使用 Nucleus 中的 HDR 天空贴图以获得逼真光照和环境反射
+        ),
+    )
 
 
 ##
@@ -404,7 +404,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     """
 
     # 场景设置：创建 MySceneCfg 实例并设置并行环境数量与环境间距
-    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=3.5)
+    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
     # 观察、动作、命令配置
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
