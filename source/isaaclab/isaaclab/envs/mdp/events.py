@@ -395,6 +395,162 @@ class randomize_rigid_body_mass(ManagerTermBase):
             self.asset.root_physx_view.set_inertias(inertias, env_ids)
 
 
+class randomize_inertia_properties(ManagerTermBase):
+    """随机化关节结构的惯性属性，包括 Link 的惯性张量和电机的 armature。
+
+    该函数允许对关节结构的惯性属性进行随机化，包括：
+    - 刚体的惯性张量（inertia tensor）
+    - 关节的 armature（电机转子惯量）
+
+    函数从给定的分布参数中采样随机值，并根据操作类型将其应用到惯性属性上。
+    如果某个属性的分布参数未提供，则不修改该属性。
+
+    .. tip::
+        该函数使用 CPU 张量来分配惯性属性。建议仅在环境初始化时使用此函数。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        """初始化随机化项。
+
+        Args:
+            cfg: 事件项配置。
+            env: 环境实例。
+
+        Raises:
+            ValueError: 如果操作类型不支持。
+        """
+        super().__init__(cfg, env)
+
+        # 从配置中提取资产配置
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+
+        # 校验 operation 是否有效
+        if cfg.params["operation"] == "scale":
+            if "inertia_distribution_params" in cfg.params:
+                _validate_scale_range(
+                    cfg.params["inertia_distribution_params"], "inertia_distribution_params", allow_zero=False
+                )
+            if "armature_distribution_params" in cfg.params:
+                _validate_scale_range(
+                    cfg.params["armature_distribution_params"], "armature_distribution_params"
+                )
+        elif cfg.params["operation"] not in ("abs", "add"):
+            raise ValueError(
+                "Randomization term 'randomize_inertia_properties' does not support operation:"
+                f" '{cfg.params['operation']}'."
+            )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        inertia_distribution_params: tuple[float, float] | None = None,
+        armature_distribution_params: tuple[float, float] | None = None,
+        operation: Literal["add", "scale", "abs"] = "scale",
+        distribution: Literal["uniform", "log_uniform", "gaussian"] = "uniform",
+    ):
+        """执行惯性属性随机化。
+
+        Args:
+            env: 环境实例。
+            env_ids: 需要随机化的环境 ID。如果为 None，则对所有环境进行随机化。
+            asset_cfg: 资产配置。
+            inertia_distribution_params: 惯性张量的分布参数 (min, max)。
+            armature_distribution_params: armature 的分布参数 (min, max)。
+            operation: 操作类型，可选 "add"、"scale"、"abs"。
+            distribution: 分布类型，可选 "uniform"、"log_uniform"、"gaussian"。
+        """
+        # 解析环境 ID；为空则对所有环境随机化
+        if env_ids is None:
+            env_ids = torch.arange(env.scene.num_envs, device="cpu")
+        else:
+            env_ids = env_ids.cpu()
+
+        # 解析需要随机化的 body 索引
+        if self.asset_cfg.body_ids == slice(None):
+            body_ids = torch.arange(self.asset.num_bodies, dtype=torch.int, device="cpu")
+        else:
+            body_ids = torch.tensor(self.asset_cfg.body_ids, dtype=torch.int, device="cpu")
+
+        # 解析需要随机化的 joint 索引
+        if self.asset_cfg.joint_ids == slice(None):
+            joint_ids = slice(None)
+        else:
+            joint_ids = torch.tensor(self.asset_cfg.joint_ids, dtype=torch.int, device="cpu")
+
+        # 随机化惯性张量
+        if inertia_distribution_params is not None:
+            # 从 PhysX 视图获取当前惯性张量
+            inertias = self.asset.root_physx_view.get_inertias()
+
+            # 始终在默认惯性的基础上重新随机，避免多次调用时叠加误差
+            inertias[env_ids[:, None], body_ids] = self.asset.data.default_inertia[env_ids[:, None], body_ids].clone()
+
+            # 按指定分布与操作对惯性进行随机化
+            n_envs = len(env_ids)
+            n_bodies = len(body_ids) if not isinstance(body_ids, slice) else self.asset.num_bodies
+
+            # 采样缩放因子
+            if distribution == "uniform":
+                scale_factors = math_utils.sample_uniform(
+                    inertia_distribution_params[0], inertia_distribution_params[1],
+                    (n_envs, n_bodies), device="cpu"
+                )
+            elif distribution == "log_uniform":
+                scale_factors = math_utils.sample_log_uniform(
+                    inertia_distribution_params[0], inertia_distribution_params[1],
+                    (n_envs, n_bodies), device="cpu"
+                )
+            elif distribution == "gaussian":
+                scale_factors = math_utils.sample_gaussian(
+                    inertia_distribution_params[0], inertia_distribution_params[1],
+                    (n_envs, n_bodies), device="cpu"
+                )
+            else:
+                raise NotImplementedError(f"Unknown distribution: '{distribution}'")
+
+            # 应用操作
+            if operation == "add":
+                inertias[env_ids[:, None], body_ids] += scale_factors[..., None]
+            elif operation == "scale":
+                inertias[env_ids[:, None], body_ids] *= scale_factors[..., None]
+            elif operation == "abs":
+                inertias[env_ids[:, None], body_ids] *= scale_factors[..., None]
+
+            # 确保惯性张量为正值
+            inertias = torch.clamp(inertias, min=1e-6)
+
+            # 将随机后的惯性张量写回物理仿真
+            self.asset.root_physx_view.set_inertias(inertias, env_ids)
+
+        # 随机化 armature（电机转子惯量）
+        if armature_distribution_params is not None:
+            # 获取当前 armature
+            armature = _randomize_prop_by_op(
+                self.asset.data.default_joint_armature.clone(),
+                armature_distribution_params,
+                env_ids,
+                joint_ids,
+                operation=operation,
+                distribution=distribution,
+            )
+
+            # 确保 armature 为非负值
+            armature = torch.clamp(armature, min=0.0)
+
+            # 将随机后的 armature 写回物理仿真
+            if isinstance(joint_ids, slice):
+                self.asset.write_joint_armature_to_sim(
+                    armature[env_ids], joint_ids=joint_ids, env_ids=env_ids
+                )
+            else:
+                self.asset.write_joint_armature_to_sim(
+                    armature[env_ids[:, None], joint_ids], joint_ids=joint_ids, env_ids=env_ids
+                )
+
+
 def randomize_rigid_body_com(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
@@ -1814,3 +1970,341 @@ def _validate_scale_range(
         raise ValueError(f"{name}: lower bound must be ≥ 0 when using the 'scale' operation (got {low}).")
     if high < low:
         raise ValueError(f"{name}: upper bound ({high}) must be ≥ lower bound ({low}).")
+
+
+##############################################################################
+# Taks_T1 鲁棒性随机化事件
+##############################################################################
+
+
+class randomize_action_delay(ManagerTermBase):
+    """动作延迟随机化。
+
+    功能说明:
+        维护 FIFO 动作历史缓冲区，每次实际执行 delay_steps 之前的动作，
+        模拟真实系统中的通讯延迟和控制周期不对齐。
+
+    参数:
+        asset_cfg: 目标资产配置
+        max_delay_steps: 最大延迟步数，默认 3
+
+    优化:
+        使用纯张量操作和 gather 索引，避免 Python for 循环。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+
+        # 缓冲区配置
+        self.max_delay_steps = cfg.params.get("max_delay_steps", 3)
+        self.buffer_size = self.max_delay_steps + 1
+
+        # 每个 env 的延迟步数 (num_envs,)
+        self.delay_steps = torch.randint(
+            0, self.buffer_size, (self._num_envs,), device=self._device
+        )
+
+        # 动作历史缓冲区 (num_envs, buffer_size, num_joints)
+        self.action_buffer = torch.zeros(
+            self._num_envs, self.buffer_size, self.asset.num_joints, device=self._device
+        )
+        self.buffer_idx = 0
+
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        max_delay_steps: int = 3,
+    ):
+        """应用延迟后的动作。"""
+        if env_ids is None:
+            env_ids = self._env_indices
+
+        # 存储当前动作到缓冲区
+        self.action_buffer[:, self.buffer_idx] = self.asset.data.joint_pos_target
+
+        # 计算延迟索引并使用 gather 批量获取
+        delayed_indices = (self.buffer_idx - self.delay_steps) % self.buffer_size
+        gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self.asset.num_joints)
+        delayed_actions = self.action_buffer.gather(1, gather_indices).squeeze(1)
+
+        # 更新缓冲区索引
+        self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
+
+        # 应用延迟动作
+        self.asset.set_joint_position_target(delayed_actions[env_ids], env_ids=env_ids)
+
+        # reset 时重新采样延迟并清空缓冲区
+        if len(env_ids) > 0:
+            self.delay_steps[env_ids] = torch.randint(
+                0, self.buffer_size, (len(env_ids),), device=self._device
+            )
+            self.action_buffer[env_ids] = 0.0
+
+
+class randomize_observation_dropout(ManagerTermBase):
+    """观测丢包随机化。
+
+    功能说明:
+        以一定概率将部分观测维度置零或保持上一帧值，
+        模拟传感器偶发失效、通讯丢包等情况。
+
+    参数:
+        asset_cfg: 目标资产配置
+        dropout_prob: 每个观测维度的丢包概率，默认 0.01
+        dropout_mode: 丢包处理模式，"zero"(置零) 或 "hold"(保持上帧)
+
+    优化:
+        预分配零张量，避免每次调用创建新张量。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+        self._num_joints = self.asset.num_joints
+
+        # 上一帧观测缓存 (hold 模式使用)
+        self.last_joint_pos = self.asset.data.joint_pos.clone()
+        self.last_joint_vel = self.asset.data.joint_vel.clone()
+
+        # 预分配零张量 (zero 模式使用)
+        self._zeros = torch.zeros(self._num_envs, self._num_joints, device=self._device)
+
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        dropout_prob: float = 0.01,
+        dropout_mode: str = "zero",
+    ):
+        """随机丢弃部分观测。"""
+        if env_ids is None:
+            env_ids = self._env_indices
+
+        n_envs = len(env_ids)
+
+        # 生成丢包掩码 (num_envs, num_joints)
+        pos_mask = torch.rand(n_envs, self._num_joints, device=self._device) < dropout_prob
+        vel_mask = torch.rand(n_envs, self._num_joints, device=self._device) < dropout_prob
+
+        # 根据模式选择替换值
+        if dropout_mode == "zero":
+            replace_pos = self._zeros[env_ids]
+            replace_vel = self._zeros[env_ids]
+        else:  # hold
+            replace_pos = self.last_joint_pos[env_ids]
+            replace_vel = self.last_joint_vel[env_ids]
+
+        # 应用丢包
+        self.asset.data.joint_pos[env_ids] = torch.where(
+            pos_mask, replace_pos, self.asset.data.joint_pos[env_ids]
+        )
+        self.asset.data.joint_vel[env_ids] = torch.where(
+            vel_mask, replace_vel, self.asset.data.joint_vel[env_ids]
+        )
+
+        # 更新上一帧缓存
+        self.last_joint_pos[env_ids] = self.asset.data.joint_pos[env_ids].clone()
+        self.last_joint_vel[env_ids] = self.asset.data.joint_vel[env_ids].clone()
+
+
+class randomize_joint_failure(ManagerTermBase):
+    """关节故障随机化。
+
+    功能说明:
+        以一定概率让某些关节"失效"，模拟电机故障、驱动器失效等极端情况。
+
+    故障模式:
+        - weak: 扭矩输出按 weak_factor 衰减（如 0.3 表示只有 30% 扭矩）
+        - stuck: 关节卡死在故障发生时的位置
+        - dead: 关节完全不响应（扭矩归零）
+
+    参数:
+        asset_cfg: 目标资产配置
+        failure_prob: 每个关节的失效概率，默认 0.01
+        failure_mode: 故障模式，"weak"/"stuck"/"dead"，默认 "weak"
+        weak_factor: weak 模式下的扭矩保留因子，默认 0.3
+
+    优化:
+        预分配所有张量，使用纯张量操作实现故障效果。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+        self._num_joints = self.asset.num_joints
+
+        # 故障状态张量 (num_envs, num_joints)
+        self.failed_joints = torch.zeros(
+            self._num_envs, self._num_joints, dtype=torch.bool, device=self._device
+        )
+
+        # stuck 模式：记录卡死位置
+        self.stuck_positions = torch.zeros(
+            self._num_envs, self._num_joints, device=self._device
+        )
+
+        # weak 模式：扭矩衰减因子张量 (num_envs, num_joints)
+        # 正常关节为 1.0，故障关节为 weak_factor
+        self.torque_scale = torch.ones(
+            self._num_envs, self._num_joints, device=self._device
+        )
+
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        failure_prob: float = 0.01,
+        failure_mode: str = "weak",
+        weak_factor: float = 0.3,
+    ):
+        """应用关节故障效果。"""
+        if env_ids is None:
+            env_ids = self._env_indices
+
+        n_envs = len(env_ids)
+
+        # 采样新的故障状态
+        new_failures = torch.rand(n_envs, self._num_joints, device=self._device) < failure_prob
+        self.failed_joints[env_ids] = new_failures
+
+        # 根据故障模式应用效果
+        if failure_mode == "weak":
+            # 更新扭矩衰减因子：故障关节使用 weak_factor，正常关节为 1.0
+            self.torque_scale[env_ids] = torch.where(
+                new_failures, 
+                torch.full_like(self.torque_scale[env_ids], weak_factor),
+                torch.ones_like(self.torque_scale[env_ids])
+            )
+            # 直接修改 applied_torque（如果存在）
+            if self.asset.data.applied_torque is not None:
+                self.asset.data.applied_torque[env_ids] *= self.torque_scale[env_ids]
+
+        elif failure_mode == "stuck":
+            # 记录卡死位置
+            self.stuck_positions[env_ids] = self.asset.data.joint_pos[env_ids].clone()
+            # 强制关节保持在卡死位置
+            target_pos = self.asset.data.joint_pos_target[env_ids].clone()
+            target_pos = torch.where(new_failures, self.stuck_positions[env_ids], target_pos)
+            self.asset.set_joint_position_target(target_pos, env_ids=env_ids)
+
+        elif failure_mode == "dead":
+            # 关节完全不响应：将扭矩置零
+            self.torque_scale[env_ids] = torch.where(
+                new_failures,
+                torch.zeros_like(self.torque_scale[env_ids]),
+                torch.ones_like(self.torque_scale[env_ids])
+            )
+            if self.asset.data.applied_torque is not None:
+                self.asset.data.applied_torque[env_ids] *= self.torque_scale[env_ids]
+
+    def apply_torque_scale(self, env_ids: torch.Tensor | None = None):
+        """在每步仿真前调用，应用扭矩衰减（用于 interval 模式）。
+        
+        如果使用 interval 模式而非 reset 模式，需要在每步调用此方法。
+        """
+        if env_ids is None:
+            env_ids = self._env_indices
+        if self.asset.data.applied_torque is not None:
+            self.asset.data.applied_torque[env_ids] *= self.torque_scale[env_ids]
+
+
+class randomize_sensor_latency_spike(ManagerTermBase):
+    """传感器延迟尖峰随机化。
+
+    功能说明:
+        极少数 step 在观测上注入大延迟（使用历史帧），
+        模拟偶发的通讯阻塞、传感器卡顿等。
+
+    参数:
+        asset_cfg: 目标资产配置
+        spike_prob: 每步发生延迟尖峰的概率，默认 0.005
+        max_latency_steps: 最大延迟步数，默认 10
+
+    优化:
+        使用纯张量操作和 gather 索引，避免 Python for 循环。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+        self._num_joints = self.asset.num_joints
+
+        # 缓冲区配置
+        self.max_latency_steps = cfg.params.get("max_latency_steps", 10)
+        self.buffer_size = self.max_latency_steps + 1
+
+        # 观测历史缓冲区 (num_envs, buffer_size, num_joints)
+        self.history_buffer_pos = torch.zeros(
+            self._num_envs, self.buffer_size, self._num_joints, device=self._device
+        )
+        self.history_buffer_vel = torch.zeros(
+            self._num_envs, self.buffer_size, self._num_joints, device=self._device
+        )
+        self.buffer_idx = 0
+
+        # 预分配环境索引
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        spike_prob: float = 0.005,
+        max_latency_steps: int = 10,
+    ):
+        """偶发注入大延迟。"""
+        # 存储当前观测到缓冲区
+        self.history_buffer_pos[:, self.buffer_idx] = self.asset.data.joint_pos
+        self.history_buffer_vel[:, self.buffer_idx] = self.asset.data.joint_vel
+
+        # 生成延迟尖峰掩码 (num_envs,)
+        spike_mask = torch.rand(self._num_envs, device=self._device) < spike_prob
+
+        if spike_mask.any():
+            # 采样延迟步数并计算延迟索引
+            latency = torch.randint(1, self.buffer_size, (self._num_envs,), device=self._device)
+            delayed_indices = (self.buffer_idx - latency) % self.buffer_size
+
+            # 使用 gather 批量获取历史观测
+            gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self._num_joints)
+            delayed_pos = self.history_buffer_pos.gather(1, gather_indices).squeeze(1)
+            delayed_vel = self.history_buffer_vel.gather(1, gather_indices).squeeze(1)
+
+            # 仅对发生尖峰的 env 应用延迟
+            spike_mask_expanded = spike_mask.unsqueeze(-1).expand(-1, self._num_joints)
+            self.asset.data.joint_pos[:] = torch.where(
+                spike_mask_expanded, delayed_pos, self.asset.data.joint_pos
+            )
+            self.asset.data.joint_vel[:] = torch.where(
+                spike_mask_expanded, delayed_vel, self.asset.data.joint_vel
+            )
+
+        # 更新缓冲区索引
+        self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size

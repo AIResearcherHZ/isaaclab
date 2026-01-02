@@ -1,0 +1,279 @@
+================================================================================
+                              仓库与环境准备
+================================================================================
+【Git 仓库克隆】
+git clone https://github.com/AIResearcherHZ/isaaclab.git
+git clone https://github.com/AIResearcherHZ/S2S2R.git
+git clone https://github.com/AIResearcherHZ/whole_body_tracking.git
+git clone https://github.com/AIResearcherHZ/GMR.git
+git clone --recurse-submodules https://github.com/AIResearcherHZ/TWIST2.git
+git clone --recurse-submodules https://github.com/AIResearcherHZ/HOVER
+
+
+【服务器 VNC】
+/opt/TurboVNC/bin/vncserver \
+  -wm xfce \
+  -securitytypes none
+
+
+【软链接】
+ln -s /home/xhz/isaacsim _isaac_sim
+
+
+================================================================================
+                               资产格式转换
+================================================================================
+
+【URDF → USD】
+./isaaclab.sh -p scripts/tools/convert_urdf.py \
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.urdf \
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.usd
+
+./isaaclab.sh -p scripts/tools/convert_mjcf.py \
+  /home/xhz/S2S2R/s2s2r/robots/double_pendulum/mjcf/double_pendulum.xml \
+  /home/xhz/S2S2R/s2s2r/robots/double_pendulum/mjcf/double_pendulum.usd
+
+./isaaclab.sh -p scripts/tools/convert_urdf.py \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.urdf \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd
+
+
+【MJCF → USD】
+./isaaclab.sh -p scripts/tools/convert_mjcf.py \
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.xml \
+  /home/xhz/桌面/assets/Taks_T1/Taks_T1.usd
+
+./isaaclab.sh -p scripts/tools/convert_mjcf.py \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.xml \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/table.usd
+
+
+================================================================================
+                        步态训练工作流总览
+================================================================================
+说明：统一整理 G1 / Taks_T1 的步态训练、可视化与工具，按机器人与场景分组。
+观测值仅使用真实传感器可获取的数据（IMU + 关节编码器）。
+
+--------------------------------------------------------------------------------
+【G1 机器人 - 平坦地形】
+--------------------------------------------------------------------------------
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --num_envs 40000 \
+  --headless
+
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --num_envs 40000 \
+  --headless \
+  --distributed
+
+# TensorBoard 日志查看
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir=logs/rsl_rl/g1_flat
+
+# 普通播放（能生成onnx）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 16
+
+# 键盘控制
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 1 \
+  --keyboard
+
+# 断点重训
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --experiment_name g1_flat \
+  --num_envs 40000 \
+  --resume \
+  --headless
+
+# 单节点多GPU断点重训（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --experiment_name g1_flat \
+  --num_envs 40000 \
+  --resume \
+  --headless \
+  --distributed
+
+# 扭矩录制
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-G1-Play-v0 \
+  --num_envs 1 \
+  --enable_torque_recording \
+  --torque_recording_dir logs/my_torque_data \
+  --torque_recording_env_id 0 \
+  --torque_recording_duration 5.0 \
+  --headless
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Flat-G1-v0 \
+  --output_dir ./io_descriptors
+
+
+--------------------------------------------------------------------------------
+【G1 机器人 - 粗糙地形】
+--------------------------------------------------------------------------------
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-G1-v0 \
+  --num_envs 15000 \
+  --headless
+
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-G1-v0 \
+  --num_envs 15000 \
+  --headless \
+  --distributed
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Rough-G1-v0 \
+  --output_dir ./io_descriptors
+
+
+--------------------------------------------------------------------------------
+【Taks_T1 机器人 - 平坦地形】
+--------------------------------------------------------------------------------
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --num_envs 40000 \
+  --headless
+
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --num_envs 40000 \
+  --headless \
+  --distributed
+
+# TensorBoard 日志查看
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir=logs/rsl_rl/Taks_T1_flat
+
+# 普通播放（能生成onnx）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 16
+
+# 键盘控制
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 1 \
+  --keyboard
+
+# 扭矩录制
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Velocity-Flat-Taks_T1-Play-v0 \
+  --num_envs 1 \
+  --enable_torque_recording \
+  --torque_recording_dir logs/my_torque_data \
+  --torque_recording_env_id 0 \
+  --torque_recording_duration 5.0 \
+  --headless
+
+# 断点重训
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --experiment_name Taks_T1_flat \
+  --num_envs 40000 \
+  --resume \
+  --headless
+
+# 单节点多GPU断点重训（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --experiment_name Taks_T1_flat \
+  --num_envs 40000 \
+  --resume \
+  --headless \
+  --distributed
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Flat-Taks_T1-v0 \
+  --output_dir ./io_descriptors
+
+
+--------------------------------------------------------------------------------
+【Taks_T1 机器人 - 粗糙地形】
+--------------------------------------------------------------------------------
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-Taks_T1-v0 \
+  --num_envs 15000 \
+  --headless
+
+# 单节点多GPU训练（DDP）
+python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-Taks_T1-v0 \
+  --num_envs 15000 \
+  --headless \
+  --distributed
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Velocity-Rough-Taks_T1-v0 \
+  --output_dir ./io_descriptors
+
+
+================================================================================
+                          双摆（Double Pendulum）训练
+================================================================================
+
+./isaaclab.sh -p scripts/reinforcement_learning/skrl/train.py \
+  --task Isaac-Cart-Double-Pendulum-Direct-v0 \
+  --num_envs 81
+
+
+# RSL-RL 训练（经典观测）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Double-Pendulum-v0 \
+  --num_envs 8192 \
+  --headless
+
+# RSL-RL 训练（IMU 观测）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Double-Pendulum-IMU-v0 \
+  --num_envs 8192 \
+  --headless
+
+# TensorBoard 日志查看
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir logs/rsl_rl/double_pendulum
+
+# 回放（生成 ONNX）
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Double-Pendulum-v0 \
+  --num_envs 16
+
+# IMU 观测回放
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play.py \
+  --task Isaac-Double-Pendulum-IMU-v0 \
+  --num_envs 16
+
+# 断点重训
+./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py \
+  --task Isaac-Double-Pendulum-IMU-v0 \
+  --num_envs 8192 \
+  --resume \
+  --headless
+
+# IO描述符导出
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Double-Pendulum-v0 \
+  --output_dir ./io_descriptors
+
+# IO描述符导出(IMU)
+./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
+  --task Isaac-Double-Pendulum-IMU-v0 \
+  --output_dir ./io_descriptors_imu
