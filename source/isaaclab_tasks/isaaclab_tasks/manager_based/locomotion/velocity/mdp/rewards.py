@@ -514,3 +514,58 @@ def feet_jitter_penalty_conditional(
     penalty = feet_jitter_penalty(env, asset_cfg)
     cmd_mask = _get_command_mask(env, command_name, command_threshold)
     return penalty * cmd_mask
+
+
+def body_balance_penalty(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    max_displacement: float = 0.15,
+    std: float = 0.1,
+) -> torch.Tensor:
+    """惩罚身体重心水平位移过大，保持平衡稳定。
+    
+    当受到外力推动时，允许身体稍微移动保持平衡，但惩罚过大的晃动。
+    使用指数核函数，位移越大惩罚越重。
+    """
+    asset = env.scene[asset_cfg.name]
+    # 获取当前重心水平位置
+    com_xy = asset.data.root_com_pos_w[:, :2]
+    # 获取基座水平位置作为参考
+    base_xy = asset.data.root_pos_w[:, :2]
+    # 计算重心相对于基座的水平偏移
+    displacement = torch.norm(com_xy - base_xy, dim=1)
+    # 超出阈值的部分给予惩罚
+    excess = torch.clamp(displacement - max_displacement, min=0.0)
+    return excess / std
+
+
+def body_orientation_stability(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    max_tilt: float = 0.2,
+) -> torch.Tensor:
+    """惩罚身体倾斜角度过大，保持躯干稳定。
+    
+    允许小幅度调整以保持平衡，但惩罚过大的倾斜。
+    """
+    asset = env.scene[asset_cfg.name]
+    # 获取重力方向在机体坐标系下的投影
+    gravity_proj = asset.data.projected_gravity_b[:, :2]
+    # 计算倾斜程度（理想状态下gravity_proj应为[0,0,-1]，xy分量为0）
+    tilt = torch.norm(gravity_proj, dim=1)
+    # 超出阈值的部分给予惩罚
+    return torch.clamp(tilt - max_tilt, min=0.0)
+
+
+def com_velocity_stability(
+    env,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    max_velocity: float = 0.3,
+) -> torch.Tensor:
+    """惩罚重心水平速度过大，防止身体晃动过快。"""
+    asset = env.scene[asset_cfg.name]
+    # 获取重心水平速度
+    com_vel_xy = asset.data.root_com_lin_vel_w[:, :2]
+    speed = torch.norm(com_vel_xy, dim=1)
+    # 超出阈值的部分给予惩罚
+    return torch.clamp(speed - max_velocity, min=0.0)

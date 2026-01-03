@@ -2308,3 +2308,136 @@ class randomize_sensor_latency_spike(ManagerTermBase):
 
         # 更新缓冲区索引
         self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
+
+
+class randomize_comm_delay_async(ManagerTermBase):
+    """通信延迟异步随机化 - 模拟电机与IMU时间轴不同步。
+
+    功能说明:
+        1. 电机位置/速度/扭矩各自独立延迟（时间轴不同步）
+        2. IMU数据（角速度/线加速度）与电机数据时间轴不同步
+        3. 支持IMU相对于电机的延迟偏移（正值表示IMU比电机慢）
+        模拟真实系统中CAN总线通讯延迟、传感器采样时间差异等。
+
+    参数:
+        asset_cfg: 目标资产配置
+        motor_pos_delay_range: 电机位置延迟范围 [min, max] 步
+        motor_vel_delay_range: 电机速度延迟范围 [min, max] 步
+        motor_torque_delay_range: 电机扭矩延迟范围 [min, max] 步
+        imu_relative_delay_range: IMU相对于电机的延迟范围 [min, max] 步（正值=IMU更慢）
+
+    优化:
+        使用环形缓冲区和gather索引，纯张量操作，高效GPU并行。
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.asset: Articulation = env.scene[self.asset_cfg.name]
+        self._num_envs = env.scene.num_envs
+        self._device = self.asset.device
+        self._num_joints = self.asset.num_joints
+
+        # 延迟范围配置
+        self.motor_pos_delay_range = cfg.params.get("motor_pos_delay_range", (0, 3))
+        self.motor_vel_delay_range = cfg.params.get("motor_vel_delay_range", (0, 3))
+        self.motor_torque_delay_range = cfg.params.get("motor_torque_delay_range", (0, 3))
+        self.imu_relative_delay_range = cfg.params.get("imu_relative_delay_range", (-2, 3))
+
+        # 计算最大缓冲区大小（需要考虑相对延迟的最大绝对值）
+        max_motor_delay = max(
+            self.motor_pos_delay_range[1],
+            self.motor_vel_delay_range[1],
+            self.motor_torque_delay_range[1],
+        )
+        max_imu_offset = max(abs(self.imu_relative_delay_range[0]), abs(self.imu_relative_delay_range[1]))
+        self.buffer_size = max_motor_delay + max_imu_offset + 1
+
+        # 环形缓冲区 (num_envs, buffer_size, dim)
+        self.pos_buffer = torch.zeros(self._num_envs, self.buffer_size, self._num_joints, device=self._device)
+        self.vel_buffer = torch.zeros(self._num_envs, self.buffer_size, self._num_joints, device=self._device)
+        self.torque_buffer = torch.zeros(self._num_envs, self.buffer_size, self._num_joints, device=self._device)
+        self.ang_vel_buffer = torch.zeros(self._num_envs, self.buffer_size, 3, device=self._device)
+        self.lin_acc_buffer = torch.zeros(self._num_envs, self.buffer_size, 3, device=self._device)
+        self.buffer_idx = 0
+
+        # 每个env独立采样延迟步数 (num_envs,)
+        self.pos_delay = torch.randint(self.motor_pos_delay_range[0], self.motor_pos_delay_range[1] + 1,
+                                       (self._num_envs,), device=self._device)
+        self.vel_delay = torch.randint(self.motor_vel_delay_range[0], self.motor_vel_delay_range[1] + 1,
+                                       (self._num_envs,), device=self._device)
+        self.torque_delay = torch.randint(self.motor_torque_delay_range[0], self.motor_torque_delay_range[1] + 1,
+                                          (self._num_envs,), device=self._device)
+        # IMU延迟 = 电机平均延迟 + 相对偏移
+        motor_avg_delay = (self.pos_delay + self.vel_delay) // 2
+        imu_relative_offset = torch.randint(
+            self.imu_relative_delay_range[0], self.imu_relative_delay_range[1] + 1,
+            (self._num_envs,), device=self._device
+        )
+        self.imu_delay = torch.clamp(motor_avg_delay + imu_relative_offset, min=0, max=self.buffer_size - 1)
+
+        self._env_indices = torch.arange(self._num_envs, device=self._device)
+
+    def _gather_delayed(self, buffer: torch.Tensor, delay: torch.Tensor) -> torch.Tensor:
+        """从环形缓冲区获取延迟数据，纯张量操作。"""
+        delayed_idx = (self.buffer_idx - delay) % self.buffer_size
+        dim = buffer.shape[-1]
+        gather_idx = delayed_idx.view(-1, 1, 1).expand(-1, 1, dim)
+        return buffer.gather(1, gather_idx).squeeze(1)
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor | None,
+        asset_cfg: SceneEntityCfg,
+        motor_pos_delay_range: tuple[int, int] = (0, 3),
+        motor_vel_delay_range: tuple[int, int] = (0, 3),
+        motor_torque_delay_range: tuple[int, int] = (0, 3),
+        imu_relative_delay_range: tuple[int, int] = (-2, 3),
+    ):
+        """应用异步通信延迟。"""
+        # 存储当前真实数据到缓冲区
+        self.pos_buffer[:, self.buffer_idx] = self.asset.data.joint_pos
+        self.vel_buffer[:, self.buffer_idx] = self.asset.data.joint_vel
+        if self.asset.data.applied_torque is not None:
+            self.torque_buffer[:, self.buffer_idx] = self.asset.data.applied_torque
+        self.ang_vel_buffer[:, self.buffer_idx] = self.asset.data.root_ang_vel_b
+        self.lin_acc_buffer[:, self.buffer_idx] = self.asset.data.root_lin_vel_b
+
+        # 获取延迟后的数据
+        delayed_pos = self._gather_delayed(self.pos_buffer, self.pos_delay)
+        delayed_vel = self._gather_delayed(self.vel_buffer, self.vel_delay)
+        delayed_ang_vel = self._gather_delayed(self.ang_vel_buffer, self.imu_delay)
+
+        # 应用延迟数据到观测
+        self.asset.data.joint_pos[:] = delayed_pos
+        self.asset.data.joint_vel[:] = delayed_vel
+        self.asset.data.root_ang_vel_b[:] = delayed_ang_vel
+
+        # 更新缓冲区索引
+        self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
+
+    def reset(self, env_ids: torch.Tensor | None = None):
+        """重置时重新采样延迟并清空缓冲区。"""
+        if env_ids is None:
+            env_ids = self._env_indices
+
+        n = len(env_ids)
+        self.pos_delay[env_ids] = torch.randint(
+            self.motor_pos_delay_range[0], self.motor_pos_delay_range[1] + 1, (n,), device=self._device)
+        self.vel_delay[env_ids] = torch.randint(
+            self.motor_vel_delay_range[0], self.motor_vel_delay_range[1] + 1, (n,), device=self._device)
+        self.torque_delay[env_ids] = torch.randint(
+            self.motor_torque_delay_range[0], self.motor_torque_delay_range[1] + 1, (n,), device=self._device)
+        # IMU延迟 = 电机平均延迟 + 相对偏移
+        motor_avg_delay = (self.pos_delay[env_ids] + self.vel_delay[env_ids]) // 2
+        imu_relative_offset = torch.randint(
+            self.imu_relative_delay_range[0], self.imu_relative_delay_range[1] + 1, (n,), device=self._device
+        )
+        self.imu_delay[env_ids] = torch.clamp(motor_avg_delay + imu_relative_offset, min=0, max=self.buffer_size - 1)
+
+        self.pos_buffer[env_ids] = 0.0
+        self.vel_buffer[env_ids] = 0.0
+        self.torque_buffer[env_ids] = 0.0
+        self.ang_vel_buffer[env_ids] = 0.0
+        self.lin_acc_buffer[env_ids] = 0.0
