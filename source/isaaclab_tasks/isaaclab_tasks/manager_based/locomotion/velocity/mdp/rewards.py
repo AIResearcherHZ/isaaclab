@@ -539,24 +539,6 @@ def body_balance_penalty(
     return excess / std
 
 
-def body_orientation_stability(
-    env,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    max_tilt: float = 0.2,
-) -> torch.Tensor:
-    """惩罚身体倾斜角度过大，保持躯干稳定。
-    
-    允许小幅度调整以保持平衡，但惩罚过大的倾斜。
-    """
-    asset = env.scene[asset_cfg.name]
-    # 获取重力方向在机体坐标系下的投影
-    gravity_proj = asset.data.projected_gravity_b[:, :2]
-    # 计算倾斜程度（理想状态下gravity_proj应为[0,0,-1]，xy分量为0）
-    tilt = torch.norm(gravity_proj, dim=1)
-    # 超出阈值的部分给予惩罚
-    return torch.clamp(tilt - max_tilt, min=0.0)
-
-
 def com_velocity_stability(
     env,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
