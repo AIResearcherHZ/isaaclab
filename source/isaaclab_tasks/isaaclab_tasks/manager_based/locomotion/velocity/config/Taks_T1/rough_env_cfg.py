@@ -308,7 +308,7 @@ class TaksT1EventCfg(EventCfg):
     comm_delay_async = EventTerm(
         func=mdp.randomize_comm_delay_async,
         mode="interval",
-        interval_range_s=(0.0, 0.0),  # 每步都应用
+        interval_range_s=(5.0, 15.0),  # 每步都应用
         params={
             "asset_cfg": SceneEntityCfg("robot"),
             "motor_pos_delay_range": (0, 4),  # 电机位置延迟0-4步
@@ -397,10 +397,10 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.05, 0.05)}
 
-        # 机器人摩擦力随机化 - 只对脚踝关节应用
-        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=self.foot_link_name)
-        self.events.physics_material.params["static_friction_range"] = (0.1, 2.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.1, 2.0)
+        # 机器人摩擦力随机化
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
