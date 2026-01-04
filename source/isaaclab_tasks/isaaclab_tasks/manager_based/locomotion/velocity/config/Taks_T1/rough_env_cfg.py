@@ -2,6 +2,7 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
@@ -255,6 +256,20 @@ class TaksT1Rewards(RewardsCfg):
 
 @configclass
 class TaksT1EventCfg(EventCfg):
+    # ==================== 执行器增益随机化（stiffness/damping） ====================
+    # 随机化关节刚度和阻尼，提升sim2real迁移能力
+    actuator_gains = EventTerm(
+        func=mdp.randomize_actuator_gains,
+        mode="reset",  # 每次reset时随机化
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+            "stiffness_distribution_params": (0.5, 2.0),  # 刚度缩放范围
+            "damping_distribution_params": (0.5, 5.0),  # 阻尼缩放范围
+            "operation": "scale",  # 缩放操作
+            "distribution": "uniform",  # 均匀分布
+        },
+    )
+
     # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
 
     # 动作延迟 - 模拟通讯延迟和控制周期不对齐
@@ -356,6 +371,18 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 删除无法真实获取的观测
         self.observations.policy.height_scan = None
         self.observations.policy.base_lin_vel = None
+
+        # 增强观测噪声随机化（模拟真实传感器噪声）
+        # IMU角速度噪声（陀螺仪）
+        self.observations.policy.base_ang_vel.noise = Unoise(n_min=-0.2, n_max=0.2)
+        # IMU线加速度噪声（加速度计）
+        self.observations.policy.base_lin_acc.noise = Unoise(n_min=-0.1, n_max=0.1)
+        # 重力方向噪声（姿态估计误差）
+        self.observations.policy.projected_gravity.noise = Unoise(n_min=-0.1, n_max=0.1)
+        # 电机位置噪声（编码器）
+        self.observations.policy.joint_pos.noise = Unoise(n_min=-0.05, n_max=0.05)
+        # 电机速度噪声（编码器微分）
+        self.observations.policy.joint_vel.noise = Unoise(n_min=-2.0, n_max=2.0)
 
         # ------------------------------Actions------------------------------
         self.actions.joint_pos.scale = 0.25

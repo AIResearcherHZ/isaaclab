@@ -164,7 +164,7 @@ class PolicyCfg(ObsGroup):
 
     projected_gravity = ObsTerm(
         func=mdp.projected_gravity,
-        noise=Unoise(n_min=-0.05, n_max=0.05),
+        noise=Unoise(n_min=-0.1, n_max=0.1),
     )
     # 投影重力（机器人姿态）- 来自 IMU 加速度计
 
@@ -173,10 +173,10 @@ class PolicyCfg(ObsGroup):
     # 观测当前下发的速度命令（从 CommandsCfg 中生成）
 
     # 关节编码器观测
-    joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+    joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.05, n_max=0.05))
     # 相对于参考位置的关节角度观测（带小幅噪声）- 来自关节编码器
 
-    joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
+    joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-2.0, n_max=2.0))
     # 关节速度观测（带噪声）- 来自关节编码器微分或直接测量
 
     # 历史动作
