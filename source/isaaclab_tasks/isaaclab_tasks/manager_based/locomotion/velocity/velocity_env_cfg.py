@@ -176,7 +176,7 @@ class PolicyCfg(ObsGroup):
     joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.05, n_max=0.05))
     # 相对于参考位置的关节角度观测（带小幅噪声）- 来自关节编码器
 
-    joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-2.0, n_max=2.0))
+    joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
     # 关节速度观测（带噪声）- 来自关节编码器微分或直接测量
 
     # 历史动作

@@ -72,8 +72,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_roll_joint": 4.19,
             },
             stiffness={
-                ".*_hip_yaw_joint": 200.0,
-                ".*_hip_roll_joint": 200.0,
+                ".*_hip_yaw_joint": 100.0,
+                ".*_hip_roll_joint": 100.0,
             },
             damping={
                 ".*_hip_yaw_joint": 5.0,
@@ -97,8 +97,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_knee_joint": 7.33,
             },
             stiffness={
-                ".*_hip_pitch_joint": 250.0,
-                ".*_knee_joint": 250.0,
+                ".*_hip_pitch_joint": 150.0,
+                ".*_knee_joint": 150.0,
             },
             damping={
                 ".*_hip_pitch_joint": 5.0,
@@ -115,8 +115,8 @@ TAKS_T1_CFG = ArticulationCfg(
             effort_limit_sim=27.0,
             velocity_limit_sim=5.4454,
             stiffness={
-                ".*_ankle_pitch_joint": 20.0,
-                ".*_ankle_roll_joint": 20.0,
+                ".*_ankle_pitch_joint": 40.0,
+                ".*_ankle_roll_joint": 40.0,
             },
             damping={
                 ".*_ankle_pitch_joint": 2.0,
@@ -133,7 +133,7 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=97,
             velocity_limit_sim=4.19,
-            stiffness=200.0,
+            stiffness=150.0,
             damping=5.0,
             armature=0.01,
         ),
@@ -148,16 +148,16 @@ TAKS_T1_CFG = ArticulationCfg(
             effort_limit_sim=9,
             velocity_limit_sim=5.4454,
             stiffness={
-                ".*_shoulder_pitch_joint": 50.0,
-                ".*_shoulder_roll_joint": 50.0,
-                ".*_shoulder_yaw_joint": 50.0,
-                ".*_elbow_joint": 50.0,
+                ".*_shoulder_pitch_joint": 40.0,
+                ".*_shoulder_roll_joint": 40.0,
+                ".*_shoulder_yaw_joint": 40.0,
+                ".*_elbow_joint": 40.0,
             },
             damping={
-                ".*_shoulder_pitch_joint": 10.0,
-                ".*_shoulder_roll_joint": 10.0,
-                ".*_shoulder_yaw_joint": 10.0,
-                ".*_elbow_joint": 10.0,
+                ".*_shoulder_pitch_joint": 5.0,
+                ".*_shoulder_roll_joint": 5.0,
+                ".*_shoulder_yaw_joint": 5.0,
+                ".*_elbow_joint": 5.0,
             },
             armature={
                 ".*_shoulder_.*": 0.01,
@@ -173,8 +173,8 @@ TAKS_T1_CFG = ArticulationCfg(
             ],
             effort_limit_sim=3,
             velocity_limit_sim=20.944,
-            stiffness=10.0,
-            damping=1.0,
+            stiffness=20.0,
+            damping=2.0,
             armature=0.001,
         ),
         # 颈部关节配置 - 扭矩来自URDF/XML: 峰值 3 Nm，额定 0.8 Nm
