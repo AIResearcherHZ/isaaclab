@@ -80,7 +80,7 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_roll_joint": 5.0,
             },
             armature={
-                ".*_hip_.*": 0.01,
+                ".*_hip_.*": 0.001,
             },
         ),
         "legs_hip_pitch_knee": ImplicitActuatorCfg(
