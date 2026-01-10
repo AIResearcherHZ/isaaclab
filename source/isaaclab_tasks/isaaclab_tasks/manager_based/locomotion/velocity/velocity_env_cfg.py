@@ -105,7 +105,7 @@ class CommandsCfg:
 
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",  # 命令对应的资产（机器人）名字，用于在环境中找对应实体
-        resampling_time_range=(4.0, 4.0),  # 每隔多少秒重采样一次命令（固定为 10s）
+        resampling_time_range=(2.0, 6.0),  # 每隔多少秒重采样一次命令（固定为 10s）
         rel_standing_envs=0.1,  # 与“静止”相关的环境比例（可能用于命令采样策略）
         rel_heading_envs=1.0,  # 是否包含朝向命令的环境比例
         heading_command=True,  # 启用朝向（heading）命令
@@ -426,7 +426,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
         self.episode_length_s = 20.0  # 每个 episode 的时长（秒）
 
         # 仿真设置：时间步长与渲染间隔
-        self.sim.dt = 0.005  # 物理仿真时间步长（秒）
+        self.sim.dt = 0.02  # 物理仿真时间步长（秒）
         self.sim.render_interval = self.decimation  # 渲染/策略更新间隔（以 step 计）
         # 将场景地形的物理材料应用到全局仿真设置（便于统一摩擦等参数）
         self.sim.physics_material = self.scene.terrain.physics_material
