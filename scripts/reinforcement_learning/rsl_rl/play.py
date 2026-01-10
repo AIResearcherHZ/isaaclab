@@ -34,6 +34,13 @@ parser.add_argument(
     help="Use the pre-trained checkpoint from Nucleus.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+# 扭矩录制参数
+parser.add_argument("--enable_torque_recording", action="store_true", default=False, help="Enable torque recording.")
+parser.add_argument("--torque_recording_dir", type=str, default="logs/torque_data", help="Directory to save torque recordings.")
+parser.add_argument("--torque_recording_env_id", type=int, default=0, help="Environment ID to record torque from.")
+parser.add_argument("--torque_recording_duration", type=float, default=10.0, help="Duration of torque recording in seconds.")
+# 键盘控制参数
+parser.add_argument("--keyboard", action="store_true", default=False, help="Enable keyboard control for velocity commands.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -57,6 +64,7 @@ import gymnasium as gym
 import os
 import time
 import torch
+import numpy as np
 
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
@@ -174,20 +182,84 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     dt = env.unwrapped.step_dt
 
+    # 键盘控制初始化
+    keyboard_controller = None
+    if args_cli.keyboard:
+        from isaaclab.devices.keyboard import Se2Keyboard, Se2KeyboardCfg
+        keyboard_cfg = Se2KeyboardCfg(
+            v_x_sensitivity=1.0,
+            v_y_sensitivity=0.5,
+            omega_z_sensitivity=1.0,
+            sim_device=env.unwrapped.device,
+        )
+        keyboard_controller = Se2Keyboard(keyboard_cfg)
+        print("[INFO] Keyboard control enabled. Use arrow keys to control velocity.")
+        print(keyboard_controller)
+
+    # 扭矩录制初始化
+    torque_data = []
+    recording_start_time = None
+    if args_cli.enable_torque_recording:
+        os.makedirs(args_cli.torque_recording_dir, exist_ok=True)
+        print(f"[INFO] Torque recording enabled. Duration: {args_cli.torque_recording_duration}s")
+        print(f"[INFO] Recording env_id: {args_cli.torque_recording_env_id}")
+        print(f"[INFO] Save directory: {args_cli.torque_recording_dir}")
+
     # reset environment
     obs = env.get_observations()
     timestep = 0
+    sim_time = 0.0
     # simulate environment
     while simulation_app.is_running():
         start_time = time.time()
         # run everything in inference mode
         with torch.inference_mode():
+            # 键盘控制：覆盖速度命令
+            if keyboard_controller is not None:
+                vel_cmd = keyboard_controller.advance()
+                # 直接设置command term的command属性
+                cmd_term = env.unwrapped.command_manager.get_term("base_velocity")
+                cmd_term.command[:] = vel_cmd.unsqueeze(0).repeat(env.unwrapped.num_envs, 1)
+
             # agent stepping
             actions = policy(obs)
             # env stepping
             obs, _, dones, _ = env.step(actions)
             # reset recurrent states for episodes that have terminated
             policy_nn.reset(dones)
+
+            # 扭矩录制
+            if args_cli.enable_torque_recording:
+                if recording_start_time is None:
+                    recording_start_time = sim_time
+                elapsed = sim_time - recording_start_time
+                if elapsed <= args_cli.torque_recording_duration:
+                    env_id = args_cli.torque_recording_env_id
+                    robot = env.unwrapped.scene["robot"]
+                    torques = robot.data.applied_torque[env_id].cpu().numpy()
+                    joint_pos = robot.data.joint_pos[env_id].cpu().numpy()
+                    joint_vel = robot.data.joint_vel[env_id].cpu().numpy()
+                    torque_data.append({
+                        "time": elapsed,
+                        "torques": torques.copy(),
+                        "joint_pos": joint_pos.copy(),
+                        "joint_vel": joint_vel.copy(),
+                    })
+                elif len(torque_data) > 0:
+                    # 保存数据
+                    save_path = os.path.join(args_cli.torque_recording_dir, f"torque_recording_{task_name}.npz")
+                    np.savez(
+                        save_path,
+                        times=np.array([d["time"] for d in torque_data]),
+                        torques=np.array([d["torques"] for d in torque_data]),
+                        joint_pos=np.array([d["joint_pos"] for d in torque_data]),
+                        joint_vel=np.array([d["joint_vel"] for d in torque_data]),
+                    )
+                    print(f"[INFO] Torque data saved to: {save_path}")
+                    torque_data = []  # 清空防止重复保存
+
+        sim_time += dt
+
         if args_cli.video:
             timestep += 1
             # Exit the play loop after recording one video
@@ -198,6 +270,18 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         sleep_time = dt - (time.time() - start_time)
         if args_cli.real_time and sleep_time > 0:
             time.sleep(sleep_time)
+
+    # 如果录制未完成但程序退出，保存已有数据
+    if args_cli.enable_torque_recording and len(torque_data) > 0:
+        save_path = os.path.join(args_cli.torque_recording_dir, f"torque_recording_{task_name}.npz")
+        np.savez(
+            save_path,
+            times=np.array([d["time"] for d in torque_data]),
+            torques=np.array([d["torques"] for d in torque_data]),
+            joint_pos=np.array([d["joint_pos"] for d in torque_data]),
+            joint_vel=np.array([d["joint_vel"] for d in torque_data]),
+        )
+        print(f"[INFO] Torque data saved to: {save_path}")
 
     # close the simulator
     env.close()

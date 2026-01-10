@@ -426,7 +426,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
         self.episode_length_s = 20.0  # 每个 episode 的时长（秒）
 
         # 仿真设置：时间步长与渲染间隔
-        self.sim.dt = 0.02  # 物理仿真时间步长（秒）
+        self.sim.dt = 0.005  # 物理仿真时间步长（秒）
         self.sim.render_interval = self.decimation  # 渲染/策略更新间隔（以 step 计）
         # 将场景地形的物理材料应用到全局仿真设置（便于统一摩擦等参数）
         self.sim.physics_material = self.scene.terrain.physics_material

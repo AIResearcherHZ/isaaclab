@@ -235,7 +235,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
 
 
 --------------------------------------------------------------------------------
-【修复USD缺少ArticulationRootAPI】
+【先把world删掉再修复USD缺少ArticulationRootAPI】
 --------------------------------------------------------------------------------
 # 问题描述：URDF转USD后，如果出现以下错误：
 #   RuntimeError: Failed to find an articulation when resolving '/World/envs/env_0/Robot'.
