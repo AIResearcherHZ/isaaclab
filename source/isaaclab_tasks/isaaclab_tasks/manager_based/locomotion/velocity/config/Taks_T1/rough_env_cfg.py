@@ -109,14 +109,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=3.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=4.0,
+        weight=2.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -242,10 +242,37 @@ class TaksT1Rewards(RewardsCfg):
 
 @configclass
 class TaksT1EventCfg(EventCfg):
+    # ==================== 新增鲁棒性随机化（优化后：减少interval模式以提升GPU效率） ====================
+
+    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    action_delay = EventTerm(
+        func=mdp.randomize_action_delay,
+        mode="interval",  # 在 interval 模式下周期性触发
+        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "max_delay_steps": 8,  # 减小最大延迟以提高稳定性
+        },
+    )
+
+    # 关节故障 - 模拟电机故障（极低概率）
+    joint_failure = EventTerm(
+        func=mdp.randomize_joint_failure,
+        mode="interval",  # 在 interval 模式下周期性触发
+        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "failure_prob": 0.0001,
+            "failure_mode": "weak",
+            "weak_factor": 0.5,
+        },
+    )
+
     # 脚末端外力 - 模拟脚部受到的外部扰动
     feet_external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
-        mode="reset",
+        mode="interval",  # 在 interval 模式下周期性触发
+        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
             "force_range": (-2.5, 2.5),
@@ -313,10 +340,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
 
-        # 末端推力配置 - 脚
-        self.events.feet_external_force_torque.params["force_range"] = (-2.5, 2.5)
-        self.events.feet_external_force_torque.params["torque_range"] = (-2.5, 2.5)
-
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
             "pose_range": {
@@ -363,7 +386,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # ------------------------------Terminations------------------------------
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
             self.base_link_name,
-            "torso_link",
             "neck_pitch_link",
             ".*_shoulder_pitch_link",
             ".*_shoulder_roll_link",

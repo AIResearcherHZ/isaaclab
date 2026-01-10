@@ -300,7 +300,7 @@ class EventCfg:
         func=mdp.reset_joints_by_scale,
         mode="reset",
         params={
-            "position_range": (1.0, 1.0),  # 以比例或比例缩放的方式设置关节初始位置
+            "position_range": (0.5, 1.0),  # 以比例或比例缩放的方式设置关节初始位置
             "velocity_range": (0.0, 0.0),  # 关节初始速度（此处固定为 0）
         },
     )
@@ -409,7 +409,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     """
 
     # 场景设置：创建 MySceneCfg 实例并设置并行环境数量与环境间距
-    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
+    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=5.0)
     # 观察、动作、命令配置
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
