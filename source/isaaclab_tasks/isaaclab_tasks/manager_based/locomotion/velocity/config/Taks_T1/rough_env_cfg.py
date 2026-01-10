@@ -105,32 +105,18 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 身体重心平衡惩罚 - 惩罚重心水平偏移过大
-    body_balance = RewTerm(
-        func=mdp.body_balance_penalty,
-        weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot"), "max_displacement": 0.1, "std": 0.1},
-    )
-
-    # 重心速度稳定惩罚 - 惩罚重心水平速度过大
-    com_velocity_stability = RewTerm(
-        func=mdp.com_velocity_stability,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
-    )
-
     # ==================== 条件奖励（仅有指令时生效，避免reward hacking） ====================
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=2.0,
+        weight=3.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.0,
+        weight=4.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -361,7 +347,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.dof_acc_l2 = None  # 使用 dof_acc_l2_cond 替代
         self.rewards.dof_torques_l2 = None  # 使用 dof_torques_l2_cond 替代
         # 姿态惩罚始终生效（保持平衡）
-        self.rewards.flat_orientation_l2.weight = -1.0
+        self.rewards.flat_orientation_l2.weight = -1.25
 
         # ------------------------------Commands------------------------------
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)
