@@ -25,7 +25,7 @@ class TaksT1Rewards(RewardsCfg):
     """
     # ==================== 始终生效的奖励（平衡与安全） ====================
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1000.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-500.0)
     lin_vel_z_l2 = None
 
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
@@ -369,7 +369,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
         self.events.push_robot.params["velocity_range"] = {"x": (-1.0, 1.0), "y": (-1.0, 1.0)}
-        self.events.push_robot.interval_range_s = (0.0, 10.0)
+        self.events.push_robot.interval_range_s = (0.0, 4.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
         self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)

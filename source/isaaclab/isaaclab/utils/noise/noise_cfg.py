@@ -50,6 +50,10 @@ class UniformNoiseCfg(NoiseCfg):
     n_max: torch.Tensor | float = 1.0
     """The maximum value of the noise. Defaults to 1.0."""
 
+    # 缓存属性用于优化性能
+    _n_range: torch.Tensor | float | None = None
+    _device: str | None = None
+
 
 @configclass
 class GaussianNoiseCfg(NoiseCfg):
@@ -61,6 +65,9 @@ class GaussianNoiseCfg(NoiseCfg):
     """The mean of the noise. Defaults to 0.0."""
     std: torch.Tensor | float = 1.0
     """The standard deviation of the noise. Defaults to 1.0."""
+
+    # 缓存属性用于优化性能
+    _device: str | None = None
 
 
 ##

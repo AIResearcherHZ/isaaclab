@@ -25,7 +25,7 @@ class TaksT1Rewards(RewardsCfg):
     """
     # ==================== 始终生效的奖励（平衡与安全） ====================
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1000.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-500.0)
     lin_vel_z_l2 = None
 
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
@@ -103,20 +103,6 @@ class TaksT1Rewards(RewardsCfg):
             "command_threshold": 0.1,
             "asset_cfg": SceneEntityCfg("robot"),
         },
-    )
-
-    # 身体重心平衡惩罚 - 惩罚重心水平偏移过大
-    body_balance = RewTerm(
-        func=mdp.body_balance_penalty,
-        weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot"), "max_displacement": 0.1, "std": 0.1},
-    )
-
-    # 重心速度稳定惩罚 - 惩罚重心水平速度过大
-    com_velocity_stability = RewTerm(
-        func=mdp.com_velocity_stability,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
     )
 
     # ==================== 条件奖励（仅有指令时生效，避免reward hacking） ====================
@@ -305,7 +291,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 电机位置噪声（编码器）
         self.observations.policy.joint_pos.noise = Unoise(n_min=-0.05, n_max=0.05)
         # 电机速度噪声（编码器微分）
-        self.observations.policy.joint_vel.noise = Unoise(n_min=-1.5, n_max=1.5)
+        self.observations.policy.joint_vel.noise = Unoise(n_min=-0.5, n_max=0.5)
 
         # ------------------------------Actions------------------------------
         self.actions.joint_pos.scale = 0.25
@@ -322,8 +308,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
 
         # 末端推力配置 - 脚
-        self.events.feet_external_force_torque.params["force_range"] = (-2.5, 2.5)
-        self.events.feet_external_force_torque.params["torque_range"] = (-2.5, 2.5)
+        self.events.feet_external_force_torque.params["force_range"] = (-0.5, 0.5)
+        self.events.feet_external_force_torque.params["torque_range"] = (-0.5, 0.5)
 
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
