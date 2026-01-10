@@ -166,46 +166,46 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # # 条件双脚同时接触惩罚：仅有指令时惩罚
-    # double_support_penalty_cond = RewTerm(
-    #     func=mdp.double_support_time_penalty_conditional,
-    #     weight=-2.5,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    #         "max_double_support_time": 0.2,
-    #     },
-    # )
+    # 条件双脚同时接触惩罚：仅有指令时惩罚
+    double_support_penalty_cond = RewTerm(
+        func=mdp.double_support_time_penalty_conditional,
+        weight=-2.5,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "max_double_support_time": 0.2,
+        },
+    )
 
-    # # 条件单脚支撑奖励：仅有指令时奖励
-    # single_leg_stance_cond = RewTerm(
-    #     func=mdp.single_leg_stance_reward_conditional,
-    #     weight=0.1,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    #     },
-    # )
+    # 条件单脚支撑奖励：仅有指令时奖励
+    single_leg_stance_cond = RewTerm(
+        func=mdp.single_leg_stance_reward_conditional,
+        weight=0.1,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+        },
+    )
 
-    # # 条件双脚交替接触奖励：仅有指令时奖励
-    # feet_alternating_cond = RewTerm(
-    #     func=mdp.feet_alternating_contact_conditional,
-    #     weight=0.05,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    #     },
-    # )
+    # 条件双脚交替接触奖励：仅有指令时奖励
+    feet_alternating_cond = RewTerm(
+        func=mdp.feet_alternating_contact_conditional,
+        weight=0.05,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+        },
+    )
 
-    # # 条件速度方向对齐奖励：仅有指令时奖励
-    # velocity_alignment_cond = RewTerm(
-    #     func=mdp.velocity_direction_alignment_conditional,
-    #     weight=0.05,
-    #     params={"command_name": "base_velocity", "command_threshold": 0.1},
-    # )
+    # 条件速度方向对齐奖励：仅有指令时奖励
+    velocity_alignment_cond = RewTerm(
+        func=mdp.velocity_direction_alignment_conditional,
+        weight=0.05,
+        params={"command_name": "base_velocity", "command_threshold": 0.1},
+    )
 
     # 条件动作变化率惩罚：仅有指令时惩罚，无指令时允许自由调整以保持平衡
     action_rate_l2_cond = RewTerm(
@@ -256,93 +256,93 @@ class TaksT1Rewards(RewardsCfg):
 
 @configclass
 class TaksT1EventCfg(EventCfg):
-    # ==================== 执行器增益随机化（stiffness/damping） ====================
-    # 随机化关节刚度和阻尼，提升sim2real迁移能力
-    actuator_gains = EventTerm(
-        func=mdp.randomize_actuator_gains,
-        mode="reset",  # 每次reset时随机化
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-            "stiffness_distribution_params": (0.5, 2.0),  # 刚度缩放范围
-            "damping_distribution_params": (0.5, 5.0),  # 阻尼缩放范围
-            "operation": "scale",  # 缩放操作
-            "distribution": "uniform",  # 均匀分布
-        },
-    )
+    # # ==================== 执行器增益随机化（stiffness/damping） ====================
+    # # 随机化关节刚度和阻尼，提升sim2real迁移能力
+    # actuator_gains = EventTerm(
+    #     func=mdp.randomize_actuator_gains,
+    #     mode="reset",  # 每次reset时随机化
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+    #         "stiffness_distribution_params": (0.5, 2.0),  # 刚度缩放范围
+    #         "damping_distribution_params": (0.5, 5.0),  # 阻尼缩放范围
+    #         "operation": "scale",  # 缩放操作
+    #         "distribution": "uniform",  # 均匀分布
+    #     },
+    # )
 
-    # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
+    # # ==================== 新增鲁棒性随机化（极低频率 corner case） ====================
 
-    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
-    action_delay = EventTerm(
-        func=mdp.randomize_action_delay,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "max_delay_steps": 8,  # 最大延迟8步
-        },
-    )
+    # # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    # action_delay = EventTerm(
+    #     func=mdp.randomize_action_delay,
+    #     mode="interval",
+    #     interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "max_delay_steps": 8,  # 最大延迟8步
+    #     },
+    # )
     
-    # 观测丢包 - 模拟传感器偶发失效
-    observation_dropout = EventTerm(
-        func=mdp.randomize_observation_dropout,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "dropout_prob": 0.001,  # 每个维度丢包概率 0.1%
-            "dropout_mode": "hold",  # 丢包时保持上一帧值
-        },
-    )
+    # # 观测丢包 - 模拟传感器偶发失效
+    # observation_dropout = EventTerm(
+    #     func=mdp.randomize_observation_dropout,
+    #     mode="interval",
+    #     interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "dropout_prob": 0.001,  # 每个维度丢包概率 0.1%
+    #         "dropout_mode": "hold",  # 丢包时保持上一帧值
+    #     },
+    # )
 
-    # 关节故障 - 模拟电机故障（极低概率）
-    joint_failure = EventTerm(
-        func=mdp.randomize_joint_failure,
-        mode="reset",  # 每次reset时重新采样故障状态
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "failure_prob": 0.0001,  # 每个关节失效概率 0.01%
-            "failure_mode": "weak",  # 弱化模式（扭矩衰减）
-            "weak_factor": 0.5,  # 衰减因子提高，故障程度减轻
-        },
-    )
+    # # 关节故障 - 模拟电机故障（极低概率）
+    # joint_failure = EventTerm(
+    #     func=mdp.randomize_joint_failure,
+    #     mode="reset",  # 每次reset时重新采样故障状态
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "failure_prob": 0.0001,  # 每个关节失效概率 0.01%
+    #         "failure_mode": "weak",  # 弱化模式（扭矩衰减）
+    #         "weak_factor": 0.5,  # 衰减因子提高，故障程度减轻
+    #     },
+    # )
 
-    # 传感器延迟尖峰 - 模拟偶发的通讯阻塞
-    sensor_latency_spike = EventTerm(
-        func=mdp.randomize_sensor_latency_spike,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
-            "max_latency_steps": 16,  # 最大延迟16步
-        },
-    )
+    # # 传感器延迟尖峰 - 模拟偶发的通讯阻塞
+    # sensor_latency_spike = EventTerm(
+    #     func=mdp.randomize_sensor_latency_spike,
+    #     mode="interval",
+    #     interval_range_s=(5.0, 15.0),  # 5-15秒触发一次
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "spike_prob": 0.001,  # 0.1%概率发生延迟尖峰
+    #         "max_latency_steps": 16,  # 最大延迟16步
+    #     },
+    # )
 
-    # 通信延迟异步随机化 - 电机位置/速度/扭矩时间轴不同步 + IMU与电机时间轴不同步
-    comm_delay_async = EventTerm(
-        func=mdp.randomize_comm_delay_async,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 每步都应用
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "motor_pos_delay_range": (0, 4),  # 电机位置延迟0-4步
-            "motor_vel_delay_range": (0, 4),  # 电机速度延迟0-4步
-            "motor_torque_delay_range": (0, 4),  # 电机扭矩延迟0-4步
-            "imu_relative_delay_range": (-6, 6),  # IMU相对电机延迟-6到6步（正值=IMU更慢）
-        },
-    )
+    # # 通信延迟异步随机化 - 电机位置/速度/扭矩时间轴不同步 + IMU与电机时间轴不同步
+    # comm_delay_async = EventTerm(
+    #     func=mdp.randomize_comm_delay_async,
+    #     mode="interval",
+    #     interval_range_s=(5.0, 15.0),  # 每步都应用
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "motor_pos_delay_range": (0, 4),  # 电机位置延迟0-4步
+    #         "motor_vel_delay_range": (0, 4),  # 电机速度延迟0-4步
+    #         "motor_torque_delay_range": (0, 4),  # 电机扭矩延迟0-4步
+    #         "imu_relative_delay_range": (-6, 6),  # IMU相对电机延迟-6到6步（正值=IMU更慢）
+    #     },
+    # )
 
-    # 脚末端外力 - 模拟脚部受到的外部扰动
-    feet_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
-            "force_range": (-2.5, 2.5),
-            "torque_range": (-2.5, 2.5),
-        },
-    )
+    # # 脚末端外力 - 模拟脚部受到的外部扰动
+    # feet_external_force_torque = EventTerm(
+    #     func=mdp.apply_external_force_torque,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
+    #         "force_range": (-2.5, 2.5),
+    #         "torque_range": (-2.5, 2.5),
+    #     },
+    # )
 
 
 @configclass
@@ -393,7 +393,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
         self.events.push_robot.params["velocity_range"] = {"x": (-1.0, 1.0), "y": (-1.0, 1.0)}
-        self.events.push_robot.interval_range_s = (0.0, 4.0)
+        self.events.push_robot.interval_range_s = (0.0, 10.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
         self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
