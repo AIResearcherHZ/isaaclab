@@ -323,7 +323,7 @@ class TaksT1EventCfg(EventCfg):
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    base_link_name = "pelvis|torso_link"
+    base_link_name = "pelvis"
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
@@ -334,7 +334,14 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 调用父类后初始化逻辑，确保基础配置正确设置
         super().__post_init__()
 
+        # ------------------------------Sim------------------------------
+        # 启用外力每次迭代更新，消除速度噪声警告
+        self.sim.physx.enable_external_forces_every_iteration = True
+        self.sim.physx.gpu_solver_velocity_iteration_count = 1
+
         # ------------------------------Scene------------------------------
+        # 设置地形视觉材质的 diffuse_color，消除警告
+        self.scene.terrain.visual_material.diffuse_color = (0.5, 0.5, 0.5)
         self.scene.robot = TAKS_T1_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/" + self.base_link_name
 
@@ -424,6 +431,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # ------------------------------Terminations------------------------------
         self.terminations.base_contact.params["sensor_cfg"].body_names = [
             self.base_link_name,
+            "torso_link",
             "neck_pitch_link",
             ".*_shoulder_pitch_link",
             ".*_shoulder_roll_link",
