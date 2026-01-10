@@ -542,19 +542,17 @@ def body_balance_penalty(
 ) -> torch.Tensor:
     """惩罚身体重心水平位移过大，保持平衡稳定。
     
-    当受到外力推动时，允许身体稍微移动保持平衡，但惩罚过大的晃动。
-    使用指数核函数，位移越大惩罚越重。
+    优化：使用平方距离避免开方运算，减少计算开销。
     """
     asset = env.scene[asset_cfg.name]
-    # 获取当前重心水平位置
-    com_xy = asset.data.root_com_pos_w[:, :2]
-    # 获取基座水平位置作为参考
-    base_xy = asset.data.root_pos_w[:, :2]
-    # 计算重心相对于基座的水平偏移
-    displacement = torch.norm(com_xy - base_xy, dim=1)
-    # 超出阈值的部分给予惩罚
-    excess = torch.clamp(displacement - max_displacement, min=0.0)
-    return excess / std
+    # 计算重心相对于基座的水平偏移（使用平方距离）
+    diff = asset.data.root_com_pos_w[:, :2] - asset.data.root_pos_w[:, :2]
+    displacement_sq = torch.sum(diff * diff, dim=1)
+    # 使用平方阈值比较（避免开方）
+    max_disp_sq = max_displacement * max_displacement
+    excess_sq = torch.clamp(displacement_sq - max_disp_sq, min=0.0)
+    # 对超出部分取平方根并归一化
+    return torch.sqrt(excess_sq + 1e-8) / std
 
 
 def com_velocity_stability(
@@ -562,10 +560,16 @@ def com_velocity_stability(
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     max_velocity: float = 0.3,
 ) -> torch.Tensor:
-    """惩罚重心水平速度过大，防止身体晃动过快。"""
+    """惩罚重心水平速度过大，防止身体晃动过快。
+    
+    优化：使用平方速度避免开方运算，减少计算开销。
+    """
     asset = env.scene[asset_cfg.name]
-    # 获取重心水平速度
+    # 计算速度平方
     com_vel_xy = asset.data.root_com_lin_vel_w[:, :2]
-    speed = torch.norm(com_vel_xy, dim=1)
-    # 超出阈值的部分给予惩罚
-    return torch.clamp(speed - max_velocity, min=0.0)
+    speed_sq = torch.sum(com_vel_xy * com_vel_xy, dim=1)
+    # 使用平方阈值比较（避免开方）
+    max_vel_sq = max_velocity * max_velocity
+    excess_sq = torch.clamp(speed_sq - max_vel_sq, min=0.0)
+    # 对超出部分取平方根
+    return torch.sqrt(excess_sq + 1e-8)
