@@ -256,6 +256,59 @@ class TaksT1Rewards(RewardsCfg):
 
 @configclass
 class TaksT1EventCfg(EventCfg):
+    # ==================== 执行器增益随机化（stiffness/damping） ====================
+    # 随机化关节刚度和阻尼，提升sim2real迁移能力
+    actuator_gains = EventTerm(
+        func=mdp.randomize_actuator_gains,
+        mode="reset",  # 每次reset时随机化
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+            "stiffness_distribution_params": (0.5, 2.0),  # 刚度缩放范围
+            "damping_distribution_params": (0.5, 5.0),  # 阻尼缩放范围
+            "operation": "scale",  # 缩放操作
+            "distribution": "uniform",  # 均匀分布
+        },
+    )
+
+    # ==================== 新增鲁棒性随机化（优化后：减少interval模式以提升GPU效率） ====================
+
+    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    # 优化：改为reset模式，延迟参数在episode开始时采样一次
+    action_delay = EventTerm(
+        func=mdp.randomize_action_delay,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "max_delay_steps": 8,  # 减小最大延迟以提高稳定性
+        },
+    )
+
+    # 关节故障 - 模拟电机故障（极低概率）
+    joint_failure = EventTerm(
+        func=mdp.randomize_joint_failure,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "failure_prob": 0.0001,
+            "failure_mode": "weak",
+            "weak_factor": 0.5,
+        },
+    )
+
+    # 通信延迟异步随机化 - 电机位置/速度/扭矩时间轴不同步 + IMU与电机时间轴不同步
+    # 优化：改为reset模式，延迟参数在episode开始时采样一次
+    comm_delay_async = EventTerm(
+        func=mdp.randomize_comm_delay_async,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "motor_pos_delay_range": (0, 4),  # 减小延迟范围
+            "motor_vel_delay_range": (0, 4),
+            "motor_torque_delay_range": (0, 4),
+            "imu_relative_delay_range": (-6, 6),
+        },
+    )
+
     # 脚末端外力 - 模拟脚部受到的外部扰动
     feet_external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,

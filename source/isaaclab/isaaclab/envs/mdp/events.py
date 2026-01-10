@@ -2025,13 +2025,10 @@ class randomize_action_delay(ManagerTermBase):
         max_delay_steps: int = 3,
     ):
         """应用延迟后的动作。"""
-        if env_ids is None:
-            env_ids = self._env_indices
-
-        # 存储当前动作到缓冲区
+        # 存储当前动作到缓冲区（对所有env）
         self.action_buffer[:, self.buffer_idx] = self.asset.data.joint_pos_target
 
-        # 计算延迟索引并使用 gather 批量获取
+        # 计算延迟索引并使用 gather 批量获取（纯张量操作，无分支）
         delayed_indices = (self.buffer_idx - self.delay_steps) % self.buffer_size
         gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self.asset.num_joints)
         delayed_actions = self.action_buffer.gather(1, gather_indices).squeeze(1)
@@ -2039,13 +2036,17 @@ class randomize_action_delay(ManagerTermBase):
         # 更新缓冲区索引
         self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
 
-        # 应用延迟动作
-        self.asset.set_joint_position_target(delayed_actions[env_ids], env_ids=env_ids)
+        # 应用延迟动作到所有env（避免索引开销）
+        self.asset.set_joint_position_target(delayed_actions)
 
-        # reset 时重新采样延迟并清空缓冲区
-        if len(env_ids) > 0:
+    def reset(self, env_ids: torch.Tensor | None = None):
+        """reset时重新采样延迟并清空缓冲区。"""
+        if env_ids is None:
+            env_ids = self._env_indices
+        n = len(env_ids)
+        if n > 0:
             self.delay_steps[env_ids] = torch.randint(
-                0, self.buffer_size, (len(env_ids),), device=self._device
+                0, self.buffer_size, (n,), device=self._device
             )
             self.action_buffer[env_ids] = 0.0
 
@@ -2092,35 +2093,30 @@ class randomize_observation_dropout(ManagerTermBase):
         dropout_prob: float = 0.01,
         dropout_mode: str = "zero",
     ):
-        """随机丢弃部分观测。"""
-        if env_ids is None:
-            env_ids = self._env_indices
+        """随机丢弃部分观测。优化：对所有env操作，避免索引开销。"""
+        # 生成丢包掩码 (num_envs, num_joints) - 对所有env
+        pos_mask = torch.rand(self._num_envs, self._num_joints, device=self._device) < dropout_prob
+        vel_mask = torch.rand(self._num_envs, self._num_joints, device=self._device) < dropout_prob
 
-        n_envs = len(env_ids)
-
-        # 生成丢包掩码 (num_envs, num_joints)
-        pos_mask = torch.rand(n_envs, self._num_joints, device=self._device) < dropout_prob
-        vel_mask = torch.rand(n_envs, self._num_joints, device=self._device) < dropout_prob
-
-        # 根据模式选择替换值
+        # 根据模式选择替换值（纯张量操作，无分支）
         if dropout_mode == "zero":
-            replace_pos = self._zeros[env_ids]
-            replace_vel = self._zeros[env_ids]
+            replace_pos = self._zeros
+            replace_vel = self._zeros
         else:  # hold
-            replace_pos = self.last_joint_pos[env_ids]
-            replace_vel = self.last_joint_vel[env_ids]
+            replace_pos = self.last_joint_pos
+            replace_vel = self.last_joint_vel
 
-        # 应用丢包
-        self.asset.data.joint_pos[env_ids] = torch.where(
-            pos_mask, replace_pos, self.asset.data.joint_pos[env_ids]
-        )
-        self.asset.data.joint_vel[env_ids] = torch.where(
-            vel_mask, replace_vel, self.asset.data.joint_vel[env_ids]
-        )
+        # 先保存当前值到缓存（在应用丢包之前）
+        self.last_joint_pos.copy_(self.asset.data.joint_pos)
+        self.last_joint_vel.copy_(self.asset.data.joint_vel)
 
-        # 更新上一帧缓存
-        self.last_joint_pos[env_ids] = self.asset.data.joint_pos[env_ids].clone()
-        self.last_joint_vel[env_ids] = self.asset.data.joint_vel[env_ids].clone()
+        # 应用丢包（in-place where）
+        self.asset.data.joint_pos[:] = torch.where(
+            pos_mask, replace_pos, self.asset.data.joint_pos
+        )
+        self.asset.data.joint_vel[:] = torch.where(
+            vel_mask, replace_vel, self.asset.data.joint_vel
+        )
 
 
 class randomize_joint_failure(ManagerTermBase):
@@ -2279,7 +2275,7 @@ class randomize_sensor_latency_spike(ManagerTermBase):
         spike_prob: float = 0.005,
         max_latency_steps: int = 10,
     ):
-        """偶发注入大延迟。"""
+        """偶发注入大延迟。优化：避免.any()触发GPU-CPU同步，使用纯张量操作。"""
         # 存储当前观测到缓冲区
         self.history_buffer_pos[:, self.buffer_idx] = self.asset.data.joint_pos
         self.history_buffer_vel[:, self.buffer_idx] = self.asset.data.joint_vel
@@ -2287,24 +2283,23 @@ class randomize_sensor_latency_spike(ManagerTermBase):
         # 生成延迟尖峰掩码 (num_envs,)
         spike_mask = torch.rand(self._num_envs, device=self._device) < spike_prob
 
-        if spike_mask.any():
-            # 采样延迟步数并计算延迟索引
-            latency = torch.randint(1, self.buffer_size, (self._num_envs,), device=self._device)
-            delayed_indices = (self.buffer_idx - latency) % self.buffer_size
+        # 采样延迟步数并计算延迟索引（对所有env，避免分支）
+        latency = torch.randint(1, self.buffer_size, (self._num_envs,), device=self._device)
+        delayed_indices = (self.buffer_idx - latency) % self.buffer_size
 
-            # 使用 gather 批量获取历史观测
-            gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self._num_joints)
-            delayed_pos = self.history_buffer_pos.gather(1, gather_indices).squeeze(1)
-            delayed_vel = self.history_buffer_vel.gather(1, gather_indices).squeeze(1)
+        # 使用 gather 批量获取历史观测
+        gather_indices = delayed_indices.view(-1, 1, 1).expand(-1, 1, self._num_joints)
+        delayed_pos = self.history_buffer_pos.gather(1, gather_indices).squeeze(1)
+        delayed_vel = self.history_buffer_vel.gather(1, gather_indices).squeeze(1)
 
-            # 仅对发生尖峰的 env 应用延迟
-            spike_mask_expanded = spike_mask.unsqueeze(-1).expand(-1, self._num_joints)
-            self.asset.data.joint_pos[:] = torch.where(
-                spike_mask_expanded, delayed_pos, self.asset.data.joint_pos
-            )
-            self.asset.data.joint_vel[:] = torch.where(
-                spike_mask_expanded, delayed_vel, self.asset.data.joint_vel
-            )
+        # 使用torch.where条件选择，避免.any()触发GPU-CPU同步
+        spike_mask_expanded = spike_mask.unsqueeze(-1).expand(-1, self._num_joints)
+        self.asset.data.joint_pos[:] = torch.where(
+            spike_mask_expanded, delayed_pos, self.asset.data.joint_pos
+        )
+        self.asset.data.joint_vel[:] = torch.where(
+            spike_mask_expanded, delayed_vel, self.asset.data.joint_vel
+        )
 
         # 更新缓冲区索引
         self.buffer_idx = (self.buffer_idx + 1) % self.buffer_size
