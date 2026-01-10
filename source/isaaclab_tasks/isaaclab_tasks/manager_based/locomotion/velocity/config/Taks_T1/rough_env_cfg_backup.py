@@ -348,7 +348,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # ------------------------------Observations------------------------------
         # 只使用真实传感器可获取的观测（IMU + 关节编码器）
         self.observations.policy.base_ang_vel.scale = 0.25
-        self.observations.policy.base_lin_acc.scale = 0.25
         self.observations.policy.joint_pos.scale = 1.0
         self.observations.policy.joint_vel.scale = 0.05
         # 删除无法真实获取的观测
@@ -358,8 +357,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 增强观测噪声随机化（模拟真实传感器噪声）
         # IMU角速度噪声（陀螺仪）
         self.observations.policy.base_ang_vel.noise = Unoise(n_min=-0.2, n_max=0.2)
-        # IMU线加速度噪声（加速度计）
-        self.observations.policy.base_lin_acc.noise = Unoise(n_min=-0.1, n_max=0.1)
+        # 删除线加速度观测
+        self.observations.policy.base_lin_acc = None
         # 重力方向噪声（姿态估计误差）
         self.observations.policy.projected_gravity.noise = Unoise(n_min=-0.1, n_max=0.1)
         # 电机位置噪声（编码器）

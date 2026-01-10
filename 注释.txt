@@ -226,12 +226,18 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
   --output_dir ./io_descriptors
 
 
-
 --------------------------------------------------------------------------------
 【更改iter】
 --------------------------------------------------------------------------------
 # 更改iter
-./isaaclab.sh -p fix_checkpoint_iter.py /root/IsaacLab/logs/rsl_rl/Taks_T1_flat/2025-12-24_12-14-55/model_30000.pt 100
+./isaaclab.sh -p fix_checkpoint_iter.py logs/rsl_rl/Taks_T1_flat/2025-12-24_12-14-55/model_30000.pt 100
+
+
+--------------------------------------------------------------------------------
+【修复ankle_roll_link的碰撞近似】
+--------------------------------------------------------------------------------
+# 修复ankle_roll_link的碰撞近似
+./isaaclab.sh -p fix_ankle_collision.py --usd source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd
 
 
 --------------------------------------------------------------------------------
