@@ -53,7 +53,7 @@ class TaksT1FlatPPORunnerCfg(TaksT1RoughPPORunnerCfg):
 
     def __post_init__(self):
         super().__post_init__()
-        self.max_iterations = 1001
+        self.max_iterations = 1401
         self.experiment_name = "Taks_T1_flat"
         self.policy.actor_hidden_dims = [256, 128, 128]
         self.policy.critic_hidden_dims = [256, 128, 128]

@@ -319,19 +319,19 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
-    # 通信延迟异步随机化 - 电机位置/速度/扭矩时间轴不同步 + IMU与电机时间轴不同步
-    comm_delay_async = EventTerm(
-        func=mdp.randomize_comm_delay_async,
-        mode="interval",
-        interval_range_s=(5.0, 15.0),  # 每步都应用
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "motor_pos_delay_range": (0, 4),  # 电机位置延迟0-4步
-            "motor_vel_delay_range": (0, 4),  # 电机速度延迟0-4步
-            "motor_torque_delay_range": (0, 4),  # 电机扭矩延迟0-4步
-            "imu_relative_delay_range": (-6, 6),  # IMU相对电机延迟-6到6步（正值=IMU更慢）
-        },
-    )
+    # # 通信延迟异步随机化 - 电机位置/速度/扭矩时间轴不同步 + IMU与电机时间轴不同步
+    # comm_delay_async = EventTerm(
+    #     func=mdp.randomize_comm_delay_async,
+    #     mode="interval",
+    #     interval_range_s=(5.0, 15.0),  # 每步都应用
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "motor_pos_delay_range": (0, 4),  # 电机位置延迟0-4步
+    #         "motor_vel_delay_range": (0, 4),  # 电机速度延迟0-4步
+    #         "motor_torque_delay_range": (0, 4),  # 电机扭矩延迟0-4步
+    #         "imu_relative_delay_range": (-6, 6),  # IMU相对电机延迟-6到6步（正值=IMU更慢）
+    #     },
+    # )
 
     # 脚末端外力 - 模拟脚部受到的外部扰动
     feet_external_force_torque = EventTerm(
