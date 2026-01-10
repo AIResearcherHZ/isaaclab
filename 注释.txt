@@ -232,3 +232,21 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
 --------------------------------------------------------------------------------
 # 更改iter
 ./isaaclab.sh -p fix_checkpoint_iter.py /root/IsaacLab/logs/rsl_rl/Taks_T1_flat/2025-12-24_12-14-55/model_30000.pt 100
+
+
+--------------------------------------------------------------------------------
+【修复USD缺少ArticulationRootAPI】
+--------------------------------------------------------------------------------
+# 问题描述：URDF转USD后，如果出现以下错误：
+#   RuntimeError: Failed to find an articulation when resolving '/World/envs/env_0/Robot'.
+#   Please ensure that the prim has 'USD ArticulationRootAPI' applied.
+# 原因是转换后的USD文件根link缺少ArticulationRootAPI
+
+# 自动检测并修复（推荐）
+./isaaclab.sh -p scripts/tools/fix_usd_articulation.py \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd
+
+# 手动指定根link路径
+./isaaclab.sh -p scripts/tools/fix_usd_articulation.py \
+  /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd \
+  --root_prim /Taks_T1/pelvis
