@@ -105,6 +105,20 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
+    # 身体重心平衡惩罚 - 惩罚重心水平偏移过大
+    body_balance = RewTerm(
+        func=mdp.body_balance_penalty,
+        weight=-1.0,
+        params={"asset_cfg": SceneEntityCfg("robot"), "max_displacement": 0.1, "std": 0.1},
+    )
+
+    # 重心速度稳定惩罚 - 惩罚重心水平速度过大
+    com_velocity_stability = RewTerm(
+        func=mdp.com_velocity_stability,
+        weight=-0.1,
+        params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
+    )
+
     # ==================== 条件奖励（仅有指令时生效，避免reward hacking） ====================
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
