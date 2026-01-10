@@ -72,8 +72,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_hip_roll_joint": 4.19,
             },
             stiffness={
-                ".*_hip_yaw_joint": 100.0,
-                ".*_hip_roll_joint": 100.0,
+                ".*_hip_yaw_joint": 150.0,
+                ".*_hip_roll_joint": 150.0,
             },
             damping={
                 ".*_hip_yaw_joint": 5.0,
@@ -97,8 +97,8 @@ TAKS_T1_CFG = ArticulationCfg(
                 ".*_knee_joint": 7.33,
             },
             stiffness={
-                ".*_hip_pitch_joint": 150.0,
-                ".*_knee_joint": 150.0,
+                ".*_hip_pitch_joint": 200.0,
+                ".*_knee_joint": 200.0,
             },
             damping={
                 ".*_hip_pitch_joint": 5.0,
