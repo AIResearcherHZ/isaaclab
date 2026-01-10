@@ -231,4 +231,4 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
 【更改iter】
 --------------------------------------------------------------------------------
 # 更改iter
-./isaaclab.sh -p -c "python fix_checkpoint_iter.py model_100.pt 100"
+./isaaclab.sh -p fix_checkpoint_iter.py /root/IsaacLab/logs/rsl_rl/Taks_T1_flat/2025-12-24_12-14-55/model_30000.pt 100
