@@ -224,3 +224,11 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
 ./isaaclab.sh -p scripts/environments/export_IODescriptors.py \
   --task Isaac-Velocity-Rough-Taks_T1-v0 \
   --output_dir ./io_descriptors
+
+
+
+--------------------------------------------------------------------------------
+【更改iter】
+--------------------------------------------------------------------------------
+# 更改iter
+./isaaclab.sh -p -c "python fix_checkpoint_iter.py model_100.pt 100"
