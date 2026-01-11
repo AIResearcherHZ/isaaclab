@@ -123,14 +123,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=2.5,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=3.0,
+        weight=2.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -279,7 +279,7 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "max_delay_steps": 8,  # 减小最大延迟以提高稳定性
+            "max_delay_steps": 8,
         },
     )
 
@@ -311,7 +311,7 @@ class TaksT1EventCfg(EventCfg):
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    base_link_name = "pelvis"
+    base_link_name = "pelvis|torso_link"
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
