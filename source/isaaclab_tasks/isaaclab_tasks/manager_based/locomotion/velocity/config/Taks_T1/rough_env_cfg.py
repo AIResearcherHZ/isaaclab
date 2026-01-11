@@ -25,7 +25,7 @@ class TaksT1Rewards(RewardsCfg):
     """
     # ==================== 始终生效的奖励（平衡与安全） ====================
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-500.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1000.0)
     lin_vel_z_l2 = None
 
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
@@ -394,7 +394,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.physics_material.params["static_friction_range"] = (0.1, 2.0)
         self.events.physics_material.params["dynamic_friction_range"] = (0.1, 2.0)
-        self.events.physics_material.params["restitution_range"] = (0.0, 1.0)
+        self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
         # ------------------------------Rewards------------------------------
