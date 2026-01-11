@@ -268,6 +268,20 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
+    # 通信延迟异步随机化 - 电机位置/速度/扭矩时间轴不同步 + IMU与电机时间轴不同步
+    comm_delay_async = EventTerm(
+        func=mdp.randomize_comm_delay_async,
+        mode="interval",  # 在 interval 模式下周期性触发
+        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "motor_pos_delay_range": (0, 4),  # 减小延迟范围
+            "motor_vel_delay_range": (0, 4),
+            "motor_torque_delay_range": (0, 4),
+            "imu_relative_delay_range": (-6, 6),
+        },
+    )
+
     # 脚末端外力 - 模拟脚部受到的外部扰动
     feet_external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
@@ -324,7 +338,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 电机位置噪声（编码器）
         self.observations.policy.joint_pos.noise = Unoise(n_min=-0.05, n_max=0.05)
         # 电机速度噪声（编码器微分）
-        self.observations.policy.joint_vel.noise = Unoise(n_min=-0.5, n_max=0.5)
+        self.observations.policy.joint_vel.noise = Unoise(n_min=-1.5, n_max=1.5)
 
         # ------------------------------Actions------------------------------
         self.actions.joint_pos.scale = 0.25
