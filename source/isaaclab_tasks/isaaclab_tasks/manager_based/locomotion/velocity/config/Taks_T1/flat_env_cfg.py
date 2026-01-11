@@ -43,9 +43,7 @@ class TaksT1FlatEnvCfg_PLAY(TaksT1FlatEnvCfg):
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）
         self.events.action_delay = None
-        self.events.observation_dropout = None
         self.events.joint_failure = None
-        self.events.sensor_latency_spike = None
         self.events.inertia_randomization = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能

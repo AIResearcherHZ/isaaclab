@@ -25,7 +25,7 @@ class TaksT1Rewards(RewardsCfg):
     """
     # ==================== 始终生效的奖励（平衡与安全） ====================
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1000.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-500.0)
     lin_vel_z_l2 = None
 
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
@@ -130,7 +130,7 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.5,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -263,7 +263,7 @@ class TaksT1EventCfg(EventCfg):
     #     mode="reset",  # 每次reset时随机化
     #     params={
     #         "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-    #         "stiffness_distribution_params": (0.5, 1.5),  # 刚度缩放范围
+    #         "stiffness_distribution_params": (0.5, 2.0),  # 刚度缩放范围
     #         "damping_distribution_params": (0.5, 5.0),  # 阻尼缩放范围
     #         "operation": "scale",  # 缩放操作
     #         "distribution": "uniform",  # 均匀分布
@@ -392,9 +392,9 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 机器人摩擦力随机化
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
-        self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
-        self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
+        self.events.physics_material.params["static_friction_range"] = (0.1, 2.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.1, 2.0)
+        self.events.physics_material.params["restitution_range"] = (0.0, 1.0)
         self.events.physics_material.params["num_buckets"] = 64
 
         # ------------------------------Rewards------------------------------
@@ -455,12 +455,8 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）
         self.events.action_delay = None
-        self.events.observation_dropout = None
         self.events.joint_failure = None
-        self.events.sensor_latency_spike = None
         self.events.inertia_randomization = None
-        self.events.push_robot = None
-        self.events.comm_delay_async = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True
