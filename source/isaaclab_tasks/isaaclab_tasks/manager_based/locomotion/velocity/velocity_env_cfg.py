@@ -300,7 +300,7 @@ class EventCfg:
         func=mdp.reset_joints_by_scale,
         mode="reset",
         params={
-            "position_range": (0.0, 1.0),  # 以比例或比例缩放的方式设置关节初始位置
+            "position_range": (1.0, 1.0),  # 以比例或比例缩放的方式设置关节初始位置
             "velocity_range": (0.0, 0.0),  # 关节初始速度（此处固定为 0）
         },
     )
