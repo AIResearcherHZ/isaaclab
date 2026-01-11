@@ -123,14 +123,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=2.0,
+        weight=2.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.5,
+        weight=3.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -392,8 +392,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 机器人摩擦力随机化
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
-        self.events.physics_material.params["static_friction_range"] = (0.1, 2.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.1, 2.0)
+        self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
