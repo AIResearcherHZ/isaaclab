@@ -25,7 +25,7 @@ class TaksT1Rewards(RewardsCfg):
     """
     # ==================== 始终生效的奖励（平衡与安全） ====================
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-500.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1000.0)
     lin_vel_z_l2 = None
 
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
@@ -105,18 +105,32 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
+    # # 身体重心平衡惩罚 - 惩罚重心水平偏移过大
+    # body_balance = RewTerm(
+    #     func=mdp.body_balance_penalty,
+    #     weight=-1.0,
+    #     params={"asset_cfg": SceneEntityCfg("robot"), "max_displacement": 0.1, "std": 0.1},
+    # )
+
+    # # 重心速度稳定惩罚 - 惩罚重心水平速度过大
+    # com_velocity_stability = RewTerm(
+    #     func=mdp.com_velocity_stability,
+    #     weight=-0.1,
+    #     params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
+    # )
+
     # ==================== 条件奖励（仅有指令时生效，避免reward hacking） ====================
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=2.0,
+        weight=2.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.5,
+        weight=3.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -242,6 +256,20 @@ class TaksT1Rewards(RewardsCfg):
 
 @configclass
 class TaksT1EventCfg(EventCfg):
+    # # ==================== 执行器增益随机化（stiffness/damping） ====================
+    # # 随机化关节刚度和阻尼，提升sim2real迁移能力
+    # actuator_gains = EventTerm(
+    #     func=mdp.randomize_actuator_gains,
+    #     mode="reset",  # 每次reset时随机化
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+    #         "stiffness_distribution_params": (0.5, 1.5),  # 刚度缩放范围
+    #         "damping_distribution_params": (0.5, 5.0),  # 阻尼缩放范围
+    #         "operation": "scale",  # 缩放操作
+    #         "distribution": "uniform",  # 均匀分布
+    #     },
+    # )
+
     # ==================== 新增鲁棒性随机化（优化后：减少interval模式以提升GPU效率） ====================
 
     # 动作延迟 - 模拟通讯延迟和控制周期不对齐
