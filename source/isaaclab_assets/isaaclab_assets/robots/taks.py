@@ -187,7 +187,7 @@ TAKS_T1_CFG = ArticulationCfg(
             effort_limit_sim=0.8,
             velocity_limit_sim=15.71,
             stiffness=10.0,
-            damping=2.0,
+            damping=1.0,
             armature=0.001,
         ),
     },
