@@ -313,6 +313,7 @@ class EventCfg:
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},  # 推力对应的速度范围
     )
 
+    # 惯量随机化
     inertia_randomization = EventTerm(
         func=mdp.randomize_inertia_properties,
         mode="startup",

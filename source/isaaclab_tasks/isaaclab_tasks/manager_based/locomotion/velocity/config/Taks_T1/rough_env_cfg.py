@@ -243,16 +243,16 @@ class TaksT1Rewards(RewardsCfg):
     #     },
     # )
 
-    # # 条件脚部抖动惩罚：仅有指令时惩罚，减少运动中的脚部不必要抖动
-    # feet_jitter_penalty_cond = RewTerm(
-    #     func=mdp.feet_jitter_penalty_conditional,
-    #     weight=-0.01,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-    #     },
-    # )
+    # 条件脚部抖动惩罚：仅有指令时惩罚，减少运动中的脚部不必要抖动
+    feet_jitter_penalty_cond = RewTerm(
+        func=mdp.feet_jitter_penalty_conditional,
+        weight=-0.01,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+        },
+    )
 
 @configclass
 class TaksT1EventCfg(EventCfg):
@@ -270,7 +270,7 @@ class TaksT1EventCfg(EventCfg):
     #     },
     # )
 
-    # ==================== 新增鲁棒性随机化（优化后：减少interval模式以提升GPU效率） ====================
+    # ==================== 新增鲁棒性随机化 ====================
 
     # 动作延迟 - 模拟通讯延迟和控制周期不对齐
     action_delay = EventTerm(
