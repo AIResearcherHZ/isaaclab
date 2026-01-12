@@ -52,7 +52,7 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.5,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
@@ -123,14 +123,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=4.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=6.0,
+        weight=2.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
