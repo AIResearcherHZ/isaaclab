@@ -52,21 +52,21 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_.*"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.5,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -166,39 +166,39 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 条件双脚同时接触惩罚：仅有指令时惩罚
-    double_support_penalty_cond = RewTerm(
-        func=mdp.double_support_time_penalty_conditional,
-        weight=-2.5,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "max_double_support_time": 0.2,
-        },
-    )
+    # # 条件双脚同时接触惩罚：仅有指令时惩罚
+    # double_support_penalty_cond = RewTerm(
+    #     func=mdp.double_support_time_penalty_conditional,
+    #     weight=-2.5,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #         "max_double_support_time": 0.2,
+    #     },
+    # )
 
-    # 条件单脚支撑奖励：仅有指令时奖励
-    single_leg_stance_cond = RewTerm(
-        func=mdp.single_leg_stance_reward_conditional,
-        weight=0.1,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        },
-    )
+    # # 条件单脚支撑奖励：仅有指令时奖励
+    # single_leg_stance_cond = RewTerm(
+    #     func=mdp.single_leg_stance_reward_conditional,
+    #     weight=0.1,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #     },
+    # )
 
-    # 条件双脚交替接触奖励：仅有指令时奖励
-    feet_alternating_cond = RewTerm(
-        func=mdp.feet_alternating_contact_conditional,
-        weight=0.05,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        },
-    )
+    # # 条件双脚交替接触奖励：仅有指令时奖励
+    # feet_alternating_cond = RewTerm(
+    #     func=mdp.feet_alternating_contact_conditional,
+    #     weight=0.05,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #     },
+    # )
 
     # 条件速度方向对齐奖励：仅有指令时奖励
     velocity_alignment_cond = RewTerm(
