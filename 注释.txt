@@ -195,6 +195,7 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
   --experiment_name Taks_T1_flat \
   --num_envs 40000 \
   --resume \
+  --load_run 2026-01-10_21-20-14 \
   --headless \
   --distributed
 
