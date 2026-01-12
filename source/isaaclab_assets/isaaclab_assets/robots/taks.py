@@ -115,8 +115,8 @@ TAKS_T1_CFG = ArticulationCfg(
             effort_limit_sim=27.0,
             velocity_limit_sim=5.4454,
             stiffness={
-                ".*_ankle_pitch_joint": 40.0,
-                ".*_ankle_roll_joint": 40.0,
+                ".*_ankle_pitch_joint": 20.0,
+                ".*_ankle_roll_joint": 20.0,
             },
             damping={
                 ".*_ankle_pitch_joint": 2.0,
