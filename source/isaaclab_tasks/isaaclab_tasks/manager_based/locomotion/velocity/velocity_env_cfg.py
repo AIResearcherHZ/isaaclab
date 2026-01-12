@@ -309,7 +309,7 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(0.0, 4.0),  # 触发时间间隔范围（随机或固定采样）
+        interval_range_s=(0.0, 5.0),  # 触发时间间隔范围（随机或固定采样）
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},  # 推力对应的速度范围
     )
 
@@ -410,7 +410,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     """
 
     # 场景设置：创建 MySceneCfg 实例并设置并行环境数量与环境间距
-    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=5.0)
+    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
     # 观察、动作、命令配置
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
