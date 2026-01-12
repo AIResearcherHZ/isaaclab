@@ -90,14 +90,14 @@ class TaksT1Rewards(RewardsCfg):
     # 静止姿态奖励 - 无命令时保持标准站姿
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
-        weight=0.75,
+        weight=0.5,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
     stand_still_joint_deviation = RewTerm(
         func=mdp.stand_still_joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.1,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -108,14 +108,14 @@ class TaksT1Rewards(RewardsCfg):
     # 身体平衡惩罚 - 使用投影重力检测倾斜
     body_balance = RewTerm(
         func=mdp.body_balance_penalty,
-        weight=-1.0,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot"), "std": 0.1},
     )
 
     # 角速度稳定惩罚 - 惩罚基座角速度过大
     com_velocity_stability = RewTerm(
         func=mdp.com_velocity_stability,
-        weight=-0.1,
+        weight=-0.01,
         params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
     )
 
