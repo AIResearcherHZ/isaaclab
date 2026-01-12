@@ -270,31 +270,31 @@ class TaksT1EventCfg(EventCfg):
     #     },
     # )
 
-    # ==================== 新增鲁棒性随机化 ====================
+    # # ==================== 新增鲁棒性随机化 ====================
 
-    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
-    action_delay = EventTerm(
-        func=mdp.randomize_action_delay,
-        mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "max_delay_steps": 8,
-        },
-    )
+    # # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    # action_delay = EventTerm(
+    #     func=mdp.randomize_action_delay,
+    #     mode="interval",  # 在 interval 模式下周期性触发
+    #     interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "max_delay_steps": 8,
+    #     },
+    # )
 
-    # 关节故障 - 模拟电机故障（极低概率）
-    joint_failure = EventTerm(
-        func=mdp.randomize_joint_failure,
-        mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-        params={
-            "asset_cfg": SceneEntityCfg("robot"),
-            "failure_prob": 0.0001,
-            "failure_mode": "weak",
-            "weak_factor": 0.5,
-        },
-    )
+    # # 关节故障 - 模拟电机故障（极低概率）
+    # joint_failure = EventTerm(
+    #     func=mdp.randomize_joint_failure,
+    #     mode="interval",  # 在 interval 模式下周期性触发
+    #     interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "failure_prob": 0.0001,
+    #         "failure_mode": "weak",
+    #         "weak_factor": 0.5,
+    #     },
+    # )
 
     # 脚末端外力 - 模拟脚部受到的外部扰动
     feet_external_force_torque = EventTerm(
