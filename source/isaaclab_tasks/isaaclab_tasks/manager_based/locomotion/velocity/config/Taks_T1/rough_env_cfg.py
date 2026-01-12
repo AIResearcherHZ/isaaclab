@@ -105,19 +105,19 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 身体平衡惩罚 - 使用投影重力检测倾斜
-    body_balance = RewTerm(
-        func=mdp.body_balance_penalty,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot"), "std": 0.1},
-    )
+    # # 身体平衡惩罚 - 使用投影重力检测倾斜
+    # body_balance = RewTerm(
+    #     func=mdp.body_balance_penalty,
+    #     weight=-0.1,
+    #     params={"asset_cfg": SceneEntityCfg("robot"), "std": 0.1},
+    # )
 
-    # 角速度稳定惩罚 - 惩罚基座角速度过大
-    com_velocity_stability = RewTerm(
-        func=mdp.com_velocity_stability,
-        weight=-0.01,
-        params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
-    )
+    # # 角速度稳定惩罚 - 惩罚基座角速度过大
+    # com_velocity_stability = RewTerm(
+    #     func=mdp.com_velocity_stability,
+    #     weight=-0.01,
+    #     params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
+    # )
 
     # ==================== 条件奖励（仅有指令时生效，避免reward hacking） ====================
     # 追踪线速度奖励（内部已有指令检查）
@@ -296,17 +296,17 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
-    # 脚末端外力 - 模拟脚部受到的外部扰动
-    feet_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
-            "force_range": (-2.5, 2.5),
-            "torque_range": (-2.5, 2.5),
-        },
-    )
+    # # 脚末端外力 - 模拟脚部受到的外部扰动
+    # feet_external_force_torque = EventTerm(
+    #     func=mdp.apply_external_force_torque,
+    #     mode="interval",  # 在 interval 模式下周期性触发
+    #     interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
+    #         "force_range": (-2.5, 2.5),
+    #         "torque_range": (-2.5, 2.5),
+    #     },
+    # )
 
 
 @configclass
