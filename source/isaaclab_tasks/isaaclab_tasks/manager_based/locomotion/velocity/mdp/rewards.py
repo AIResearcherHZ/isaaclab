@@ -537,22 +537,15 @@ def feet_jitter_penalty_conditional(
 def body_balance_penalty(
     env,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    max_displacement: float = 0.15,
     std: float = 0.1,
 ) -> torch.Tensor:
-    """惩罚身体重心水平位移过大，保持平衡稳定。
+    """惩罚身体姿态不平衡。
     
-    优化：使用平方距离避免开方运算，减少计算开销。
+    使用projected_gravity_b的xy分量来检测身体倾斜，避免访问root_com_pos_w导致的额外计算开销。
     """
     asset = env.scene[asset_cfg.name]
-    # 计算重心相对于基座的水平偏移（使用平方距离）
-    diff = asset.data.root_com_pos_w[:, :2] - asset.data.root_pos_w[:, :2]
-    displacement_sq = torch.sum(diff * diff, dim=1)
-    # 使用平方阈值比较（避免开方）
-    max_disp_sq = max_displacement * max_displacement
-    excess_sq = torch.clamp(displacement_sq - max_disp_sq, min=0.0)
-    # 对超出部分取平方根并归一化
-    return torch.sqrt(excess_sq + 1e-8) / std
+    # 使用投影重力xy分量
+    return torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1) / (std * std)
 
 
 def com_velocity_stability(
@@ -560,16 +553,14 @@ def com_velocity_stability(
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     max_velocity: float = 0.3,
 ) -> torch.Tensor:
-    """惩罚重心水平速度过大，防止身体晃动过快。
+    """惩罚基座角速度过大。
     
-    优化：使用平方速度避免开方运算，减少计算开销。
+    使用root_ang_vel_b替代root_com_lin_vel_w，避免额外的PhysX调用开销。
+    角速度能更好地反映身体晃动程度。
     """
     asset = env.scene[asset_cfg.name]
-    # 计算速度平方
-    com_vel_xy = asset.data.root_com_lin_vel_w[:, :2]
-    speed_sq = torch.sum(com_vel_xy * com_vel_xy, dim=1)
-    # 使用平方阈值比较（避免开方）
+    # 使用基座角速度xy分量
+    ang_vel_xy = asset.data.root_ang_vel_b[:, :2]
+    speed_sq = torch.sum(ang_vel_xy * ang_vel_xy, dim=1)
     max_vel_sq = max_velocity * max_velocity
-    excess_sq = torch.clamp(speed_sq - max_vel_sq, min=0.0)
-    # 对超出部分取平方根
-    return torch.sqrt(excess_sq + 1e-8)
+    return torch.clamp(speed_sq - max_vel_sq, min=0.0) / max_vel_sq
