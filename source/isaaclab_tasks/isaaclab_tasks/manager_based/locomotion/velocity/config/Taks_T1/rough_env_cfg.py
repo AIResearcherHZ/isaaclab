@@ -296,18 +296,6 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
-    # # 脚末端外力 - 模拟脚部受到的外部扰动
-    # feet_external_force_torque = EventTerm(
-    #     func=mdp.apply_external_force_torque,
-    #     mode="interval",  # 在 interval 模式下周期性触发
-    #     interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
-    #         "force_range": (-2.5, 2.5),
-    #         "torque_range": (-2.5, 2.5),
-    #     },
-    # )
-
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
@@ -451,7 +439,6 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         # 移除所有随机推力事件以便于调试
         self.events.base_external_force_torque = None
         self.events.push_robot = None
-        self.events.feet_external_force_torque = None
 
         # 关闭所有新增的鲁棒性随机化事件（调试用）
         self.events.action_delay = None
