@@ -300,7 +300,7 @@ class EventCfg:
         func=mdp.reset_joints_by_scale,
         mode="reset",
         params={
-            "position_range": (1.0, 1.0),  # 以比例或比例缩放的方式设置关节初始位置
+            "position_range": (0.5, 1.5),  # 以比例或比例缩放的方式设置关节初始位置
             "velocity_range": (0.0, 0.0),  # 关节初始速度（此处固定为 0）
         },
     )
@@ -309,21 +309,21 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(0.0, 5.0),  # 触发时间间隔范围（随机或固定采样）
+        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},  # 推力对应的速度范围
     )
 
-    # 惯量随机化
-    inertia_randomization = EventTerm(
-        func=mdp.randomize_inertia_properties,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "inertia_distribution_params": (0.5, 2.0),
-            "armature_distribution_params": (0.5, 2.0),
-            "operation": "scale",
-        },
-    )
+    # # 惯量随机化
+    # inertia_randomization = EventTerm(
+    #     func=mdp.randomize_inertia_properties,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+    #         "inertia_distribution_params": (0.5, 2.0),
+    #         "armature_distribution_params": (0.5, 2.0),
+    #         "operation": "scale",
+    #     },
+    # )
 
 
 @configclass

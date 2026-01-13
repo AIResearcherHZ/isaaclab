@@ -532,35 +532,3 @@ def feet_jitter_penalty_conditional(
     penalty = feet_jitter_penalty(env, asset_cfg)
     cmd_mask = _get_command_mask(env, command_name, command_threshold)
     return penalty * cmd_mask
-
-
-def body_balance_penalty(
-    env,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    std: float = 0.1,
-) -> torch.Tensor:
-    """惩罚身体姿态不平衡。
-    
-    使用projected_gravity_b的xy分量来检测身体倾斜，避免访问root_com_pos_w导致的额外计算开销。
-    """
-    asset = env.scene[asset_cfg.name]
-    # 使用投影重力xy分量
-    return torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1) / (std * std)
-
-
-def com_velocity_stability(
-    env,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    max_velocity: float = 0.3,
-) -> torch.Tensor:
-    """惩罚基座角速度过大。
-    
-    使用root_ang_vel_b替代root_com_lin_vel_w，避免额外的PhysX调用开销。
-    角速度能更好地反映身体晃动程度。
-    """
-    asset = env.scene[asset_cfg.name]
-    # 使用基座角速度xy分量
-    ang_vel_xy = asset.data.root_ang_vel_b[:, :2]
-    speed_sq = torch.sum(ang_vel_xy * ang_vel_xy, dim=1)
-    max_vel_sq = max_velocity * max_velocity
-    return torch.clamp(speed_sq - max_vel_sq, min=0.0) / max_vel_sq

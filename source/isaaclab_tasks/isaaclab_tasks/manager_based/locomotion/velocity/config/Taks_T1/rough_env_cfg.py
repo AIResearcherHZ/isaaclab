@@ -105,20 +105,6 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # # 身体平衡惩罚 - 使用投影重力检测倾斜
-    # body_balance = RewTerm(
-    #     func=mdp.body_balance_penalty,
-    #     weight=-0.1,
-    #     params={"asset_cfg": SceneEntityCfg("robot"), "std": 0.1},
-    # )
-
-    # # 角速度稳定惩罚 - 惩罚基座角速度过大
-    # com_velocity_stability = RewTerm(
-    #     func=mdp.com_velocity_stability,
-    #     weight=-0.01,
-    #     params={"asset_cfg": SceneEntityCfg("robot"), "max_velocity": 0.25},
-    # )
-
     # ==================== 条件奖励（仅有指令时生效，避免reward hacking） ====================
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
@@ -200,12 +186,12 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 条件速度方向对齐奖励：仅有指令时奖励
-    velocity_alignment_cond = RewTerm(
-        func=mdp.velocity_direction_alignment_conditional,
-        weight=0.05,
-        params={"command_name": "base_velocity", "command_threshold": 0.1},
-    )
+    # # 条件速度方向对齐奖励：仅有指令时奖励
+    # velocity_alignment_cond = RewTerm(
+    #     func=mdp.velocity_direction_alignment_conditional,
+    #     weight=0.05,
+    #     params={"command_name": "base_velocity", "command_threshold": 0.1},
+    # )
 
     # 条件动作变化率惩罚：仅有指令时惩罚，无指令时允许自由调整以保持平衡
     action_rate_l2_cond = RewTerm(
@@ -218,7 +204,10 @@ class TaksT1Rewards(RewardsCfg):
     dof_acc_l2_cond = RewTerm(
         func=mdp.dof_acc_l2_conditional,
         weight=-1.5e-7,
-        params={"command_name": "base_velocity", "command_threshold": 0.1},
+        params={"command_name": "base_velocity",
+                "command_threshold": 0.1,
+                "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint"]),
+        },
     )
 
     # 条件关节扭矩惩罚：仅有指令时惩罚，无指令时允许使用必要扭矩抵抗干扰
@@ -350,7 +339,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
         self.events.push_robot.params["velocity_range"] = {"x": (-1.0, 1.0), "y": (-1.0, 1.0)}
-        self.events.push_robot.interval_range_s = (0.0, 10.0) # 5
+        self.events.push_robot.interval_range_s = (5.0, 10.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
         self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
