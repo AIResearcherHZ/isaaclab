@@ -20,7 +20,7 @@ usd_path = args_cli.usd
 print(f"正在修复USD文件: {usd_path}")
 stage = Usd.Stage.Open(usd_path)
 
-ankle_pattern = re.compile(r".*_ankle_roll_link|pelvis|neck_pitch_link")
+ankle_pattern = re.compile(r".*_ankle_roll_link")
 modified_count = 0
 
 # 先打印所有ankle_roll_link相关的prim结构

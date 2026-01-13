@@ -38,21 +38,21 @@ class TaksT1Rewards(RewardsCfg):
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*"])},
     )
 
     # 踝关节偏差惩罚
     joint_deviation_ankle = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.05,
+        weight=-0.1,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_.*"])},
     )
 
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
@@ -66,7 +66,7 @@ class TaksT1Rewards(RewardsCfg):
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.5,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -148,7 +148,7 @@ class TaksT1Rewards(RewardsCfg):
     # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.1,
+        weight=-0.25,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -351,7 +351,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 电机位置噪声（编码器）
         self.observations.policy.joint_pos.noise = Unoise(n_min=-0.05, n_max=0.05)
         # 电机速度噪声（编码器微分）
-        self.observations.policy.joint_vel.noise = Unoise(n_min=-1.5, n_max=1.5)
+        self.observations.policy.joint_vel.noise = Unoise(n_min=-0.5, n_max=0.5)
 
         # ------------------------------Actions------------------------------
         self.actions.joint_pos.scale = 0.25
