@@ -38,35 +38,35 @@ class TaksT1Rewards(RewardsCfg):
     # 髋部关节偏差惩罚
     joint_deviation_hip = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.2,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*"])},
+        weight=-0.1,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
     )
 
     # 踝关节偏差惩罚
     joint_deviation_ankle = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.05,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle_.*"])},
     )
 
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.5,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.25,
+        weight=-0.2,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_.*"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.5,
+        weight=-0.2,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -109,14 +109,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=2.5,
+        weight=1.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=3.5,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -272,23 +272,22 @@ class TaksT1EventCfg(EventCfg):
         },
     )
 
-    # # 关节故障 - 模拟电机故障（极低概率）
-    # joint_failure = EventTerm(
-    #     func=mdp.randomize_joint_failure,
-    #     mode="interval",  # 在 interval 模式下周期性触发
-    #     interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot"),
-    #         "failure_prob": 0.0001,
-    #         "failure_mode": "weak",
-    #         "weak_factor": 0.5,
-    #     },
-    # )
+    # 关节故障 - 模拟电机故障（极低概率）
+    joint_failure = EventTerm(
+        func=mdp.randomize_joint_failure,
+        mode="interval",  # 在 interval 模式下周期性触发
+        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "failure_prob": 0.0001,
+            "failure_mode": "weak",
+            "weak_factor": 0.5,
+        },
+    )
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     base_link_name = "pelvis"
-    foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
     # 使用扩展的事件配置（包含电机老化、关节摩擦等域随机化）
@@ -301,7 +300,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # ------------------------------Sim------------------------------
         # 启用外力每次迭代更新，消除速度噪声警告
         self.sim.physx.enable_external_forces_every_iteration = True
-        self.sim.physx.gpu_solver_velocity_iteration_count = 1
+        self.sim.physx.gpu_solver_velocity_iteration_count = 0  # 0,1,2越大越平滑
 
         # ------------------------------Scene------------------------------
         # 设置地形视觉材质的 diffuse_color，消除警告
