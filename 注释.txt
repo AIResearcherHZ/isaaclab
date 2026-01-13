@@ -257,3 +257,43 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
 ./isaaclab.sh -p scripts/tools/fix_usd_articulation.py \
   /home/xhz/isaaclab/source/isaaclab_assets/isaaclab_assets/robots/Taks_T1/Taks_T1.usd \
   --root_prim /Taks_T1/pelvis
+
+
+--------------------------------------------------------------------------------
+【播放动作】
+--------------------------------------------------------------------------------
+# 播放走路动作
+python source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/motion_viewer.py \
+  --file source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/taks_t1_walk.npz \
+  --matplotlib-backend TkAgg \
+  --render-scene
+
+# 播放跑步动作
+python source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/motion_viewer.py \
+  --file source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/taks_t1_run.npz \
+  --matplotlib-backend TkAgg \
+  --render-scene
+
+# 播放舞蹈动作
+python source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/motion_viewer.py \
+  --file source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/taks_t1_dance.npz \
+  --matplotlib-backend TkAgg \
+  --render-scene
+
+# 播放跳舞动作
+python source/isaaclab_tasks/isaaclab_tasks/direct/humanoid_amp/motions/motion_viewer.py \
+  --file source/isaaclab_tasks/isaaclab_tasks/direct/humanoid_amp/motions/humanoid_dance.npz \
+  --matplotlib-backend TkAgg \
+  --render-scene
+
+--------------------------------------------------------------------------------
+【转换动作】
+--------------------------------------------------------------------------------
+# 转换走路动作
+python source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/convert_motion.py --input source/isaaclab_tasks/isaaclab_tasks/direct/humanoid_amp/motions/humanoid_walk.npz --output source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/taks_t1_walk.npz
+
+# 转换跑步动作
+python source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/convert_motion.py --input source/isaaclab_tasks/isaaclab_tasks/direct/humanoid_amp/motions/humanoid_run.npz --output source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/taks_t1_run.npz
+
+# 转换舞蹈动作
+python source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/convert_motion.py --input source/isaaclab_tasks/isaaclab_tasks/direct/humanoid_amp/motions/humanoid_dance.npz --output source/isaaclab_tasks/isaaclab_tasks/direct/taks_t1_amp/motions/taks_t1_dance.npz
