@@ -208,5 +208,5 @@ Joint structure based on URDF:
 - Waist: waist_yaw, waist_roll, waist_pitch (3 DOF)
 - Arms: shoulder_pitch, shoulder_roll, shoulder_yaw, elbow, wrist_roll, wrist_pitch, wrist_yaw (7 DOF per arm)
 - Neck: neck_yaw, neck_roll, neck_pitch (3 DOF)
-Total: 35 DOF
+Total: 32 DOF
 """

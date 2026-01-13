@@ -260,6 +260,42 @@ python -m torch.distributed.run --standalone --nproc-per-node=2 scripts/reinforc
 
 
 --------------------------------------------------------------------------------
+【Taks_T1_amp训练】
+--------------------------------------------------------------------------------
+# 训练
+./isaaclab.sh -p scripts/reinforcement_learning/skrl/train.py \
+  --task Isaac-TaksT1-AMP-Walk-Direct-v0 \
+  --num_envs 20000 \
+  --headless
+
+# TensorBoard 日志查看
+./isaaclab.sh -p -m tensorboard.main \
+  --logdir=logs/skrl/Taks_T1_amp_walk
+
+# 普通播放（能生成onnx）
+./isaaclab.sh -p scripts/reinforcement_learning/skrl/play.py \
+  --task Isaac-TaksT1-AMP-Walk-Direct-v0 \
+  --num_envs 16 \
+  --headless
+
+# 断点重训
+./isaaclab.sh -p scripts/reinforcement_learning/skrl/train.py \
+  --task Isaac-TaksT1-AMP-Walk-Direct-v0 \
+  --experiment_name Taks_T1_amp_walk \
+  --num_envs 20000 \
+  --resume \
+  --headless
+
+# 临时对比
+./isaaclab.sh -p scripts/reinforcement_learning/skrl/train.py \
+  --task Isaac-Humanoid-AMP-Walk-Direct-v0 \
+  --num_envs 2 \
+  --headless
+
+
+
+
+--------------------------------------------------------------------------------
 【播放动作】
 --------------------------------------------------------------------------------
 # 播放走路动作

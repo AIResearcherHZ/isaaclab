@@ -16,7 +16,7 @@ Motion files for Taks_T1 AMP environment in NumPy-file format.
 | `body_linear_velocities` | float32 | (N, 33, 3) | Skeleton body linear velocities |
 | `body_angular_velocities` | float32 | (N, 33, 3) | Skeleton body angular velocities |
 
-## Taks_T1 Joint Structure (35 DOF)
+## Taks_T1 Joint Structure (32 DOF)
 
 - **Legs (12 DOF)**: hip_pitch, hip_roll, hip_yaw, knee, ankle_pitch, ankle_roll (6 per leg)
 - **Waist (3 DOF)**: waist_yaw, waist_roll, waist_pitch

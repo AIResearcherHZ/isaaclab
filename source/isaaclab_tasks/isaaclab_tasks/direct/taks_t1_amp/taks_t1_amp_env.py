@@ -14,7 +14,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation
 from isaaclab.envs import DirectRLEnv
 from isaaclab.sim.spawners.from_files import GroundPlaneCfg, spawn_ground_plane
-from isaaclab.utils.math import quat_apply, quat_rotate_inverse
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from .taks_t1_amp_env_cfg import TaksT1AmpEnvCfg
 from .motions import MotionLoader
@@ -102,6 +102,43 @@ class TaksT1AmpEnv(DirectRLEnv):
         # 重力向量
         self.gravity_vec = torch.tensor([0.0, 0.0, -1.0], device=self.device).repeat(self.num_envs, 1)
 
+        # 随机推力计时器
+        self.push_time_left = torch.zeros(self.num_envs, device=self.device)
+        self._sample_push_interval(torch.arange(self.num_envs, device=self.device))
+
+    def _sample_push_interval(self, env_ids: torch.Tensor):
+        """重新采样推力间隔时间"""
+        num_envs = len(env_ids)
+        self.push_time_left[env_ids] = torch.empty(num_envs, device=self.device).uniform_(
+            self.cfg.push_interval_s[0], self.cfg.push_interval_s[1]
+        )
+
+    def _apply_push(self):
+        """应用随机推力 - GPU向量化计算"""
+        if not self.cfg.enable_push:
+            return
+        
+        # 检查哪些环境需要推力
+        push_mask = self.push_time_left <= 0
+        if not push_mask.any():
+            return
+        
+        push_ids = torch.where(push_mask)[0]
+        num_push = len(push_ids)
+        
+        # GPU向量化生成随机速度推力
+        push_vel = torch.empty(num_push, 2, device=self.device).uniform_(
+            self.cfg.push_vel_xy[0], self.cfg.push_vel_xy[1]
+        )
+        
+        # 获取当前速度并添加推力
+        root_vel = self.robot.data.root_com_vel_w[push_ids].clone()
+        root_vel[:, :2] += push_vel
+        self.robot.write_root_com_velocity_to_sim(root_vel, push_ids)
+        
+        # 重新采样推力间隔
+        self._sample_push_interval(push_ids)
+
     def _setup_scene(self):
         self.robot = Articulation(self.cfg.robot)
         # 添加地面
@@ -125,6 +162,31 @@ class TaksT1AmpEnv(DirectRLEnv):
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
+    def _randomize_friction(self, env_ids: torch.Tensor):
+        """随机化摩擦力 - 优化版本（API限制需CPU，但减少重复计算）"""
+        if not self.cfg.enable_friction_randomization:
+            return
+        
+        # 转换为CPU tensor（API限制）
+        env_ids_cpu = env_ids.cpu()
+        num_envs = len(env_ids_cpu)
+        total_num_shapes = self.robot.root_physx_view.max_shapes
+        
+        # 预计算范围差值（避免重复计算）
+        sf_range = self.cfg.static_friction_range[1] - self.cfg.static_friction_range[0]
+        df_range = self.cfg.dynamic_friction_range[1] - self.cfg.dynamic_friction_range[0]
+        re_range = self.cfg.restitution_range[1] - self.cfg.restitution_range[0]
+        
+        # 使用torch.rand更高效，然后线性变换
+        rand_vals = torch.rand(num_envs, total_num_shapes, 3, device="cpu")
+        
+        # 获取材质属性并更新
+        materials = self.robot.root_physx_view.get_material_properties()
+        materials[env_ids_cpu, :, 0] = rand_vals[:, :, 0] * sf_range + self.cfg.static_friction_range[0]
+        materials[env_ids_cpu, :, 1] = rand_vals[:, :, 1] * df_range + self.cfg.dynamic_friction_range[0]
+        materials[env_ids_cpu, :, 2] = rand_vals[:, :, 2] * re_range + self.cfg.restitution_range[0]
+        self.robot.root_physx_view.set_material_properties(materials, env_ids_cpu)
+
     def _pre_physics_step(self, actions: torch.Tensor):
         self.actions = actions.clone()
 
@@ -141,10 +203,10 @@ class TaksT1AmpEnv(DirectRLEnv):
     def _get_observations(self) -> dict:
         # 计算投影重力（body frame）- 真机可从IMU获取
         root_quat = self.robot.data.root_quat_w
-        projected_gravity = quat_rotate_inverse(root_quat, self.gravity_vec)
+        projected_gravity = quat_apply_inverse(root_quat, self.gravity_vec)
         
         # 计算body frame下的角速度 - 真机可从IMU获取
-        base_ang_vel = quat_rotate_inverse(root_quat, self.robot.data.root_ang_vel_w)
+        base_ang_vel = quat_apply_inverse(root_quat, self.robot.data.root_ang_vel_w)
         
         # 获取训练顺序的关节位置和速度（真机可从编码器获取）
         joint_pos_training = self.robot.data.joint_pos[:, self.training_joint_indices]
@@ -152,6 +214,14 @@ class TaksT1AmpEnv(DirectRLEnv):
         
         # 关节位置相对于默认位置
         joint_pos_rel = joint_pos_training - self.default_dof_pos
+        
+        # 添加观测噪声（GPU向量化计算）
+        if self.cfg.enable_noise:
+            # 使用torch.rand_like更高效，然后线性变换到目标范围
+            base_ang_vel = base_ang_vel + (torch.rand_like(base_ang_vel) * (self.cfg.noise_ang_vel[1] - self.cfg.noise_ang_vel[0]) + self.cfg.noise_ang_vel[0])
+            projected_gravity = projected_gravity + (torch.rand_like(projected_gravity) * (self.cfg.noise_gravity[1] - self.cfg.noise_gravity[0]) + self.cfg.noise_gravity[0])
+            joint_pos_rel = joint_pos_rel + (torch.rand_like(joint_pos_rel) * (self.cfg.noise_joint_pos[1] - self.cfg.noise_joint_pos[0]) + self.cfg.noise_joint_pos[0])
+            joint_vel_training = joint_vel_training + (torch.rand_like(joint_vel_training) * (self.cfg.noise_joint_vel[1] - self.cfg.noise_joint_vel[0]) + self.cfg.noise_joint_vel[0])
         
         # 构建策略观测（与S2S2R完全一致，105维）
         obs = torch.cat([
@@ -234,6 +304,12 @@ class TaksT1AmpEnv(DirectRLEnv):
         
         # 重置上一步动作
         self.last_actions[env_ids] = 0.0
+        
+        # 重置推力计时器
+        self._sample_push_interval(env_ids)
+        
+        # 随机化摩擦力
+        self._randomize_friction(env_ids)
 
     def _resample_commands(self, env_ids: torch.Tensor):
         """重采样velocity commands"""
@@ -335,16 +411,22 @@ class TaksT1AmpEnv(DirectRLEnv):
         return amp_observation.view(-1, self.amp_observation_size)
 
     def step(self, action: torch.Tensor):
-        """重写step以支持command重采样"""
+        """重写step以支持command重采样和随机推力"""
         obs, reward, terminated, truncated, info = super().step(action)
         
+        dt = self.cfg.sim.dt * self.cfg.decimation
+        
         # 更新命令时间
-        self.command_time_left -= self.cfg.sim.dt * self.cfg.decimation
+        self.command_time_left -= dt
         
         # 重采样超时的命令
         resample_ids = torch.where(self.command_time_left <= 0)[0]
         if len(resample_ids) > 0:
             self._resample_commands(resample_ids)
+        
+        # 更新推力时间并应用推力
+        self.push_time_left -= dt
+        self._apply_push()
         
         return obs, reward, terminated, truncated, info
 

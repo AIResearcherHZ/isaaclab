@@ -2,12 +2,13 @@
 # All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Taks_T1 AMP环境配置，支持velocity command控制"""
+"""Taks_T1 AMP环境配置，支持velocity command控制和域随机化"""
 
 from __future__ import annotations
 
 import os
-from dataclasses import MISSING
+from dataclasses import MISSING, field
+from typing import Tuple
 
 from isaaclab_assets.robots.taks import TAKS_T1_CFG
 
@@ -73,7 +74,26 @@ class TaksT1AmpEnvCfg(DirectRLEnvCfg):
     lin_vel_x_range = (-1.0, 1.0)
     lin_vel_y_range = (-1.0, 1.0)
     ang_vel_z_range = (-1.0, 1.0)
-    command_resampling_time = (2.0, 10.0)
+    command_resampling_time = (10.0, 10.0)
+
+    # ==================== 域随机化配置 ====================
+    # 观测噪声（模拟真实传感器噪声）
+    enable_noise: bool = True
+    noise_ang_vel: Tuple[float, float] = (-0.2, 0.2)  # IMU角速度噪声
+    noise_gravity: Tuple[float, float] = (-0.1, 0.1)  # 重力方向噪声
+    noise_joint_pos: Tuple[float, float] = (-0.05, 0.05)  # 关节位置噪声
+    noise_joint_vel: Tuple[float, float] = (-1.5, 1.5)  # 关节速度噪声
+
+    # 随机推力配置
+    enable_push: bool = True
+    push_interval_s: Tuple[float, float] = (0.0, 5.0)  # 推力间隔时间
+    push_vel_xy: Tuple[float, float] = (-1.0, 1.0)  # 推力速度范围
+
+    # 摩擦力随机化配置
+    enable_friction_randomization: bool = True
+    static_friction_range: Tuple[float, float] = (0.5, 2.0)
+    dynamic_friction_range: Tuple[float, float] = (0.5, 2.0)
+    restitution_range: Tuple[float, float] = (0.0, 0.5)
 
     # 仿真配置
     sim: SimulationCfg = SimulationCfg(
@@ -89,8 +109,19 @@ class TaksT1AmpEnvCfg(DirectRLEnvCfg):
     # 场景配置
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=5.0, replicate_physics=True)
 
-    # 机器人配置
+    # 机器人配置 - 使用与humanoid_amp类似的actuator配置
     robot: ArticulationCfg = TAKS_T1_CFG.replace(prim_path="/World/envs/env_.*/Robot")
+    
+    # robot: ArticulationCfg = TAKS_T1_CFG.replace(prim_path="/World/envs/env_.*/Robot").replace(
+    #     actuators={
+    #         "body": ImplicitActuatorCfg(
+    #             joint_names_expr=[".*"],
+    #             stiffness=None,
+    #             damping=None,
+    #             velocity_limit_sim=5.0,
+    #         ),
+    #     },
+    # )
 
 
 @configclass
