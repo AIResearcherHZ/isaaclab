@@ -52,35 +52,20 @@ def uniform_noise(data: torch.Tensor, cfg: noise_cfg.UniformNoiseCfg) -> torch.T
     Returns:
         The data modified by the noise parameters provided.
     """
-    # 首次调用时预计算并缓存range值
-    if not hasattr(cfg, '_n_range') or cfg._n_range is None:
-        if isinstance(cfg.n_max, torch.Tensor):
-            cfg.n_max = cfg.n_max.to(data.device)
-        if isinstance(cfg.n_min, torch.Tensor):
-            cfg.n_min = cfg.n_min.to(data.device)
-        cfg._n_range = cfg.n_max - cfg.n_min
-        cfg._device = data.device
-    elif hasattr(cfg, '_device') and cfg._device != data.device:
-        # 设备变更时重新计算
-        if isinstance(cfg.n_max, torch.Tensor):
-            cfg.n_max = cfg.n_max.to(data.device)
-        if isinstance(cfg.n_min, torch.Tensor):
-            cfg.n_min = cfg.n_min.to(data.device)
-        cfg._n_range = cfg.n_max - cfg.n_min
-        cfg._device = data.device
+
+    # fix tensor device for n_max on first call and update config parameters
+    if isinstance(cfg.n_max, torch.Tensor):
+        cfg.n_max = cfg.n_max.to(data.device)
+    # fix tensor device for n_min on first call and update config parameters
+    if isinstance(cfg.n_min, torch.Tensor):
+        cfg.n_min = cfg.n_min.to(data.device)
 
     if cfg.operation == "add":
-        # 使用empty+uniform_避免rand_like的额外开销，直接原地生成
-        noise = torch.empty_like(data).uniform_(0, 1)
-        noise.mul_(cfg._n_range).add_(cfg.n_min)
-        return data.add(noise)
+        return data + torch.rand_like(data) * (cfg.n_max - cfg.n_min) + cfg.n_min
     elif cfg.operation == "scale":
-        noise = torch.empty_like(data).uniform_(0, 1)
-        noise.mul_(cfg._n_range).add_(cfg.n_min)
-        return data.mul(noise)
+        return data * (torch.rand_like(data) * (cfg.n_max - cfg.n_min) + cfg.n_min)
     elif cfg.operation == "abs":
-        noise = torch.empty_like(data).uniform_(0, 1)
-        return noise.mul_(cfg._n_range).add_(cfg.n_min)
+        return torch.rand_like(data) * (cfg.n_max - cfg.n_min) + cfg.n_min
     else:
         raise ValueError(f"Unknown operation in noise: {cfg.operation}")
 
@@ -95,81 +80,22 @@ def gaussian_noise(data: torch.Tensor, cfg: noise_cfg.GaussianNoiseCfg) -> torch
     Returns:
         The data modified by the noise parameters provided.
     """
-    # 首次调用时缓存设备信息
-    if not hasattr(cfg, '_device') or cfg._device is None:
-        if isinstance(cfg.mean, torch.Tensor):
-            cfg.mean = cfg.mean.to(data.device)
-        if isinstance(cfg.std, torch.Tensor):
-            cfg.std = cfg.std.to(data.device)
-        cfg._device = data.device
-    elif hasattr(cfg, '_device') and cfg._device != data.device:
-        if isinstance(cfg.mean, torch.Tensor):
-            cfg.mean = cfg.mean.to(data.device)
-        if isinstance(cfg.std, torch.Tensor):
-            cfg.std = cfg.std.to(data.device)
-        cfg._device = data.device
+
+    # fix tensor device for mean on first call and update config parameters
+    if isinstance(cfg.mean, torch.Tensor):
+        cfg.mean = cfg.mean.to(data.device)
+    # fix tensor device for std on first call and update config parameters
+    if isinstance(cfg.std, torch.Tensor):
+        cfg.std = cfg.std.to(data.device)
 
     if cfg.operation == "add":
-        # 使用empty+normal_避免randn_like的额外开销
-        noise = torch.empty_like(data).normal_(0, 1)
-        noise.mul_(cfg.std).add_(cfg.mean)
-        return data.add(noise)
+        return data + cfg.mean + cfg.std * torch.randn_like(data)
     elif cfg.operation == "scale":
-        noise = torch.empty_like(data).normal_(0, 1)
-        noise.mul_(cfg.std).add_(cfg.mean)
-        return data.mul(noise)
+        return data * (cfg.mean + cfg.std * torch.randn_like(data))
     elif cfg.operation == "abs":
-        noise = torch.empty_like(data).normal_(0, 1)
-        return noise.mul_(cfg.std).add_(cfg.mean)
+        return cfg.mean + cfg.std * torch.randn_like(data)
     else:
         raise ValueError(f"Unknown operation in noise: {cfg.operation}")
-
-
-##
-# Batched noise functions for better GPU efficiency
-##
-
-
-def batched_uniform_noise_add_(
-    data: torch.Tensor,
-    n_min: float | torch.Tensor,
-    n_max: float | torch.Tensor,
-) -> torch.Tensor:
-    """原地批量添加均匀噪声，适用于已拼接的观测数据。
-
-    Args:
-        data: 要添加噪声的数据 (num_envs, total_dim)
-        n_min: 噪声最小值
-        n_max: 噪声最大值
-
-    Returns:
-        添加噪声后的数据（原地修改）
-    """
-    n_range = n_max - n_min
-    noise = torch.empty_like(data).uniform_(0, 1)
-    noise.mul_(n_range).add_(n_min)
-    return data.add_(noise)
-
-
-def batched_uniform_noise_add_per_dim_(
-    data: torch.Tensor,
-    n_mins: torch.Tensor,
-    n_maxs: torch.Tensor,
-) -> torch.Tensor:
-    """原地批量添加均匀噪声，每个维度可以有不同的噪声范围。
-
-    Args:
-        data: 要添加噪声的数据 (num_envs, total_dim)
-        n_mins: 每个维度的噪声最小值 (total_dim,)
-        n_maxs: 每个维度的噪声最大值 (total_dim,)
-
-    Returns:
-        添加噪声后的数据（原地修改）
-    """
-    n_ranges = n_maxs - n_mins
-    noise = torch.empty_like(data).uniform_(0, 1)
-    noise.mul_(n_ranges).add_(n_mins)
-    return data.add_(noise)
 
 
 ##

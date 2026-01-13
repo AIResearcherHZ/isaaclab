@@ -25,7 +25,7 @@ class TaksT1Rewards(RewardsCfg):
     """
     # ==================== 始终生效的奖励（平衡与安全） ====================
     # 终止惩罚
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1000.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-500.0)
     lin_vel_z_l2 = None
 
     # 踝关节位置限制惩罚：若末端执行器超出设定范围则给予负奖励
