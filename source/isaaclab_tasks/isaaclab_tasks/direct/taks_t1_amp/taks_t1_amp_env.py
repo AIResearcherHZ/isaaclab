@@ -2,7 +2,7 @@
 # All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Taks_T1 AMP环境实现，支持velocity command控制"""
+"""Taks_T1 AMP环境实现 - 与S2S2R完全兼容"""
 
 from __future__ import annotations
 
@@ -19,17 +19,41 @@ from isaaclab.utils.math import quat_apply, quat_rotate_inverse
 from .taks_t1_amp_env_cfg import TaksT1AmpEnvCfg
 from .motions import MotionLoader
 
+# 训练顺序的32个关节名称（与S2S2R/IO描述一致）
+TRAINING_JOINT_NAMES = [
+    "left_hip_pitch_joint", "right_hip_pitch_joint", "waist_yaw_joint",
+    "left_hip_roll_joint", "right_hip_roll_joint", "waist_roll_joint",
+    "left_hip_yaw_joint", "right_hip_yaw_joint", "waist_pitch_joint",
+    "left_knee_joint", "right_knee_joint", "left_shoulder_pitch_joint",
+    "neck_yaw_joint", "right_shoulder_pitch_joint", "left_ankle_pitch_joint",
+    "right_ankle_pitch_joint", "left_shoulder_roll_joint", "neck_roll_joint",
+    "right_shoulder_roll_joint", "left_ankle_roll_joint", "right_ankle_roll_joint",
+    "left_shoulder_yaw_joint", "neck_pitch_joint", "right_shoulder_yaw_joint",
+    "left_elbow_joint", "right_elbow_joint", "left_wrist_roll_joint",
+    "right_wrist_roll_joint", "left_wrist_yaw_joint", "right_wrist_yaw_joint",
+    "left_wrist_pitch_joint", "right_wrist_pitch_joint",
+]
+
+# 默认关节位置（训练顺序）
+DEFAULT_DOF_POS = torch.tensor([
+    -0.14, -0.14, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.36, 0.36, 0.16, 0.0, 0.16, -0.20, -0.20,
+    0.16, 0.0, -0.16, 0.0, 0.0, 0.0, 0.0, 0.0,
+    1.10, 1.10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+], dtype=torch.float32)
+
 
 class TaksT1AmpEnv(DirectRLEnv):
-    """Taks_T1 AMP环境，支持velocity command控制
+    """Taks_T1 AMP环境 - 与S2S2R完全兼容
     
-    观测空间与rough_env_cfg保持一致：
-    - base_ang_vel: 3 (IMU角速度，body frame)
-    - projected_gravity: 3 (投影重力)
-    - velocity_commands: 3 (速度命令)
-    - joint_pos: 35 (关节位置)
-    - joint_vel: 35 (关节速度)
-    - actions: 35 (上一步动作)
+    观测空间（无特权观测，只用IMU+关节编码器）：
+    - ang_vel: 3 (IMU角速度, body frame, scale=0.25)
+    - gravity_vec: 3 (投影重力)
+    - commands: 3 (速度命令)
+    - dof_pos: 32 (关节位置, 训练顺序, scale=1.0)
+    - dof_vel: 32 (关节速度, 训练顺序, scale=0.05)
+    - actions: 32 (上一步动作)
+    总计: 105维
     """
     
     cfg: TaksT1AmpEnvCfg
@@ -37,22 +61,27 @@ class TaksT1AmpEnv(DirectRLEnv):
     def __init__(self, cfg: TaksT1AmpEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
-        # 动作缩放
-        dof_lower_limits = self.robot.data.soft_joint_pos_limits[0, :, 0]
-        dof_upper_limits = self.robot.data.soft_joint_pos_limits[0, :, 1]
-        self.action_offset = self.robot.data.default_joint_pos[0].clone()
-        self.action_scale = 0.25  # 与rough_env_cfg一致
+        # 构建URDF顺序到训练顺序的映射
+        self.training_joint_indices = torch.tensor(
+            [self.robot.data.joint_names.index(name) for name in TRAINING_JOINT_NAMES],
+            device=self.device, dtype=torch.long
+        )
+        
+        # 默认关节位置（训练顺序）
+        self.default_dof_pos = DEFAULT_DOF_POS.to(self.device)
+        
+        # 动作缩放（与S2S2R一致）
+        self.action_scale = 0.25
 
         # 加载motion数据
         self._motion_loader = MotionLoader(motion_file=self.cfg.motion_file, device=self.device)
 
         # 关键body索引（用于AMP观测）
-        # Taks_T1的关键body: 左右手腕、左右脚踝
         key_body_names = ["left_wrist_pitch_link", "right_wrist_pitch_link", 
                           "left_ankle_roll_link", "right_ankle_roll_link"]
         self.ref_body_index = self.robot.data.body_names.index(self.cfg.reference_body)
         self.key_body_indexes = [self.robot.data.body_names.index(name) for name in key_body_names]
-        self.motion_dof_indexes = self._motion_loader.get_dof_index(self.robot.data.joint_names)
+        self.motion_dof_indexes = self._motion_loader.get_dof_index(TRAINING_JOINT_NAMES)
         self.motion_ref_body_index = self._motion_loader.get_body_index([self.cfg.reference_body])[0]
         self.motion_key_body_indexes = self._motion_loader.get_body_index(key_body_names)
 
@@ -64,10 +93,10 @@ class TaksT1AmpEnv(DirectRLEnv):
         )
 
         # velocity command相关
-        self.velocity_commands = torch.zeros((self.num_envs, 3), device=self.device)  # [vx, vy, wz]
+        self.velocity_commands = torch.zeros((self.num_envs, 3), device=self.device)
         self.command_time_left = torch.zeros(self.num_envs, device=self.device)
         
-        # 上一步动作缓存
+        # 上一步动作缓存（32维，训练顺序）
         self.last_actions = torch.zeros((self.num_envs, self.cfg.action_space), device=self.device)
         
         # 重力向量
@@ -100,38 +129,44 @@ class TaksT1AmpEnv(DirectRLEnv):
         self.actions = actions.clone()
 
     def _apply_action(self):
-        # 位置控制，与rough_env_cfg一致
-        target = self.action_offset + self.action_scale * self.actions
-        self.robot.set_joint_position_target(target)
+        # 动作是训练顺序(32)，需要转换为URDF顺序后设置
+        # target_training = default_pos + action_scale * actions
+        target_training = self.default_dof_pos + self.action_scale * self.actions
+        
+        # 创建完整的关节目标（URDF顺序）
+        target_urdf = self.robot.data.default_joint_pos.clone()
+        target_urdf[:, self.training_joint_indices] = target_training
+        self.robot.set_joint_position_target(target_urdf)
 
     def _get_observations(self) -> dict:
-        # 计算投影重力（body frame）
+        # 计算投影重力（body frame）- 真机可从IMU获取
         root_quat = self.robot.data.root_quat_w
         projected_gravity = quat_rotate_inverse(root_quat, self.gravity_vec)
         
-        # 计算body frame下的角速度
+        # 计算body frame下的角速度 - 真机可从IMU获取
         base_ang_vel = quat_rotate_inverse(root_quat, self.robot.data.root_ang_vel_w)
         
-        # 关节位置（相对于默认位置）
-        joint_pos_rel = self.robot.data.joint_pos - self.robot.data.default_joint_pos
+        # 获取训练顺序的关节位置和速度（真机可从编码器获取）
+        joint_pos_training = self.robot.data.joint_pos[:, self.training_joint_indices]
+        joint_vel_training = self.robot.data.joint_vel[:, self.training_joint_indices]
         
-        # 关节速度
-        joint_vel = self.robot.data.joint_vel
+        # 关节位置相对于默认位置
+        joint_pos_rel = joint_pos_training - self.default_dof_pos
         
-        # 构建策略观测（与rough_env_cfg一致）
+        # 构建策略观测（与S2S2R完全一致，105维）
         obs = torch.cat([
-            base_ang_vel * 0.25,  # scale与rough_env_cfg一致
-            projected_gravity,
-            self.velocity_commands,  # velocity command
-            joint_pos_rel,  # scale=1.0
-            joint_vel * 0.05,  # scale与rough_env_cfg一致
-            self.last_actions,
+            base_ang_vel * 0.25,      # ang_vel, scale=0.25
+            projected_gravity,         # gravity_vec
+            self.velocity_commands,    # commands
+            joint_pos_rel,             # dof_pos, scale=1.0
+            joint_vel_training * 0.05, # dof_vel, scale=0.05
+            self.last_actions,         # actions
         ], dim=-1)
 
-        # 构建AMP观测
+        # 构建AMP观测（89维）
         amp_obs = compute_amp_obs(
-            self.robot.data.joint_pos,
-            self.robot.data.joint_vel,
+            joint_pos_training,
+            joint_vel_training,
             self.robot.data.body_pos_w[:, self.ref_body_index],
             self.robot.data.body_quat_w[:, self.ref_body_index],
             self.robot.data.body_lin_vel_w[:, self.ref_body_index],
@@ -249,14 +284,20 @@ class TaksT1AmpEnv(DirectRLEnv):
         # 获取根body变换
         root_state = self.robot.data.default_root_state[env_ids].clone()
         root_state[:, 0:3] = body_positions[:, self.motion_ref_body_index] + self.scene.env_origins[env_ids]
-        root_state[:, 2] += 0.05  # 稍微抬高避免碰撞
+        root_state[:, 2] += 0.05
         root_state[:, 3:7] = body_rotations[:, self.motion_ref_body_index]
         root_state[:, 7:10] = body_linear_velocities[:, self.motion_ref_body_index]
         root_state[:, 10:13] = body_angular_velocities[:, self.motion_ref_body_index]
         
-        # 获取关节状态
-        dof_pos = dof_positions[:, self.motion_dof_indexes]
-        dof_vel = dof_velocities[:, self.motion_dof_indexes]
+        # 获取训练顺序的关节状态
+        dof_pos_training = dof_positions[:, self.motion_dof_indexes]
+        dof_vel_training = dof_velocities[:, self.motion_dof_indexes]
+        
+        # 转换为URDF顺序的完整关节状态
+        dof_pos = self.robot.data.default_joint_pos[env_ids].clone()
+        dof_vel = self.robot.data.default_joint_vel[env_ids].clone()
+        dof_pos[:, self.training_joint_indices] = dof_pos_training
+        dof_vel[:, self.training_joint_indices] = dof_vel_training
 
         # 更新AMP观测
         amp_observations = self.collect_reference_motions(num_samples, times)
@@ -330,16 +371,16 @@ def compute_amp_obs(
     root_angular_velocities: torch.Tensor,
     key_body_positions: torch.Tensor,
 ) -> torch.Tensor:
-    """计算AMP观测
+    """计算AMP观测（89维）
     
-    返回: joint_pos(35) + joint_vel(35) + root_height(1) + root_orientation(6) + 
-          root_lin_vel(3) + root_ang_vel(3) + key_body_pos(12) = 95维
+    返回: joint_pos(32) + joint_vel(32) + root_height(1) + root_orientation(6) + 
+          root_lin_vel(3) + root_ang_vel(3) + key_body_pos(12) = 89维
     """
     obs = torch.cat(
         (
             dof_positions,
             dof_velocities,
-            root_positions[:, 2:3],  # root body height
+            root_positions[:, 2:3],
             quaternion_to_tangent_and_normal(root_rotations),
             root_linear_velocities,
             root_angular_velocities,

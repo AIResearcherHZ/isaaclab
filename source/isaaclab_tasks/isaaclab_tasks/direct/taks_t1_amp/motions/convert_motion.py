@@ -4,18 +4,19 @@
 import argparse
 import numpy as np
 
-# Taks_T1的32个DOF名称（不含手指）
+# Taks_T1的32个DOF名称（训练顺序，与S2S2R/IO描述一致）
 TAKS_T1_DOF_NAMES = [
-    "left_hip_pitch_joint", "left_hip_roll_joint", "left_hip_yaw_joint",
-    "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
-    "right_hip_pitch_joint", "right_hip_roll_joint", "right_hip_yaw_joint",
-    "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint",
-    "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
-    "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint",
-    "left_elbow_joint", "left_wrist_roll_joint", "left_wrist_yaw_joint", "left_wrist_pitch_joint",
-    "right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint",
-    "right_elbow_joint", "right_wrist_roll_joint", "right_wrist_yaw_joint", "right_wrist_pitch_joint",
-    "neck_yaw_joint", "neck_roll_joint", "neck_pitch_joint",
+    "left_hip_pitch_joint", "right_hip_pitch_joint", "waist_yaw_joint",
+    "left_hip_roll_joint", "right_hip_roll_joint", "waist_roll_joint",
+    "left_hip_yaw_joint", "right_hip_yaw_joint", "waist_pitch_joint",
+    "left_knee_joint", "right_knee_joint", "left_shoulder_pitch_joint",
+    "neck_yaw_joint", "right_shoulder_pitch_joint", "left_ankle_pitch_joint",
+    "right_ankle_pitch_joint", "left_shoulder_roll_joint", "neck_roll_joint",
+    "right_shoulder_roll_joint", "left_ankle_roll_joint", "right_ankle_roll_joint",
+    "left_shoulder_yaw_joint", "neck_pitch_joint", "right_shoulder_yaw_joint",
+    "left_elbow_joint", "right_elbow_joint", "left_wrist_roll_joint",
+    "right_wrist_roll_joint", "left_wrist_yaw_joint", "right_wrist_yaw_joint",
+    "left_wrist_pitch_joint", "right_wrist_pitch_joint",
 ]
 
 # Taks_T1的33个body名称
@@ -33,16 +34,20 @@ TAKS_T1_BODY_NAMES = [
     "neck_yaw_link", "neck_roll_link", "neck_pitch_link",
 ]
 
-# humanoid_28 DOF到Taks_T1 DOF的映射
+# humanoid_28 DOF到Taks_T1 DOF的映射（训练顺序索引）
 HUMANOID_TO_TAKS_DOF = {
-    "left_hip_y": 0, "left_hip_x": 1, "left_hip_z": 2,
-    "left_knee": 3, "left_ankle_y": 4, "left_ankle_x": 5,
-    "right_hip_y": 6, "right_hip_x": 7, "right_hip_z": 8,
-    "right_knee": 9, "right_ankle_y": 10, "right_ankle_x": 11,
-    "abdomen_z": 12, "abdomen_x": 13, "abdomen_y": 14,
-    "left_shoulder_y": 15, "left_shoulder_x": 16, "left_shoulder_z": 17, "left_elbow": 18,
-    "right_shoulder_y": 22, "right_shoulder_x": 23, "right_shoulder_z": 24, "right_elbow": 25,
-    "neck_z": 29, "neck_x": 30, "neck_y": 31,
+    "left_hip_y": 0, "right_hip_y": 1,    # hip_pitch
+    "left_hip_x": 3, "right_hip_x": 4,    # hip_roll
+    "left_hip_z": 6, "right_hip_z": 7,    # hip_yaw
+    "left_knee": 9, "right_knee": 10,     # knee
+    "left_ankle_y": 14, "right_ankle_y": 15,  # ankle_pitch
+    "left_ankle_x": 19, "right_ankle_x": 20,  # ankle_roll
+    "abdomen_z": 2, "abdomen_x": 5, "abdomen_y": 8,  # waist
+    "left_shoulder_y": 11, "right_shoulder_y": 13,   # shoulder_pitch
+    "left_shoulder_x": 16, "right_shoulder_x": 18,   # shoulder_roll
+    "left_shoulder_z": 21, "right_shoulder_z": 23,   # shoulder_yaw
+    "left_elbow": 24, "right_elbow": 25,  # elbow
+    "neck_z": 12, "neck_x": 17, "neck_y": 22,  # neck
 }
 
 # URDF关节偏移量（从Taks_T1.urdf提取）

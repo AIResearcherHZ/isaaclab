@@ -25,40 +25,40 @@ MOTIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "motions"
 class TaksT1AmpEnvCfg(DirectRLEnvCfg):
     """Taks_T1 AMP环境配置基类
     
-    观测空间与rough_env_cfg保持一致：
-    - base_ang_vel: 3 (IMU角速度)
-    - projected_gravity: 3 (投影重力)
-    - velocity_commands: 3 (速度命令)
-    - joint_pos: 35 (关节位置)
-    - joint_vel: 35 (关节速度)
-    - actions: 35 (上一步动作)
-    总计: 114维观测
+    观测空间与S2S2R完全一致（无特权观测，只用IMU+关节编码器）：
+    - ang_vel: 3 (IMU角速度, body frame)
+    - gravity_vec: 3 (投影重力)
+    - commands: 3 (速度命令)
+    - dof_pos: 32 (关节位置, 训练顺序)
+    - dof_vel: 32 (关节速度, 训练顺序)
+    - actions: 32 (上一步动作)
+    总计: 105维观测
     
     AMP观测空间（用于判别器）：
-    - joint_pos: 35
-    - joint_vel: 35
+    - joint_pos: 32
+    - joint_vel: 32
     - root_height: 1
     - root_orientation: 6 (tangent + normal)
     - root_lin_vel: 3
     - root_ang_vel: 3
-    - key_body_positions: 12 (4个关键body * 3)
-    总计: 95维AMP观测
+    - key_body_pos: 12 (4个关键body * 3)
+    总计: 89维AMP观测
     """
 
     # 环境参数
     episode_length_s = 10.0
     decimation = 4
 
-    # 观测空间（与rough_env_cfg一致）
-    # base_ang_vel(3) + projected_gravity(3) + velocity_commands(3) + joint_pos(35) + joint_vel(35) + actions(35)
-    observation_space = 114
-    action_space = 35
+    # 观测空间（与S2S2R完全一致）
+    # ang_vel(3) + gravity_vec(3) + commands(3) + dof_pos(32) + dof_vel(32) + actions(32) = 105
+    observation_space = 105
+    action_space = 32
     state_space = 0
     
     # AMP观测空间
     num_amp_observations = 2
-    # joint_pos(35) + joint_vel(35) + root_height(1) + root_orientation(6) + root_lin_vel(3) + root_ang_vel(3) + key_body_pos(12)
-    amp_observation_space = 95
+    # joint_pos(32) + joint_vel(32) + root_height(1) + root_orientation(6) + root_lin_vel(3) + root_ang_vel(3) + key_body_pos(12) = 89
+    amp_observation_space = 89
 
     # 终止条件
     early_termination = True
@@ -103,3 +103,8 @@ class TaksT1AmpWalkEnvCfg(TaksT1AmpEnvCfg):
 class TaksT1AmpRunEnvCfg(TaksT1AmpEnvCfg):
     """Taks_T1 AMP Run环境配置"""
     motion_file = os.path.join(MOTIONS_DIR, "taks_t1_run.npz")
+
+@configclass
+class TaksT1AmpDanceEnvCfg(TaksT1AmpEnvCfg):
+    """Taks_T1 AMP Dance环境配置"""
+    motion_file = os.path.join(MOTIONS_DIR, "taks_t1_dance.npz")
