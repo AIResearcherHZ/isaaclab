@@ -52,21 +52,21 @@ class TaksT1Rewards(RewardsCfg):
     # 颈部关节偏差惩罚 - 保持头部稳定
     joint_deviation_neck = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.35,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["neck_.*"])},
     )
 
     # 腰部偏差惩罚：抑制躯干晃动，保持腰部姿态稳定
     joint_deviation_torso = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.35,
+        weight=-0.5,
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist_.*"])},
     )
 
     # 手臂关节偏差惩罚：减少上肢多余摆动，保持动作干净
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.35,
+        weight=-0.5,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -97,7 +97,7 @@ class TaksT1Rewards(RewardsCfg):
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
     stand_still_joint_deviation = RewTerm(
         func=mdp.stand_still_joint_deviation_l1,
-        weight=-0.1,
+        weight=-0.2,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -214,23 +214,23 @@ class TaksT1Rewards(RewardsCfg):
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
-    # 条件关节加速度惩罚：仅有指令时惩罚，无指令时允许快速响应扰动
-    dof_acc_l2_cond = RewTerm(
-        func=mdp.dof_acc_l2_conditional,
-        weight=-1.5e-7,
-        params={"command_name": "base_velocity", "command_threshold": 0.1},
-    )
+    # # 条件关节加速度惩罚：仅有指令时惩罚，无指令时允许快速响应扰动
+    # dof_acc_l2_cond = RewTerm(
+    #     func=mdp.dof_acc_l2_conditional,
+    #     weight=-1.5e-7,
+    #     params={"command_name": "base_velocity", "command_threshold": 0.1},
+    # )
 
-    # 条件关节扭矩惩罚：仅有指令时惩罚，无指令时允许使用必要扭矩抵抗干扰
-    dof_torques_l2_cond = RewTerm(
-        func=mdp.dof_torques_l2_conditional,
-        weight=-5.0e-7,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]),
-        },
-    )
+    # # 条件关节扭矩惩罚：仅有指令时惩罚，无指令时允许使用必要扭矩抵抗干扰
+    # dof_torques_l2_cond = RewTerm(
+    #     func=mdp.dof_torques_l2_conditional,
+    #     weight=-5.0e-7,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]),
+    #     },
+    # )
 
     # # 条件腰部扭矩惩罚：仅有指令时惩罚
     # waist_torques_l2_cond = RewTerm(
@@ -303,8 +303,8 @@ class TaksT1EventCfg(EventCfg):
         interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
-            "force_range": (-2.5, 2.5),
-            "torque_range": (-2.5, 2.5),
+            "force_range": (-0.5, 0.5),
+            "torque_range": (-0.5, 0.5),
         },
     )
 
