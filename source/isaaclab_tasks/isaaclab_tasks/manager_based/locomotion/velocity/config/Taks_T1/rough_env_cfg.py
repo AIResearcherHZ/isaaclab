@@ -318,16 +318,17 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.observations.policy.base_lin_vel = None
 
         # 增强观测噪声随机化（模拟真实传感器噪声）
-        # IMU角速度噪声（陀螺仪）
-        self.observations.policy.base_ang_vel.noise = Unoise(n_min=-0.2, n_max=0.2)
         # 删除线加速度观测
         self.observations.policy.base_lin_acc = None
+        
+        # IMU角速度噪声（陀螺仪）
+        self.observations.policy.base_ang_vel.noise = Unoise(n_min=-0.2, n_max=0.2)
         # 重力方向噪声（姿态估计误差）
         self.observations.policy.projected_gravity.noise = Unoise(n_min=-0.1, n_max=0.1)
         # 电机位置噪声（编码器）
         self.observations.policy.joint_pos.noise = Unoise(n_min=-0.05, n_max=0.05)
         # 电机速度噪声（编码器微分）
-        self.observations.policy.joint_vel.noise = Unoise(n_min=-0.5, n_max=0.5)
+        self.observations.policy.joint_vel.noise = Unoise(n_min=-1.5, n_max=1.5)
 
         # ------------------------------Actions------------------------------
         self.actions.joint_pos.scale = 0.25
@@ -367,8 +368,6 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.physics_material.params["static_friction_range"] = (0.5, 1.5)
         self.events.physics_material.params["dynamic_friction_range"] = (0.5, 1.5)
-        self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
-        self.events.physics_material.params["num_buckets"] = 64
 
         # ------------------------------Rewards------------------------------
         # 禁用父类中的非条件奖励（已在TaksT1Rewards中用条件版本替换）
@@ -377,7 +376,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.dof_acc_l2 = None  # 使用 dof_acc_l2_cond 替代
         self.rewards.dof_torques_l2 = None  # 使用 dof_torques_l2_cond 替代
         # 姿态惩罚始终生效（保持平衡）
-        self.rewards.flat_orientation_l2.weight = -1.25
+        self.rewards.flat_orientation_l2.weight = -1.5
 
         # ------------------------------Commands------------------------------
         self.commands.base_velocity.ranges.lin_vel_x = (-1.0, 1.0)

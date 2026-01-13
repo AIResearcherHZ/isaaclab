@@ -111,7 +111,7 @@ class CommandsCfg:
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",  # 命令对应的资产（机器人）名字，用于在环境中找对应实体
         resampling_time_range=(10.0, 10.0),  # 每隔多少秒重采样一次命令（固定为 10s）
-        rel_standing_envs=0.1,  # 与“静止”相关的环境比例（可能用于命令采样策略）
+        rel_standing_envs=0.05,  # 与“静止”相关的环境比例（可能用于命令采样策略）
         rel_heading_envs=1.0,  # 是否包含朝向命令的环境比例
         heading_command=True,  # 启用朝向（heading）命令
         heading_control_stiffness=0.5,  # 朝向控制器的刚性系数（用于软约束方向）
@@ -237,7 +237,7 @@ class EventCfg:
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),  # 对机器人所有刚体进行随机化
             "static_friction_range": (0.5, 1.5),  # 静摩擦范围（此处固定为 0.8）
             "dynamic_friction_range": (0.5, 1.5),  # 动摩擦范围（固定）
-            "restitution_range": (0.0, 0.5),  # 恢复系数范围（固定）
+            "restitution_range": (0.0, 0.0),  # 恢复系数范围（固定）
             "num_buckets": 64,  # 随机化时使用的桶数量，用于离散化随机化值
         },
     )
