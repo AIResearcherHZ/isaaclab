@@ -235,9 +235,9 @@ class EventCfg:
         mode="startup",  # 在仿真启动（或场景加载）时执行
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),  # 对机器人所有刚体进行随机化
-            "static_friction_range": (0.8, 1.2),  # 静摩擦范围（此处固定为 0.8）
-            "dynamic_friction_range": (0.6, 1.0),  # 动摩擦范围（固定）
-            "restitution_range": (0.0, 0.0),  # 恢复系数范围（固定）
+            "static_friction_range": (0.5, 1.5),  # 静摩擦范围（此处固定为 0.8）
+            "dynamic_friction_range": (0.5, 1.5),  # 动摩擦范围（固定）
+            "restitution_range": (0.0, 0.5),  # 恢复系数范围（固定）
             "num_buckets": 64,  # 随机化时使用的桶数量，用于离散化随机化值
         },
     )
@@ -313,17 +313,17 @@ class EventCfg:
         params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},  # 推力对应的速度范围
     )
 
-    # # 惯量随机化
-    # inertia_randomization = EventTerm(
-    #     func=mdp.randomize_inertia_properties,
-    #     mode="startup",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-    #         "inertia_distribution_params": (0.5, 2.0),
-    #         "armature_distribution_params": (0.5, 2.0),
-    #         "operation": "scale",
-    #     },
-    # )
+    # 惯量随机化
+    inertia_randomization = EventTerm(
+        func=mdp.randomize_inertia_properties,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
+            "inertia_distribution_params": (0.5, 2.0),
+            "armature_distribution_params": (0.5, 2.0),
+            "operation": "scale",
+        },
+    )
 
 
 @configclass
@@ -410,7 +410,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     """
 
     # 场景设置：创建 MySceneCfg 实例并设置并行环境数量与环境间距
-    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=5.0)
+    scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
     # 观察、动作、命令配置
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()

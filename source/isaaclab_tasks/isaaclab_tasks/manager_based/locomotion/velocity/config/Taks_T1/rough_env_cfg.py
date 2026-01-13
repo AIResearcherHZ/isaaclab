@@ -109,14 +109,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.0,
+        weight=3.0,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -186,12 +186,12 @@ class TaksT1Rewards(RewardsCfg):
     #     },
     # )
 
-    # # 条件速度方向对齐奖励：仅有指令时奖励
-    # velocity_alignment_cond = RewTerm(
-    #     func=mdp.velocity_direction_alignment_conditional,
-    #     weight=0.05,
-    #     params={"command_name": "base_velocity", "command_threshold": 0.1},
-    # )
+    # 条件速度方向对齐奖励：仅有指令时奖励
+    velocity_alignment_cond = RewTerm(
+        func=mdp.velocity_direction_alignment_conditional,
+        weight=0.05,
+        params={"command_name": "base_velocity", "command_threshold": 0.1},
+    )
 
     # 条件动作变化率惩罚：仅有指令时惩罚，无指令时允许自由调整以保持平衡
     action_rate_l2_cond = RewTerm(
@@ -232,16 +232,16 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # # 条件脚部抖动惩罚：仅有指令时惩罚，减少运动中的脚部不必要抖动
-    # feet_jitter_penalty_cond = RewTerm(
-    #     func=mdp.feet_jitter_penalty_conditional,
-    #     weight=-0.01,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-    #     },
-    # )
+    # 条件脚部抖动惩罚：仅有指令时惩罚，减少运动中的脚部不必要抖动
+    feet_jitter_penalty_cond = RewTerm(
+        func=mdp.feet_jitter_penalty_conditional,
+        weight=-0.01,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+        },
+    )
 
 @configclass
 class TaksT1EventCfg(EventCfg):
@@ -300,7 +300,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # ------------------------------Sim------------------------------
         # 启用外力每次迭代更新，消除速度噪声警告
         self.sim.physx.enable_external_forces_every_iteration = True
-        self.sim.physx.gpu_solver_velocity_iteration_count = 0  # 0,1,2越大越平滑
+        self.sim.physx.gpu_solver_velocity_iteration_count = 1  # 0,1,2越大越平滑
 
         # ------------------------------Scene------------------------------
         # 设置地形视觉材质的 diffuse_color，消除警告
@@ -327,7 +327,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         # 电机位置噪声（编码器）
         self.observations.policy.joint_pos.noise = Unoise(n_min=-0.05, n_max=0.05)
         # 电机速度噪声（编码器微分）
-        self.observations.policy.joint_vel.noise = Unoise(n_min=-1.5, n_max=1.5)
+        self.observations.policy.joint_vel.noise = Unoise(n_min=-0.5, n_max=0.5)
 
         # ------------------------------Actions------------------------------
         self.actions.joint_pos.scale = 0.25
@@ -338,10 +338,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
         self.events.push_robot.params["velocity_range"] = {"x": (-1.0, 1.0), "y": (-1.0, 1.0)}
-        self.events.push_robot.interval_range_s = (5.0, 15.0)
+        self.events.push_robot.interval_range_s = (0.0, 5.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
-        self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
-        self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
 
         # 重置底座时增加初始速度随机化
         self.events.reset_base.params = {
@@ -367,8 +365,8 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # 机器人摩擦力随机化
         self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
-        self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
+        self.events.physics_material.params["static_friction_range"] = (0.5, 1.5)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 1.5)
         self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
         self.events.physics_material.params["num_buckets"] = 64
 
