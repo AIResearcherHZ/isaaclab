@@ -141,7 +141,7 @@ class TaksT1Rewards(RewardsCfg):
         params={
             "command_name": "base_velocity",
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "threshold": 0.3, # 0.4
+            "threshold": 0.4,
         },
     )
 
@@ -224,7 +224,7 @@ class TaksT1Rewards(RewardsCfg):
     # 条件关节扭矩惩罚：仅有指令时惩罚，无指令时允许使用必要扭矩抵抗干扰
     dof_torques_l2_cond = RewTerm(
         func=mdp.dof_torques_l2_conditional,
-        weight=-5.0e-6, # -7
+        weight=-5.0e-7,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -310,7 +310,7 @@ class TaksT1EventCfg(EventCfg):
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    base_link_name = "pelvis|torso_link"
+    base_link_name = "pelvis"
     foot_link_name = ".*_ankle_roll_link"
 
     rewards: TaksT1Rewards = TaksT1Rewards()
