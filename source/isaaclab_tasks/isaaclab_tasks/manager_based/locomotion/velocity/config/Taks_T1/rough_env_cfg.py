@@ -90,14 +90,14 @@ class TaksT1Rewards(RewardsCfg):
     # 静止姿态奖励 - 无命令时保持标准站姿
     stand_still_posture = RewTerm(
         func=mdp.stand_still_posture,
-        weight=0.75,
+        weight=0.5,
         params={"command_name": "base_velocity", "command_threshold": 0.1},
     )
 
     # 静止时关节偏差惩罚 - 当命令接近零时保持关节在默认位置
     stand_still_joint_deviation = RewTerm(
         func=mdp.stand_still_joint_deviation_l1,
-        weight=-0.2,
+        weight=-0.1,
         params={
             "command_name": "base_velocity",
             "command_threshold": 0.1,
@@ -134,7 +134,7 @@ class TaksT1Rewards(RewardsCfg):
     # 脚滑动惩罚
     feet_slide = RewTerm(
         func=mdp.feet_slide,
-        weight=-0.25,
+        weight=-0.1,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
             "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
@@ -152,39 +152,39 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 条件双脚同时接触惩罚：仅有指令时惩罚
-    double_support_penalty_cond = RewTerm(
-        func=mdp.double_support_time_penalty_conditional,
-        weight=-2.5,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-            "max_double_support_time": 0.2,
-        },
-    )
+    # # 条件双脚同时接触惩罚：仅有指令时惩罚
+    # double_support_penalty_cond = RewTerm(
+    #     func=mdp.double_support_time_penalty_conditional,
+    #     weight=-2.5,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #         "max_double_support_time": 0.2,
+    #     },
+    # )
 
-    # 条件单脚支撑奖励：仅有指令时奖励
-    single_leg_stance_cond = RewTerm(
-        func=mdp.single_leg_stance_reward_conditional,
-        weight=0.1,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        },
-    )
+    # # 条件单脚支撑奖励：仅有指令时奖励
+    # single_leg_stance_cond = RewTerm(
+    #     func=mdp.single_leg_stance_reward_conditional,
+    #     weight=0.1,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #     },
+    # )
 
-    # 条件双脚交替接触奖励：仅有指令时奖励
-    feet_alternating_cond = RewTerm(
-        func=mdp.feet_alternating_contact_conditional,
-        weight=0.05,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        },
-    )
+    # # 条件双脚交替接触奖励：仅有指令时奖励
+    # feet_alternating_cond = RewTerm(
+    #     func=mdp.feet_alternating_contact_conditional,
+    #     weight=0.05,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+    #     },
+    # )
 
     # # 条件速度方向对齐奖励：仅有指令时奖励
     # velocity_alignment_cond = RewTerm(
@@ -232,16 +232,16 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # 条件脚部抖动惩罚：仅有指令时惩罚，减少运动中的脚部不必要抖动
-    feet_jitter_penalty_cond = RewTerm(
-        func=mdp.feet_jitter_penalty_conditional,
-        weight=-0.01,
-        params={
-            "command_name": "base_velocity",
-            "command_threshold": 0.1,
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-        },
-    )
+    # # 条件脚部抖动惩罚：仅有指令时惩罚，减少运动中的脚部不必要抖动
+    # feet_jitter_penalty_cond = RewTerm(
+    #     func=mdp.feet_jitter_penalty_conditional,
+    #     weight=-0.01,
+    #     params={
+    #         "command_name": "base_velocity",
+    #         "command_threshold": 0.1,
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+    #     },
+    # )
 
 @configclass
 class TaksT1EventCfg(EventCfg):
@@ -339,7 +339,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
         self.events.push_robot.params["velocity_range"] = {"x": (-1.0, 1.0), "y": (-1.0, 1.0)}
-        self.events.push_robot.interval_range_s = (5.0, 10.0)
+        self.events.push_robot.interval_range_s = (5.0, 15.0)
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
         self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
@@ -366,12 +366,12 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.05, 0.05)}
 
-        # # 机器人摩擦力随机化
-        # self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
-        # self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
-        # self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
-        # self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
-        # self.events.physics_material.params["num_buckets"] = 64
+        # 机器人摩擦力随机化
+        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
+        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
+        self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
+        self.events.physics_material.params["num_buckets"] = 64
 
         # ------------------------------Rewards------------------------------
         # 禁用父类中的非条件奖励（已在TaksT1Rewards中用条件版本替换）
