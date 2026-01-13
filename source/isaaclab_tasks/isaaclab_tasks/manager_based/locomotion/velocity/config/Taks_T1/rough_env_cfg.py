@@ -123,14 +123,14 @@ class TaksT1Rewards(RewardsCfg):
     # 追踪线速度奖励（内部已有指令检查）
     track_lin_vel_xy_exp = RewTerm(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=2.0,
+        weight=2.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
     # 追踪角速度奖励（内部已有指令检查）
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_world_exp,
-        weight=2.5,
+        weight=3.5,
         params={"command_name": "base_velocity", "std": 0.5},
     )
 
@@ -166,39 +166,39 @@ class TaksT1Rewards(RewardsCfg):
         },
     )
 
-    # # 条件双脚同时接触惩罚：仅有指令时惩罚
-    # double_support_penalty_cond = RewTerm(
-    #     func=mdp.double_support_time_penalty_conditional,
-    #     weight=-2.5,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    #         "max_double_support_time": 0.2,
-    #     },
-    # )
+    # 条件双脚同时接触惩罚：仅有指令时惩罚
+    double_support_penalty_cond = RewTerm(
+        func=mdp.double_support_time_penalty_conditional,
+        weight=-2.5,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "max_double_support_time": 0.2,
+        },
+    )
 
-    # # 条件单脚支撑奖励：仅有指令时奖励
-    # single_leg_stance_cond = RewTerm(
-    #     func=mdp.single_leg_stance_reward_conditional,
-    #     weight=0.1,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    #     },
-    # )
+    # 条件单脚支撑奖励：仅有指令时奖励
+    single_leg_stance_cond = RewTerm(
+        func=mdp.single_leg_stance_reward_conditional,
+        weight=0.1,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+        },
+    )
 
-    # # 条件双脚交替接触奖励：仅有指令时奖励
-    # feet_alternating_cond = RewTerm(
-    #     func=mdp.feet_alternating_contact_conditional,
-    #     weight=0.05,
-    #     params={
-    #         "command_name": "base_velocity",
-    #         "command_threshold": 0.1,
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    #     },
-    # )
+    # 条件双脚交替接触奖励：仅有指令时奖励
+    feet_alternating_cond = RewTerm(
+        func=mdp.feet_alternating_contact_conditional,
+        weight=0.05,
+        params={
+            "command_name": "base_velocity",
+            "command_threshold": 0.1,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+        },
+    )
 
     # 条件速度方向对齐奖励：仅有指令时奖励
     velocity_alignment_cond = RewTerm(
@@ -272,16 +272,16 @@ class TaksT1EventCfg(EventCfg):
 
     # # ==================== 新增鲁棒性随机化 ====================
 
-    # # 动作延迟 - 模拟通讯延迟和控制周期不对齐
-    # action_delay = EventTerm(
-    #     func=mdp.randomize_action_delay,
-    #     mode="interval",  # 在 interval 模式下周期性触发
-    #     interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("robot"),
-    #         "max_delay_steps": 8,
-    #     },
-    # )
+    # 动作延迟 - 模拟通讯延迟和控制周期不对齐
+    action_delay = EventTerm(
+        func=mdp.randomize_action_delay,
+        mode="interval",  # 在 interval 模式下周期性触发
+        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "max_delay_steps": 8,
+        },
+    )
 
     # # 关节故障 - 模拟电机故障（极低概率）
     # joint_failure = EventTerm(
@@ -295,18 +295,6 @@ class TaksT1EventCfg(EventCfg):
     #         "weak_factor": 0.5,
     #     },
     # )
-
-    # 脚末端外力 - 模拟脚部受到的外部扰动
-    feet_external_force_torque = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="interval",  # 在 interval 模式下周期性触发
-        interval_range_s=(5.0, 15.0),  # 触发时间间隔范围（随机或固定采样）
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=[".*_ankle_roll_link"]),
-            "force_range": (-0.5, 0.5),
-            "torque_range": (-0.5, 0.5),
-        },
-    )
 
 @configclass
 class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
@@ -362,7 +350,7 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         
         self.events.push_robot.params["velocity_range"] = {"x": (-1.0, 1.0), "y": (-1.0, 1.0)}
-        self.events.push_robot.interval_range_s = (0.0, 5.0)
+        self.events.push_robot.interval_range_s = (0.0, 10.0) # 5
         self.events.base_external_force_torque.params["asset_cfg"].body_names = [self.base_link_name]
         self.events.base_external_force_torque.params["force_range"] = (-0.5, 0.5)
         self.events.base_external_force_torque.params["torque_range"] = (-0.5, 0.5)
@@ -389,12 +377,12 @@ class TaksT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.events.base_com.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
         self.events.base_com.params["com_range"] = {"x": (-0.1, 0.1), "y": (-0.1, 0.1), "z": (-0.05, 0.05)}
 
-        # 机器人摩擦力随机化
-        self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
-        self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
-        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
-        self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
-        self.events.physics_material.params["num_buckets"] = 64
+        # # 机器人摩擦力随机化
+        # self.events.physics_material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=".*")
+        # self.events.physics_material.params["static_friction_range"] = (0.5, 2.0)
+        # self.events.physics_material.params["dynamic_friction_range"] = (0.5, 2.0)
+        # self.events.physics_material.params["restitution_range"] = (0.0, 0.5)
+        # self.events.physics_material.params["num_buckets"] = 64
 
         # ------------------------------Rewards------------------------------
         # 禁用父类中的非条件奖励（已在TaksT1Rewards中用条件版本替换）
@@ -455,7 +443,6 @@ class TaksT1RoughEnvCfg_PLAY(TaksT1RoughEnvCfg):
         self.events.action_delay = None
         self.events.joint_failure = None
         self.events.inertia_randomization = None
-        self.events.feet_external_force_torque = None
 
         # 启用场景查询支持,用于碰撞检测和射线投射等功能
         self.sim.enable_scene_query_support = True

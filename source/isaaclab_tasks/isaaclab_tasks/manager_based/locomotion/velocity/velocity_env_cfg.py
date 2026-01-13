@@ -235,8 +235,8 @@ class EventCfg:
         mode="startup",  # 在仿真启动（或场景加载）时执行
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=".*"),  # 对机器人所有刚体进行随机化
-            "static_friction_range": (0.8, 0.8),  # 静摩擦范围（此处固定为 0.8）
-            "dynamic_friction_range": (0.6, 0.6),  # 动摩擦范围（固定）
+            "static_friction_range": (0.8, 1.2),  # 静摩擦范围（此处固定为 0.8）
+            "dynamic_friction_range": (0.6, 1.0),  # 动摩擦范围（固定）
             "restitution_range": (0.0, 0.0),  # 恢复系数范围（固定）
             "num_buckets": 64,  # 随机化时使用的桶数量，用于离散化随机化值
         },
