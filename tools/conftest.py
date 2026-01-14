@@ -144,20 +144,16 @@ def run_individual_tests(test_files, workspace_root, isaacsim_ci):
         env = os.environ.copy()
 
         # Determine timeout for this test
-        timeout = (
-            test_settings.PER_TEST_TIMEOUTS[file_name]
-            if file_name in test_settings.PER_TEST_TIMEOUTS
-            else test_settings.DEFAULT_TIMEOUT
-        )
+        timeout = test_settings.PER_TEST_TIMEOUTS.get(file_name, test_settings.DEFAULT_TIMEOUT)
 
         # Prepare command
+        # Note: Command options matter as they are used for cleanups inside AppLauncher
         cmd = [
             sys.executable,
             "-m",
             "pytest",
             "--no-header",
-            "-c",
-            f"{workspace_root}/pytest.ini",
+            f"--config-file={workspace_root}/pyproject.toml",
             f"--junitxml=tests/test-reports-{str(file_name)}.xml",
             "--tb=short",
         ]
