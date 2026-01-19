@@ -8,7 +8,7 @@ git clone https://github.com/AIResearcherHZ/whole_body_tracking.git
 git clone https://github.com/AIResearcherHZ/GMR.git
 git clone --recurse-submodules https://github.com/AIResearcherHZ/TWIST2.git
 git clone --recurse-submodules https://github.com/AIResearcherHZ/HOVER
-
+git clone --recurse-submodules https://github.com/Roboparty/atom01_deploy
 
 【服务器 VNC】
 /opt/TurboVNC/bin/vncserver \
