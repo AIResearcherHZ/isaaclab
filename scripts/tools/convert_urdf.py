@@ -146,7 +146,11 @@ def main():
     # Simulate scene (if not headless)
     if local_gui or livestream_gui:
         # Open the stage with USD
-        sim_utils.open_stage(urdf_converter.usd_path)
+        try:
+            sim_utils.open_stage(urdf_converter.usd_path)
+        except AttributeError:
+            import omni.usd
+            omni.usd.get_context().open_stage(urdf_converter.usd_path)
         # Reinitialize the simulation
         app = omni.kit.app.get_app_interface()
         # Run simulation
