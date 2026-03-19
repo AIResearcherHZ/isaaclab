@@ -26,14 +26,26 @@ from isaaclab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 @configclass
 class SemiTaksT1CubeLiftEnvCfg(LiftEnvCfg):
+    """Semi-Taks-T1半身机器人Lift环境配置。
+    
+    20 DOF结构（10 DOF参与训练）：
+    - 右臂7 DOF - 参与训练（主要操作臂）
+    - 腰部3 DOF - 参与训练，用于补偿
+    - 左臂7 DOF - 不参与训练
+    - 颈部3 DOF - 锁定，不参与训练
+    
+    动作空间（10维）：
+    - arm_action: 7维（右臂）
+    - waist_action: 3维
+    """
+
     def __post_init__(self):
-        # post init of parent
         super().__post_init__()
 
-        # Set Semi-Taks-T1 as robot
+        # 使用Semi-Taks-T1机器人
         self.scene.robot = SEMI_TAKS_T1_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
-        # Set actions for the specific robot type (right arm only for lift)
+        # 右臂动作 (7 DOF)
         self.actions.arm_action = mdp.JointPositionActionCfg(
             asset_name="robot",
             joint_names=[
@@ -49,6 +61,14 @@ class SemiTaksT1CubeLiftEnvCfg(LiftEnvCfg):
             use_default_offset=True,
         )
 
+        # 腰部动作 (3 DOF) - 较小scale使运动更平滑
+        self.actions.waist_action = mdp.JointPositionActionCfg(
+            asset_name="robot",
+            joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
+            scale=0.2,
+            use_default_offset=True,
+        )
+
         # 无夹爪，使用空配置
         self.actions.gripper_action = mdp.BinaryJointPositionActionCfg(
             asset_name="robot",
@@ -57,27 +77,30 @@ class SemiTaksT1CubeLiftEnvCfg(LiftEnvCfg):
             close_command_expr={"right_wrist_pitch_joint": 0.0},
         )
 
-        # Set the body name for the end effector
+        # 末端执行器body名称
         self.commands.object_pose.body_name = "right_wrist_pitch_link"
         self.commands.object_pose.ranges.pitch = (math.pi / 2, math.pi / 2)
 
-        # Override observations to use taks joint names
+        # 观测关节名称（右臂 + 腰部）
         self.observations.policy.joint_pos.params["asset_cfg"].joint_names = [
             "right_shoulder_pitch_joint", "right_shoulder_roll_joint",
             "right_shoulder_yaw_joint", "right_elbow_joint",
             "right_wrist_roll_joint", "right_wrist_yaw_joint", "right_wrist_pitch_joint",
+            "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
         ]
         self.observations.policy.joint_vel.params["asset_cfg"].joint_names = [
             "right_shoulder_pitch_joint", "right_shoulder_roll_joint",
             "right_shoulder_yaw_joint", "right_elbow_joint",
             "right_wrist_roll_joint", "right_wrist_yaw_joint", "right_wrist_pitch_joint",
+            "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
         ]
 
-        # Override reward joint names
+        # 奖励关节名称（右臂 + 腰部）
         self.rewards.joint_vel.params["asset_cfg"].joint_names = [
             "right_shoulder_pitch_joint", "right_shoulder_roll_joint",
             "right_shoulder_yaw_joint", "right_elbow_joint",
             "right_wrist_roll_joint", "right_wrist_yaw_joint", "right_wrist_pitch_joint",
+            "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
         ]
 
         # Set Cube as object

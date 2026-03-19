@@ -49,6 +49,48 @@ ln -s /home/xhz/isaacsim _isaac_sim
 
 
 ================================================================================
+                        上肢manipulation强化学习训练工作流总览
+================================================================================
+
+【Semi-Taks-T1 半身机器人 - Reach任务】
+机器人结构：20 DOF（17 DOF参与训练）
+- 双臂14 DOF（每臂7 DOF：shoulder_pitch/roll/yaw + elbow + wrist_roll/yaw/pitch）
+- 腰部3 DOF（waist_yaw/roll/pitch）- 参与训练，用于补偿
+- 颈部3 DOF（neck_yaw/roll/pitch）- 锁定，不参与训练
+
+观测空间（62维）：
+- left_joint_pos: 7维（左臂关节位置）
+- right_joint_pos: 7维（右臂关节位置）
+- waist_joint_pos: 3维（腰部关节位置）
+- left_joint_vel: 7维（左臂关节速度）
+- right_joint_vel: 7维（右臂关节速度）
+- waist_joint_vel: 3维（腰部关节速度）
+- left_pose_command: 7维（左臂目标位姿）
+- right_pose_command: 7维（右臂目标位姿）
+- left_actions: 7维（左臂上一步动作）
+- right_actions: 7维（右臂上一步动作）
+
+动作空间（17维）：
+- left_arm_action: 7维（左臂关节位置增量）
+- right_arm_action: 7维（右臂关节位置增量）
+- waist_action: 3维（腰部关节位置增量，scale=0.2较小以避免剧烈运动）
+
+奖励设计：
+- 末端位置追踪（主要奖励）：驱动手臂到达目标位置
+- 末端姿态追踪：保持正确姿态
+- 腰部惩罚（较大权重-0.001）：鼓励优先使用手臂，腰部仅作补偿
+- 动作平滑性惩罚：避免剧烈变化
+
+训练命令：
+./isaaclab.sh -p scripts/reinforcement_learning/rl_games/train.py \
+  --task Isaac-Reach-Semi-Taks-T1-v0 --num_envs 4096 --headless
+
+播放命令：
+./isaaclab.sh -p scripts/reinforcement_learning/rl_games/play.py \
+  --task Isaac-Reach-Semi-Taks-T1-Play-v0 --num_envs 50
+
+
+================================================================================
                         步态训练工作流总览
 ================================================================================
 说明：统一整理 G1 / Taks_T1 的步态训练、可视化与工具，按机器人与场景分组。

@@ -6,6 +6,12 @@ The following configurations are available:
 
 """
 
+import os
+
+import isaaclab.sim as sim_utils
+from isaaclab.actuators import ImplicitActuatorCfg
+from isaaclab.assets.articulation import ArticulationCfg
+
 # Semi-body Taks_T1 USD路径
 _SEMI_TAKS_T1_USD_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "taks", "Semi_Taks_T1.usd"

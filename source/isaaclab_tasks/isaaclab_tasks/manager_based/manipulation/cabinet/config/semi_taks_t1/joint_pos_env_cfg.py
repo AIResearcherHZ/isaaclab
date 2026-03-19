@@ -22,14 +22,26 @@ from isaaclab_tasks.manager_based.manipulation.cabinet.config.openarm.cabinet_op
 
 @configclass
 class SemiTaksT1CabinetEnvCfg(CabinetEnvCfg):
+    """Semi-Taks-T1半身机器人Cabinet环境配置。
+    
+    20 DOF结构（10 DOF参与训练）：
+    - 右臂7 DOF - 参与训练（主要操作臂）
+    - 腰部3 DOF - 参与训练，用于补偿
+    - 左臂7 DOF - 不参与训练
+    - 颈部3 DOF - 锁定，不参与训练
+    
+    动作空间（10维）：
+    - arm_action: 7维（右臂）
+    - waist_action: 3维
+    """
+
     def __post_init__(self):
-        # post init of parent
         super().__post_init__()
 
-        # Set Semi-Taks-T1 as robot
+        # 使用Semi-Taks-T1机器人
         self.scene.robot = SEMI_TAKS_T1_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
-        # Set Actions for the specific robot type (right arm for cabinet)
+        # 右臂动作 (7 DOF)
         self.actions.arm_action = mdp.JointPositionActionCfg(
             asset_name="robot",
             joint_names=[
@@ -37,9 +49,18 @@ class SemiTaksT1CabinetEnvCfg(CabinetEnvCfg):
                 "right_shoulder_yaw_joint", "right_elbow_joint",
                 "right_wrist_roll_joint", "right_wrist_yaw_joint", "right_wrist_pitch_joint",
             ],
-            scale=1.0,
+            scale=0.5,
             use_default_offset=True,
         )
+
+        # 腰部动作 (3 DOF) - 较小scale使运动更平滑
+        self.actions.waist_action = mdp.JointPositionActionCfg(
+            asset_name="robot",
+            joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
+            scale=0.2,
+            use_default_offset=True,
+        )
+
         # 无夹爪，使用空配置
         self.actions.gripper_action = mdp.BinaryJointPositionActionCfg(
             asset_name="robot",
@@ -48,7 +69,7 @@ class SemiTaksT1CabinetEnvCfg(CabinetEnvCfg):
             close_command_expr={"right_wrist_pitch_joint": 0.0},
         )
 
-        # Listens to the required transforms
+        # 末端执行器帧配置
         self.scene.ee_frame = FrameTransformerCfg(
             prim_path="{ENV_REGEX_NS}/Robot/base_link",
             visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/EndEffectorFrameTransformer"),
@@ -78,7 +99,7 @@ class SemiTaksT1CabinetEnvCfg(CabinetEnvCfg):
             ],
         )
 
-        # override rewards
+        # 奖励配置
         self.rewards.approach_gripper_handle.params["offset"] = 0.04
         self.rewards.grasp_handle.params["open_joint_pos"] = 0.0
         self.rewards.grasp_handle.params["asset_cfg"].joint_names = ["right_wrist_pitch_joint"]

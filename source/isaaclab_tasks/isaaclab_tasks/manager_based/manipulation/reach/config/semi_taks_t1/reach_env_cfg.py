@@ -3,9 +3,15 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""
-Semi-Taks-T1 bimanual reach environment configuration.
-Adapted from OpenArm bimanual reach config.
+"""Semi-Taks-T1 半身机器人reach环境配置。
+
+20 DOF结构：
+- 双臂14 DOF（每臂7 DOF：shoulder_pitch/roll/yaw + elbow + wrist_roll/yaw/pitch）
+- 腰部3 DOF（waist_yaw/roll/pitch）- 参与训练，用于补偿
+- 颈部3 DOF（neck_yaw/roll/pitch）- 锁定，不参与训练
+
+目标追踪：双臂末端(wrist_pitch_link)追踪目标点
+控制策略：优先使用手臂，腰部补偿，避免剧烈变化
 """
 
 import math
@@ -100,6 +106,7 @@ class ActionsCfg:
 
     left_arm_action: ActionTerm = MISSING
     right_arm_action: ActionTerm = MISSING
+    waist_action: ActionTerm = MISSING
 
 
 @configclass
@@ -108,9 +115,22 @@ class ObservationsCfg:
 
     @configclass
     class PolicyCfg(ObsGroup):
-        """Observations for policy group."""
+        """Observations for policy group.
+        
+        观测空间（共62维）：
+        - left_joint_pos: 7维（左臂关节位置）
+        - right_joint_pos: 7维（右臂关节位置）
+        - waist_joint_pos: 3维（腰部关节位置）
+        - left_joint_vel: 7维（左臂关节速度）
+        - right_joint_vel: 7维（右臂关节速度）
+        - waist_joint_vel: 3维（腰部关节速度）
+        - left_pose_command: 7维（左臂目标位姿）
+        - right_pose_command: 7维（右臂目标位姿）
+        - left_actions: 7维（左臂上一步动作）
+        - right_actions: 7维（右臂上一步动作）
+        """
 
-        # observation terms (order preserved)
+        # 左臂关节位置 (7 DOF)
         left_joint_pos = ObsTerm(
             func=mdp.joint_pos_rel,
             params={
@@ -126,6 +146,7 @@ class ObservationsCfg:
             noise=Unoise(n_min=-0.01, n_max=0.01),
         )
 
+        # 右臂关节位置 (7 DOF)
         right_joint_pos = ObsTerm(
             func=mdp.joint_pos_rel,
             params={
@@ -141,6 +162,19 @@ class ObservationsCfg:
             noise=Unoise(n_min=-0.01, n_max=0.01),
         )
 
+        # 腰部关节位置 (3 DOF)
+        waist_joint_pos = ObsTerm(
+            func=mdp.joint_pos_rel,
+            params={
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
+                )
+            },
+            noise=Unoise(n_min=-0.01, n_max=0.01),
+        )
+
+        # 左臂关节速度 (7 DOF)
         left_joint_vel = ObsTerm(
             func=mdp.joint_vel_rel,
             params={
@@ -155,6 +189,8 @@ class ObservationsCfg:
             },
             noise=Unoise(n_min=-0.01, n_max=0.01),
         )
+
+        # 右臂关节速度 (7 DOF)
         right_joint_vel = ObsTerm(
             func=mdp.joint_vel_rel,
             params={
@@ -169,8 +205,24 @@ class ObservationsCfg:
             },
             noise=Unoise(n_min=-0.01, n_max=0.01),
         )
+
+        # 腰部关节速度 (3 DOF)
+        waist_joint_vel = ObsTerm(
+            func=mdp.joint_vel_rel,
+            params={
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
+                )
+            },
+            noise=Unoise(n_min=-0.01, n_max=0.01),
+        )
+
+        # 目标位姿命令
         left_pose_command = ObsTerm(func=mdp.generated_commands, params={"command_name": "left_ee_pose"})
         right_pose_command = ObsTerm(func=mdp.generated_commands, params={"command_name": "right_ee_pose"})
+
+        # 上一步动作
         left_actions = ObsTerm(func=mdp.last_action, params={"action_name": "left_arm_action"})
         right_actions = ObsTerm(func=mdp.last_action, params={"action_name": "right_arm_action"})
 
@@ -198,9 +250,16 @@ class EventCfg:
 
 @configclass
 class RewardsCfg:
-    """Reward terms for the MDP."""
+    """Reward terms for the MDP.
+    
+    奖励设计：
+    - 末端位置追踪：主要奖励，驱动手臂到达目标
+    - 末端姿态追踪：次要奖励，保持正确姿态
+    - 腰部惩罚：较大权重，鼓励优先使用手臂
+    - 动作平滑性：避免剧烈变化
+    """
 
-    # task terms
+    # 末端位置追踪
     left_end_effector_position_tracking = RewTerm(
         func=mdp.position_command_error,
         weight=-0.2,
@@ -239,6 +298,7 @@ class RewardsCfg:
         },
     )
 
+    # 末端姿态追踪
     left_end_effector_orientation_tracking = RewTerm(
         func=mdp.orientation_command_error,
         weight=-0.1,
@@ -257,8 +317,10 @@ class RewardsCfg:
         },
     )
 
-    # action penalty
+    # 动作平滑性惩罚
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-0.0001)
+
+    # 手臂关节速度惩罚
     left_joint_vel = RewTerm(
         func=mdp.joint_vel_l2,
         weight=-0.0001,
@@ -288,6 +350,30 @@ class RewardsCfg:
         },
     )
 
+    # 腰部运动惩罚（较大权重，鼓励优先使用手臂）
+    waist_joint_vel = RewTerm(
+        func=mdp.joint_vel_l2,
+        weight=-0.001,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
+            )
+        },
+    )
+
+    # 腰部位置惩罚（鼓励腰部保持在零位附近）
+    waist_joint_pos = RewTerm(
+        func=mdp.joint_pos_limits,
+        weight=-0.0005,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=["waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint"],
+            )
+        },
+    )
+
 
 @configclass
 class TerminationsCfg:
@@ -313,6 +399,11 @@ class CurriculumCfg:
     right_joint_vel = CurrTerm(
         func=mdp.modify_reward_weight,
         params={"term_name": "right_joint_vel", "weight": -0.001, "num_steps": 4500},
+    )
+
+    waist_joint_vel = CurrTerm(
+        func=mdp.modify_reward_weight,
+        params={"term_name": "waist_joint_vel", "weight": -0.005, "num_steps": 4500},
     )
 
 
