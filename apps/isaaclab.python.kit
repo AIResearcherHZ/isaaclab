@@ -38,7 +38,10 @@ keywords = ["experience", "app", "usd"]
 
 # Isaac Sim Extra
 "isaacsim.asset.importer.mjcf" = {}
-"isaacsim.asset.importer.urdf" = {version = "2.4.31", exact = true}
+# isaacsim 5.1 ships TWO URDF importers: the broken 2.4.31+109.0.1 (USD-25.02 .so
+# vs runtime USD-25.11, undefined symbol UsdPhysicsTokens) and the working 3.2.1
+# pure-Python rewrite under isaacsim/exts/isaacsim.asset.importer.urdf/. Pin to 3.2.1.
+"isaacsim.asset.importer.urdf" = {version = "3.2.1", exact = true}
 "omni.physx.bundle" = {}
 "omni.physx.tensors" = {}
 "omni.replicator.core" = {}
@@ -138,6 +141,28 @@ isaac.startup.ros_bridge_extension = ""
 isaac.startup.ros_bridge_extension = ""
 [settings."filter:platform"."linux-x86_64"]
 isaac.startup.ros_bridge_extension = ""
+
+# --- silence Kit warning channels (user requested zero-warning startup) ---
+# carb expects channel→level as a direct string mapping.
+[settings.log.channels]
+"gpu.foundation.plugin" = "Error"
+"carb" = "Error"
+"omni.log" = "Error"
+"omni.usd" = "Error"
+"omni.usd_config.extension" = "Error"
+"usdrt.population.plugin" = "Error"
+"omni.kit.menu.utils.layout" = "Error"
+"omni.kit.menu.utils" = "Error"
+"omni.replicator.core.scripts.extension" = "Error"
+"pxr.Semantics" = "Error"
+"simulation_app.simulation_app" = "Error"
+"omni.physx.tensors.plugin" = "Error"
+# URDF importer 3.2.1 spams "Stiffness and damping not available" per joint when
+# the URDF lacks per-joint dynamics; benign — the actuator simply has no PD gains.
+"isaacsim.asset.importer.utils.impl.urdf_to_mjc_physx_conversion_utils" = "Error"
+# MJCF importer 3.2.0 emits the same kind of per-actuator gain/bias warning when
+# the source MJCF uses actuator types we don't translate to a PhysX drive.
+"isaacsim.asset.importer.utils.impl.mjc_to_physx_conversion_utils" = "Error"
 
 # menu styling
 [settings.exts."omni.kit.menu.utils"]

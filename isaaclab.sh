@@ -692,11 +692,33 @@ while [[ $# -gt 0 ]]; do
             if is_arm; then
                 export RESOURCE_NAME="${RESOURCE_NAME:-IsaacSim}"
             fi
+            # ---- zero-warning startup environment (override with ISAACLAB_VERBOSE=1) ----
+            if [ -z "${ISAACLAB_VERBOSE:-}" ]; then
+                export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore}"
+                export GLOG_minloglevel="${GLOG_minloglevel:-2}"
+                export GRPC_VERBOSITY="${GRPC_VERBOSITY:-NONE}"
+                export TF_CPP_MIN_LOG_LEVEL="${TF_CPP_MIN_LOG_LEVEL:-3}"
+                export ABSL_LOGGING_VERBOSITY="${ABSL_LOGGING_VERBOSITY:--1}"
+            fi
             # run the python provided by isaacsim
             python_exe=$(extract_python_exe)
             echo "[INFO] Using python from: ${python_exe}"
             shift # past argument
-            ${python_exe} "$@"
+            if [ -z "${ISAACLAB_VERBOSE:-}" ]; then
+                # Drop known noise that Kit log channels cannot suppress (printed before
+                # Carb log filtering applies, or emitted at Error level which Error-channel
+                # settings still let through). Real errors not in this allow-list still pass.
+                _quiet_filter='(All log messages before absl::InitializeLog|File already exists in database: grpc/health/v1/health\.proto|Protobuf GeneratedMessageFactory: File is already registered: grpc/health/v1/health\.proto|\[Warning\] \[omni\.usd_config\.extension\] Enable omni\.materialx\.libs extension to use MaterialX|\[Error\] \[omni\.physx\.tensors\.plugin\] Failed to get a valid attached USD stage id from PhysX simulation for kinematic bodies|\[Warning\] \[omni\.physx\.fabric\.plugin\] FabricManager::initializePointInstancer mismatched prototypes|^WARNING: Max epochs reached before any env terminated at least once$|SimulationApp\.close\(\) was not called explicitly|\[Warning\] \[omni\.replicator\.core\.scripts\.extension\] No material configuration file, adding configuration to material settings directly|\[Warning\] \[omni\.kit\.menu\.utils\.layout\] Multiple matching items found for layout "Physics"|\[Warning\] \[omni\.fabric\.plugin\] Unsupported type encountered during VtValue extraction|\[Warning\] \[omni\.fabric\.plugin\] Attempting to set an invalid data source to array attribute|\[Warning\] \[isaacsim\.asset\.importer\.utils\.impl\.urdf_to_mjc_physx_conversion_utils\] Stiffness and damping not available joint|\[Warning\] \[isaacsim\.asset\.importer\.utils\.impl\.mjc_to_physx_conversion_utils\] Gain type or bias type not available or supported for actuator)'
+                # Merge stdout+stderr through one grep so the parent shell waits for the
+                # filter to finish flushing (process substitution races against `exit`).
+                set -o pipefail
+                ${python_exe} "$@" 2>&1 | grep --line-buffered -vE "${_quiet_filter}"
+                _rc=${PIPESTATUS[0]}
+                set +o pipefail
+                exit ${_rc}
+            else
+                ${python_exe} "$@"
+            fi
             # exit neatly
             break
             ;;
