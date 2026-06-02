@@ -100,6 +100,11 @@ is_arm() {
 }
 
 ensure_cuda_torch() {
+    # [PATCH] Skip torch (re)installation entirely. Isaac Sim already bundles a
+    # working torch build, so we don't want to uninstall/reinstall it here.
+    echo "[INFO] Skipping torch install/uninstall (using existing torch from Isaac Sim)."
+    return 0
+
     local python_exe=$(extract_python_exe)
     local pip_install_command=$(extract_pip_command)
     local pip_uninstall_command=$(extract_pip_uninstall_command)
