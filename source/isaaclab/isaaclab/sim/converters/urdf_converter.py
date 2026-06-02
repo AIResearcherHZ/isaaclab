@@ -5,49 +5,46 @@
 
 from __future__ import annotations
 
-import math
+import os
 import re
-from typing import TYPE_CHECKING
-
-from packaging.version import Version
 
 import omni.kit.app
-import omni.kit.commands
-
-from isaaclab.utils.version import get_isaac_sim_version
 
 from .asset_converter_base import AssetConverterBase
 from .urdf_converter_cfg import UrdfConverterCfg
 
-if TYPE_CHECKING:
-    import isaacsim.asset.importer.urdf
+_URDF_EXT = "isaacsim.asset.importer.urdf"
+_JOINT_TYPES = {"PhysicsRevoluteJoint", "PhysicsPrismaticJoint", "PhysicsFixedJoint", "PhysicsJoint"}
+_COLLIDER_TYPE_MAP = {"convex_hull": "Convex Hull", "convex_decomposition": "Convex Decomposition"}
 
 
 class UrdfConverter(AssetConverterBase):
     """Converter for a URDF description file to a USD file.
 
-    This class wraps around the `isaacsim.asset.importer.urdf`_ extension to provide a lazy implementation
-    for URDF to USD conversion. It stores the output USD file in an instanceable format since that is
-    what is typically used in all learning related applications.
+    This class wraps around the `isaacsim.asset.importer.urdf`_ extension to provide a lazy
+    implementation for URDF to USD conversion.
+
+    .. note::
+        Isaac Sim 5.1 ships two URDF importers: the legacy ``2.4.31`` C++ extension and the
+        ``3.2.1`` pure-Python rewrite. On installs where ``2.4.31`` is broken/absent (no
+        ``_urdf`` binding) the kit experience pins ``3.2.1``. Stock Isaac Lab targets the
+        ``2.4.31`` C++ API (``acquire_urdf_interface`` / ``URDFParseFile`` commands), which does
+        not exist in ``3.2.1`` -- hence this converter is rewritten to drive ``3.2.1`` directly.
+
+    .. note::
+        The ``3.2.1`` importer emits a *nested* kinematic-tree layout (links nested under a
+        ``Geometry`` scope, meshes referenced via prototypes). Isaac Lab assets are expected in a
+        *flat* layout (every link a direct child of the root with a ``<link>/visuals`` mesh and a
+        single articulation root on the top prim). This converter therefore flattens the importer
+        output: each rigid body is reparented to the root with its **world** transform baked into
+        local (so joint frames, inertias and meshes stay valid), visuals are re-referenced from the
+        importer's ``instances.usda`` and the importer's ``root_joint`` fixed base is dropped unless
+        :attr:`UrdfConverterCfg.fix_base` is set.
 
     .. caution::
-        The current lazy conversion implementation does not automatically trigger USD generation if
-        only the mesh files used by the URDF are modified. To force generation, either set
-        :obj:`AssetConverterBaseCfg.force_usd_conversion` to True or delete the output directory.
-
-    .. note::
-        From Isaac Sim 4.5 onwards, the extension name changed from ``omni.importer.urdf`` to
-        ``isaacsim.asset.importer.urdf``.
-
-    .. note::
-        In Isaac Sim 5.1, the URDF importer changed the default behavior of merging fixed joints.
-        Links connected through ``fixed_joint`` elements are no longer merged when their URDF link
-        entries specify mass and inertia, even if ``merge-joint`` is set to True. The new behavior
-        treats links with mass/inertia as full bodies rather than zero-mass reference frames.
-
-        To maintain backwards compatibility, **this converter pins to an older version of the
-        URDF importer extension** (version 2.4.31) that still merges fixed joints by default.
-        This allows existing URDFs to work as expected without modification.
+        The ``3.2.1`` importer does not expose ``merge_fixed_joints`` (links joined by fixed joints
+        are not consolidated). ``replace_cylinders_with_capsules`` is honored during flattening by
+        retyping the importer's ``Cylinder`` colliders to ``Capsule``.
 
     .. _isaacsim.asset.importer.urdf: https://docs.isaacsim.omniverse.nvidia.com/latest/importer_exporter/ext_isaacsim_asset_importer_urdf.html
     """
@@ -61,16 +58,10 @@ class UrdfConverter(AssetConverterBase):
         Args:
             cfg: The configuration instance for URDF to USD conversion.
         """
-        # switch to older version of the URDF importer extension
-        if get_isaac_sim_version() >= Version("5.1"):
-            manager = omni.kit.app.get_app().get_extension_manager()
-            if not manager.is_extension_enabled("isaacsim.asset.importer.urdf-2.4.31"):
-                manager.set_extension_enabled_immediate("isaacsim.asset.importer.urdf-2.4.31", True)
-
-        # acquire the URDF interface
-        from isaacsim.asset.importer.urdf._urdf import acquire_urdf_interface
-
-        self._urdf_interface = acquire_urdf_interface()
+        # make sure the (kit-pinned) URDF importer extension is enabled
+        manager = omni.kit.app.get_app().get_extension_manager()
+        if not manager.is_extension_enabled(_URDF_EXT):
+            manager.set_extension_enabled_immediate(_URDF_EXT, True)
         super().__init__(cfg=cfg)
 
     """
@@ -78,265 +69,189 @@ class UrdfConverter(AssetConverterBase):
     """
 
     def _convert_asset(self, cfg: UrdfConverterCfg):
-        """Calls underlying Omniverse command to convert URDF to USD.
+        """Convert the URDF to a flat-layout USD at :attr:`usd_path`.
 
         Args:
             cfg: The URDF conversion configuration.
         """
+        # 1) import URDF -> nested USD package using the working 3.2.1 importer
+        from isaacsim.asset.importer.urdf import URDFImporterConfig
 
-        import_config = self._get_urdf_import_config()
-        # parse URDF file
-        result, self._robot_model = omni.kit.commands.execute(
-            "URDFParseFile", urdf_path=cfg.asset_path, import_config=import_config
+        src_dir = os.path.join(self.usd_dir, "_urdf_src")
+        os.makedirs(src_dir, exist_ok=True)
+        importer_cfg = URDFImporterConfig(
+            urdf_path=cfg.asset_path,
+            usd_path=src_dir,
+            merge_mesh=False,
+            collision_from_visuals=cfg.collision_from_visuals,
+            collision_type=_COLLIDER_TYPE_MAP.get(cfg.collider_type, "Convex Hull"),
+            allow_self_collision=cfg.self_collision,
         )
+        nested_usd = self._run_importer(importer_cfg)
 
-        if result:
-            if cfg.joint_drive:
-                # modify joint parameters
-                self._update_joint_parameters()
-
-            # set root link name
-            if cfg.root_link_name:
-                self._robot_model.root_link = cfg.root_link_name
-
-            # convert the model to USD
-            omni.kit.commands.execute(
-                "URDFImportRobot",
-                urdf_path=cfg.asset_path,
-                urdf_robot=self._robot_model,
-                import_config=import_config,
-                dest_path=self.usd_path,
-            )
-        else:
-            raise ValueError(f"Failed to parse URDF file: {cfg.asset_path}")
+        # 2) flatten into the classic Isaac-Lab layout at self.usd_path. visuals are referenced
+        #    from the importer's instances.usda (kept under src_dir) via a relative path.
+        instances_path = os.path.join(os.path.dirname(nested_usd), "payloads", "instances.usda")
+        instances_ref = os.path.relpath(instances_path, self.usd_dir)
+        if not instances_ref.startswith((os.curdir + os.sep, os.pardir + os.sep, "./", "../")):
+            instances_ref = "./" + instances_ref
+        _flatten_to_isaaclab_layout(
+            nested_usd,
+            self.usd_path,
+            fix_base=cfg.fix_base,
+            replace_cylinders=cfg.replace_cylinders_with_capsules,
+            instances_ref=instances_ref.replace(os.sep, "/"),
+        )
 
     """
     Helper methods.
     """
 
-    def _get_urdf_import_config(self) -> isaacsim.asset.importer.urdf._urdf.ImportConfig:
-        """Create and fill URDF ImportConfig with desired settings
+    def _run_importer(self, importer_cfg) -> str:
+        """Run ``URDFImporter.import_urdf``, silencing its benign per-joint warnings.
 
-        Returns:
-            The constructed ``ImportConfig`` object containing the desired settings.
+        ``import_urdf`` uses pure ``Usd.Stage.Open`` / ``Stage.Export`` (it does not touch the
+        omni.usd context), so it is safe to call inline during scene creation. It does, however,
+        emit a Python-logging "stiffness and damping not available" warning for every drive-less
+        joint (harmless -- Isaac Lab's actuators set the gains at runtime); raise those loggers to
+        ERROR for the duration of the import.
         """
-        # create a new import config
-        _, import_config = omni.kit.commands.execute("URDFCreateImportConfig")
+        import logging
 
-        # set the unit scaling factor, 1.0 means meters, 100.0 means cm
-        import_config.set_distance_scale(1.0)
-        # set imported robot as default prim
-        import_config.set_make_default_prim(True)
-        # add a physics scene to the stage on import if none exists
-        import_config.set_create_physics_scene(False)
+        from isaacsim.asset.importer.urdf import URDFImporter
 
-        # -- asset settings
-        # default density used for links, use 0 to auto-compute
-        import_config.set_density(self.cfg.link_density)
-        # mesh simplification settings
-        convex_decomp = self.cfg.collider_type == "convex_decomposition"
-        import_config.set_convex_decomp(convex_decomp)
-        # create collision geometry from visual geometry
-        import_config.set_collision_from_visuals(self.cfg.collision_from_visuals)
-        # consolidating links that are connected by fixed joints
-        import_config.set_merge_fixed_joints(self.cfg.merge_fixed_joints)
-        import_config.set_merge_fixed_ignore_inertia(self.cfg.merge_fixed_joints)
-        # -- physics settings
-        # create fix joint for base link
-        import_config.set_fix_base(self.cfg.fix_base)
-        # self collisions between links in the articulation
-        import_config.set_self_collision(self.cfg.self_collision)
-        # convert mimic joints to normal joints
-        import_config.set_parse_mimic(self.cfg.convert_mimic_joints_to_normal_joints)
-        # replace cylinder shapes with capsule shapes
-        import_config.set_replace_cylinders_with_capsules(self.cfg.replace_cylinders_with_capsules)
-
-        return import_config
-
-    def _update_joint_parameters(self):
-        """Update the joint parameters based on the configuration."""
-        # set the drive type
-        self._set_joints_drive_type()
-        # set the drive target type
-        self._set_joints_drive_target_type()
-        # set the drive gains
-        self._set_joint_drive_gains()
-
-    def _set_joints_drive_type(self):
-        """Set the joint drive type for all joints in the URDF model."""
-        from isaacsim.asset.importer.urdf._urdf import UrdfJointDriveType
-
-        drive_type_mapping = {
-            "force": UrdfJointDriveType.JOINT_DRIVE_FORCE,
-            "acceleration": UrdfJointDriveType.JOINT_DRIVE_ACCELERATION,
-        }
-
-        if isinstance(self.cfg.joint_drive.drive_type, str):
-            for joint in self._robot_model.joints.values():
-                joint.drive.set_drive_type(drive_type_mapping[self.cfg.joint_drive.drive_type])
-        elif isinstance(self.cfg.joint_drive.drive_type, dict):
-            for joint_name, drive_type in self.cfg.joint_drive.drive_type.items():
-                # handle joint name being a regex
-                matches = [s for s in self._robot_model.joints.keys() if re.search(joint_name, s)]
-                if not matches:
-                    raise ValueError(
-                        f"The joint name {joint_name} in the drive type config was not found in the URDF file. The"
-                        f" joint names in the URDF are {list(self._robot_model.joints.keys())}"
-                    )
-                for match in matches:
-                    joint = self._robot_model.joints[match]
-                    joint.drive.set_drive_type(drive_type_mapping[drive_type])
-
-    def _set_joints_drive_target_type(self):
-        """Set the joint drive target type for all joints in the URDF model."""
-        from isaacsim.asset.importer.urdf._urdf import UrdfJointTargetType
-
-        target_type_mapping = {
-            "none": UrdfJointTargetType.JOINT_DRIVE_NONE,
-            "position": UrdfJointTargetType.JOINT_DRIVE_POSITION,
-            "velocity": UrdfJointTargetType.JOINT_DRIVE_VELOCITY,
-        }
-
-        if isinstance(self.cfg.joint_drive.target_type, str):
-            for joint in self._robot_model.joints.values():
-                joint.drive.set_target_type(target_type_mapping[self.cfg.joint_drive.target_type])
-        elif isinstance(self.cfg.joint_drive.target_type, dict):
-            for joint_name, target_type in self.cfg.joint_drive.target_type.items():
-                # handle joint name being a regex
-                matches = [s for s in self._robot_model.joints.keys() if re.search(joint_name, s)]
-                if not matches:
-                    raise ValueError(
-                        f"The joint name {joint_name} in the target type config was not found in the URDF file. The"
-                        f" joint names in the URDF are {list(self._robot_model.joints.keys())}"
-                    )
-                for match in matches:
-                    joint = self._robot_model.joints[match]
-                    joint.drive.set_target_type(target_type_mapping[target_type])
-
-    def _set_joint_drive_gains(self):
-        """Set the joint drive gains for all joints in the URDF model."""
-
-        # set the gains directly from stiffness and damping values
-        if isinstance(self.cfg.joint_drive.gains, UrdfConverterCfg.JointDriveCfg.PDGainsCfg):
-            # stiffness
-            if isinstance(self.cfg.joint_drive.gains.stiffness, (float, int)):
-                for joint in self._robot_model.joints.values():
-                    self._set_joint_drive_stiffness(joint, self.cfg.joint_drive.gains.stiffness)
-            elif isinstance(self.cfg.joint_drive.gains.stiffness, dict):
-                for joint_name, stiffness in self.cfg.joint_drive.gains.stiffness.items():
-                    # handle joint name being a regex
-                    matches = [s for s in self._robot_model.joints.keys() if re.search(joint_name, s)]
-                    if not matches:
-                        raise ValueError(
-                            f"The joint name {joint_name} in the drive stiffness config was not found in the URDF file."
-                            f" The joint names in the URDF are {list(self._robot_model.joints.keys())}"
-                        )
-                    for match in matches:
-                        joint = self._robot_model.joints[match]
-                        self._set_joint_drive_stiffness(joint, stiffness)
-            # damping
-            if isinstance(self.cfg.joint_drive.gains.damping, (float, int)):
-                for joint in self._robot_model.joints.values():
-                    self._set_joint_drive_damping(joint, self.cfg.joint_drive.gains.damping)
-            elif isinstance(self.cfg.joint_drive.gains.damping, dict):
-                for joint_name, damping in self.cfg.joint_drive.gains.damping.items():
-                    # handle joint name being a regex
-                    matches = [s for s in self._robot_model.joints.keys() if re.search(joint_name, s)]
-                    if not matches:
-                        raise ValueError(
-                            f"The joint name {joint_name} in the drive damping config was not found in the URDF file."
-                            f" The joint names in the URDF are {list(self._robot_model.joints.keys())}"
-                        )
-                    for match in matches:
-                        joint = self._robot_model.joints[match]
-                        self._set_joint_drive_damping(joint, damping)
-
-        # set the gains from natural frequency and damping ratio
-        elif isinstance(self.cfg.joint_drive.gains, UrdfConverterCfg.JointDriveCfg.NaturalFrequencyGainsCfg):
-            # damping ratio
-            if isinstance(self.cfg.joint_drive.gains.damping_ratio, (float, int)):
-                for joint in self._robot_model.joints.values():
-                    joint.drive.damping_ratio = self.cfg.joint_drive.gains.damping_ratio
-            elif isinstance(self.cfg.joint_drive.gains.damping_ratio, dict):
-                for joint_name, damping_ratio in self.cfg.joint_drive.gains.damping_ratio.items():
-                    # handle joint name being a regex
-                    matches = [s for s in self._robot_model.joints.keys() if re.search(joint_name, s)]
-                    if not matches:
-                        raise ValueError(
-                            f"The joint name {joint_name} in the damping ratio config was not found in the URDF file."
-                            f" The joint names in the URDF are {list(self._robot_model.joints.keys())}"
-                        )
-                    for match in matches:
-                        joint = self._robot_model.joints[match]
-                        joint.drive.damping_ratio = damping_ratio
-
-            # natural frequency (this has to be done after damping ratio is set)
-            if isinstance(self.cfg.joint_drive.gains.natural_frequency, (float, int)):
-                for joint in self._robot_model.joints.values():
-                    joint.drive.natural_frequency = self.cfg.joint_drive.gains.natural_frequency
-                    self._set_joint_drive_gains_from_natural_frequency(joint)
-            elif isinstance(self.cfg.joint_drive.gains.natural_frequency, dict):
-                for joint_name, natural_frequency in self.cfg.joint_drive.gains.natural_frequency.items():
-                    # handle joint name being a regex
-                    matches = [s for s in self._robot_model.joints.keys() if re.search(joint_name, s)]
-                    if not matches:
-                        raise ValueError(
-                            f"The joint name {joint_name} in the natural frequency config was not found in the URDF"
-                            f" file. The joint names in the URDF are {list(self._robot_model.joints.keys())}"
-                        )
-                    for match in matches:
-                        joint = self._robot_model.joints[match]
-                        joint.drive.natural_frequency = natural_frequency
-                        self._set_joint_drive_gains_from_natural_frequency(joint)
-
-    def _set_joint_drive_stiffness(self, joint, stiffness: float):
-        """Set the joint drive stiffness.
-
-        Args:
-            joint: The joint from the URDF robot model.
-            stiffness: The stiffness value.
-        """
-        from isaacsim.asset.importer.urdf._urdf import UrdfJointType
-
-        if joint.type == UrdfJointType.JOINT_PRISMATIC:
-            joint.drive.set_strength(stiffness)
-        else:
-            # we need to convert the stiffness from radians to degrees
-            joint.drive.set_strength(math.pi / 180 * stiffness)
-
-    def _set_joint_drive_damping(self, joint, damping: float):
-        """Set the joint drive damping.
-
-        Args:
-            joint: The joint from the URDF robot model.
-            damping: The damping value.
-        """
-        from isaacsim.asset.importer.urdf._urdf import UrdfJointType
-
-        if joint.type == UrdfJointType.JOINT_PRISMATIC:
-            joint.drive.set_damping(damping)
-        else:
-            # we need to convert the damping from radians to degrees
-            joint.drive.set_damping(math.pi / 180 * damping)
-
-    def _set_joint_drive_gains_from_natural_frequency(self, joint):
-        """Compute the joint drive gains from the natural frequency and damping ratio.
-
-        Args:
-            joint: The joint from the URDF robot model.
-        """
-        from isaacsim.asset.importer.urdf._urdf import UrdfJointDriveType, UrdfJointTargetType
-
-        strength = self._urdf_interface.compute_natural_stiffness(
-            self._robot_model,
-            joint.name,
-            joint.drive.natural_frequency,
+        noisy = (
+            "isaacsim.asset.importer.utils.impl.urdf_to_mjc_physx_conversion_utils",
+            "isaacsim.asset.importer.utils.impl.mjc_to_physx_conversion_utils",
         )
-        self._set_joint_drive_stiffness(joint, strength)
+        saved = {n: logging.getLogger(n).level for n in noisy}
+        for n in noisy:
+            logging.getLogger(n).setLevel(logging.ERROR)
+        try:
+            return URDFImporter(importer_cfg).import_urdf(importer_cfg)
+        finally:
+            for n, lvl in saved.items():
+                logging.getLogger(n).setLevel(lvl)
 
-        if joint.drive.target_type == UrdfJointTargetType.JOINT_DRIVE_POSITION:
-            m_eq = 1.0
-            if joint.drive.drive_type == UrdfJointDriveType.JOINT_DRIVE_FORCE:
-                m_eq = joint.inertia
-            damping = 2 * m_eq * joint.drive.natural_frequency * joint.drive.damping_ratio
-            self._set_joint_drive_damping(joint, damping)
+
+"""
+Flattening: nested 3.2.1 importer output -> classic flat Isaac-Lab layout.
+"""
+
+
+def _strip_articulation_root(layer, path) -> None:
+    """Drop any *ArticulationRoot* applied API from a copied body prim spec."""
+    from pxr import Sdf
+
+    spec = layer.GetPrimAtPath(path)
+    if spec is None or not spec.HasInfo("apiSchemas"):
+        return
+    listop = spec.GetInfo("apiSchemas")
+    items = [s for s in listop.GetAddedOrExplicitItems() if "ArticulationRoot" not in s]
+    new = Sdf.TokenListOp()
+    new.prependedItems = items
+    spec.SetInfo("apiSchemas", new)
+
+
+def _instance_names_for(link: str, available: set) -> list:
+    """Visual instance prim names in instances.usda for ``link`` (``link`` and ``link_<n>``)."""
+    pat = re.compile(rf"^{re.escape(link)}(_\d+)?$")
+    return sorted(n for n in available if pat.match(n))
+
+
+def _flatten_to_isaaclab_layout(
+    nested_usd: str, out_usd: str, *, fix_base: bool, replace_cylinders: bool, instances_ref: str
+) -> None:
+    """Flatten the nested importer output into the classic flat Isaac-Lab layout at ``out_usd``."""
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+
+    src = Usd.Stage.Open(nested_usd)
+    flat_layer = src.Flatten()  # merge variants/payloads/overs so bodies carry their physics specs
+    src = Usd.Stage.Open(flat_layer)
+
+    root_name = src.GetDefaultPrim().GetName()
+    root_path = f"/{root_name}"
+
+    # geometry instances available in instances.usda (re-referenced for each link's visuals)
+    inst_stage = Usd.Stage.Open(os.path.join(os.path.dirname(nested_usd), "payloads", "instances.usda"))
+    inst_root = inst_stage.GetPrimAtPath("/Instances")
+    available = {c.GetName() for c in inst_root.GetChildren()} if inst_root else set()
+
+    # rigid bodies (the link Xforms) and their world transforms
+    bodies = {}
+    for prim in src.Traverse():
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            bodies[prim.GetName()] = prim.GetPath()
+    world_xf = {
+        name: UsdGeom.Xformable(src.GetPrimAtPath(p)).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        for name, p in bodies.items()
+    }
+    # joints (drop the importer's fixed base 'root_joint' unless a fixed base is requested)
+    drop = set() if fix_base else {"root_joint"}
+    joints = [p for p in src.Traverse() if p.GetTypeName() in _JOINT_TYPES and p.GetName() not in drop]
+
+    if os.path.exists(out_usd):
+        os.remove(out_usd)
+    out_layer = Sdf.Layer.CreateNew(out_usd)
+    out = Usd.Stage.Open(out_layer)
+    UsdGeom.SetStageUpAxis(out, UsdGeom.GetStageUpAxis(src))
+    UsdGeom.SetStageMetersPerUnit(out, UsdGeom.GetStageMetersPerUnit(src) or 1.0)
+
+    root = UsdGeom.Xform.Define(out, root_path)
+    out.SetDefaultPrim(root.GetPrim())
+    UsdPhysics.ArticulationRootAPI.Apply(root.GetPrim())
+
+    for name, sp in bodies.items():
+        tp = Sdf.Path(f"{root_path}/{name}")
+        Sdf.CopySpec(flat_layer, sp, out_layer, tp)  # brings the body's physics schemas + attrs
+        tprim = out.GetPrimAtPath(tp)
+
+        # make the body a plain physics Xform: drop its own geometry reference/instancing
+        spec = out_layer.GetPrimAtPath(tp)
+        spec.referenceList.ClearEdits()
+        spec.ClearInstanceable()
+        _strip_articulation_root(out_layer, tp)
+
+        # bake world transform into local (parent is the identity root)
+        xf = UsdGeom.Xformable(tprim)
+        xf.ClearXformOpOrder()
+        for attr in list(tprim.GetAttributes()):
+            if attr.GetName().startswith("xformOp:"):
+                tprim.RemoveProperty(attr.GetName())
+        xf.AddTransformOp().Set(Gf.Matrix4d(world_xf[name]))
+
+        # keep only collision children; drop child-link subtrees and stale visual instances.
+        # honor replace_cylinders_with_capsules by retyping Cylinder colliders to Capsule (both
+        # share the radius/height/axis schema, so the geometry carries over unchanged).
+        for child in list(tprim.GetChildren()):
+            if not child.HasAPI(UsdPhysics.CollisionAPI):
+                out.RemovePrim(child.GetPath())
+            elif replace_cylinders and child.GetTypeName() == "Cylinder":
+                child.SetTypeName("Capsule")
+
+        # re-add visuals as references to the intact instances.usda (preserves mesh + materials)
+        inst_names = _instance_names_for(name, available)
+        if inst_names:
+            UsdGeom.Xform.Define(out, tp.AppendChild("visuals"))
+            for inst in inst_names:
+                vprim = out.DefinePrim(tp.AppendPath(Sdf.Path(f"visuals/{inst}")), "Xform")
+                vprim.GetReferences().AddReference(instances_ref, f"/Instances/{inst}")
+                vprim.SetInstanceable(True)
+
+    # joints under /<root>/joints with body0/body1 retargeted to the flat paths
+    UsdGeom.Scope.Define(out, f"{root_path}/joints")
+    for j in joints:
+        jp = Sdf.Path(f"{root_path}/joints/{j.GetName()}")
+        Sdf.CopySpec(flat_layer, j.GetPath(), out_layer, jp)
+        jprim = out.GetPrimAtPath(jp)
+        for rel_name in ("physics:body0", "physics:body1"):
+            rel = jprim.GetRelationship(rel_name)
+            if rel and rel.GetTargets():
+                rel.SetTargets(
+                    [
+                        Sdf.Path(root_path) if t.name == root_name else Sdf.Path(f"{root_path}/{t.name}")
+                        for t in rel.GetTargets()
+                    ]
+                )
+
+    out_layer.Save()

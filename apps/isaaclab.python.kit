@@ -24,13 +24,7 @@ keywords = ["experience", "app", "usd"]
 "isaacsim.gui.menu" = {}
 "isaacsim.gui.property" = {}
 "isaacsim.replicator.behavior" = {}
-"isaacsim.robot.manipulators" = {}
-"isaacsim.robot.policy.examples" = {}
 "isaacsim.robot.schema" = {}
-"isaacsim.robot.wheeled_robots" = {}
-"isaacsim.sensors.camera" = {}
-"isaacsim.sensors.physics" = {}
-"isaacsim.sensors.physx" = {}
 "isaacsim.sensors.rtx" = {}
 "isaacsim.simulation_app" = {}
 "isaacsim.storage.native" = {}
@@ -156,7 +150,10 @@ isaac.startup.ros_bridge_extension = ""
 "omni.replicator.core.scripts.extension" = "Error"
 "pxr.Semantics" = "Error"
 "simulation_app.simulation_app" = "Error"
-"omni.physx.tensors.plugin" = "Error"
+# benign one-time "Failed to get a valid attached USD stage id ... for kinematic bodies" is
+# logged at Error level during sim start; raise to Fatal to hide it (revert to "Error" if you
+# need to debug GPU physics/tensor issues).
+"omni.physx.tensors.plugin" = "Fatal"
 # URDF importer 3.2.1 spams "Stiffness and damping not available" per joint when
 # the URDF lacks per-joint dynamics; benign — the actuator simply has no PD gains.
 "isaacsim.asset.importer.utils.impl.urdf_to_mjc_physx_conversion_utils" = "Error"
@@ -186,7 +183,7 @@ show_menu_titles = true
 
 [settings.app]
 name = "Isaac-Sim"
-version = "5.1.0"
+version = "6.0.0"
 versionFile = "${exe-path}/VERSION"
 content.emptyStageOnStart = true
 fastShutdown = true
