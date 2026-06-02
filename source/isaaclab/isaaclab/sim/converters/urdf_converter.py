@@ -159,6 +159,35 @@ def _instance_names_for(link: str, available: set) -> list:
     return sorted(n for n in available if pat.match(n))
 
 
+def _link_visual_map(nested_usd: str) -> dict:
+    """Map each link -> the ``/Instances/X`` visual prim names its importer output actually references.
+
+    The 3.2.1 importer names visual instances after the *mesh file* (and dedupes geometrically
+    identical meshes onto a single instance). So a link whose mesh name differs from the link name
+    (e.g. ``torso_link`` -> ``waist_pitch_link.STL``) or whose mesh is shared with another link
+    (e.g. ``right_hip_roll_link`` reusing ``left_hip_roll_link``) has *no* instance matching its own
+    name -- :func:`_instance_names_for` would then return ``[]`` and the link loses its visuals after
+    flattening. Reading the authored references under each link recovers the correct mapping.
+    """
+    from pxr import Usd
+
+    base = os.path.join(os.path.dirname(nested_usd), "payloads", "base.usda")
+    if not os.path.exists(base):
+        return {}
+    stage = Usd.Stage.Open(base)
+    mapping: dict[str, list[str]] = {}
+    for prim in stage.Traverse():
+        parent = prim.GetParent()
+        if not parent:
+            continue
+        for spec in prim.GetPrimStack():
+            for ref in spec.referenceList.GetAddedOrExplicitItems():
+                pp = str(ref.primPath)
+                if pp.startswith("/Instances/"):
+                    mapping.setdefault(parent.GetName(), []).append(pp.rsplit("/", 1)[-1])
+    return mapping
+
+
 def _flatten_to_isaaclab_layout(
     nested_usd: str, out_usd: str, *, fix_base: bool, replace_cylinders: bool, instances_ref: str
 ) -> None:
@@ -176,6 +205,9 @@ def _flatten_to_isaaclab_layout(
     inst_stage = Usd.Stage.Open(os.path.join(os.path.dirname(nested_usd), "payloads", "instances.usda"))
     inst_root = inst_stage.GetPrimAtPath("/Instances")
     available = {c.GetName() for c in inst_root.GetChildren()} if inst_root else set()
+    # link -> visual instance names from the importer's *authored* references (robust to meshes whose
+    # name differs from the link and to deduped/shared meshes that name-matching alone would drop).
+    link_visuals = _link_visual_map(nested_usd)
 
     # rigid bodies (the link Xforms) and their world transforms
     bodies = {}
@@ -230,7 +262,7 @@ def _flatten_to_isaaclab_layout(
                 child.SetTypeName("Capsule")
 
         # re-add visuals as references to the intact instances.usda (preserves mesh + materials)
-        inst_names = _instance_names_for(name, available)
+        inst_names = sorted(set(link_visuals.get(name, []))) or _instance_names_for(name, available)
         if inst_names:
             UsdGeom.Xform.Define(out, tp.AppendChild("visuals"))
             for inst in inst_names:
