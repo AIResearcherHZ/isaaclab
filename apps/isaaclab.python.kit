@@ -96,12 +96,15 @@ keywords = ["experience", "app", "usd"]
 # Isaac Lab Extensions #
 ########################
 
-# Load Isaac Lab extensions last
-"isaaclab" = {order = 1000}
-"isaaclab_assets" = {order = 1000}
-"isaaclab_tasks" = {order = 1000}
-"isaaclab_mimic" = {order = 1000}
-"isaaclab_rl" = {order = 1000}
+# NOTE: isaaclab extensions are NOT loaded here as Kit-level extensions.
+# They are imported directly in Python after SimulationApp is ready.
+# Loading them here causes isaacsim.core.api module registration failures
+# under IsaacSim 6.0 due to extension load ordering.
+# "isaaclab" = {order = 1000}
+# "isaaclab_assets" = {order = 1000}
+# "isaaclab_tasks" = {order = 1000}
+# "isaaclab_mimic" = {order = 1000}
+# "isaaclab_rl" = {order = 1000}
 
 [settings]
 exts."omni.kit.material.library".ui_show_list = [

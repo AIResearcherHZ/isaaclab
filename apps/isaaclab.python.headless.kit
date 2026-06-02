@@ -233,12 +233,13 @@ enabled=true # Enable this for DLSS
 # Isaac Lab Extensions #
 ########################
 
-# Load Isaac Lab extensions last
-"isaaclab" = {order = 1000}
-"isaaclab_assets" = {order = 1000}
-"isaaclab_tasks" = {order = 1000}
-"isaaclab_mimic" = {order = 1000}
-"isaaclab_rl" = {order = 1000}
+# NOTE: isaaclab extensions are NOT loaded here as Kit-level extensions.
+# They are imported directly in Python after SimulationApp is ready.
+# "isaaclab" = {order = 1000}
+# "isaaclab_assets" = {order = 1000}
+# "isaaclab_tasks" = {order = 1000}
+# "isaaclab_mimic" = {order = 1000}
+# "isaaclab_rl" = {order = 1000}
 
 # Asset path
 # set the S3 directory manually to the latest published S3
