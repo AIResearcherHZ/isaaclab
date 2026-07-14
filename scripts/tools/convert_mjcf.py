@@ -56,12 +56,12 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
-    "--remove-package",
+    "--keep-package",
     action="store_true",
     default=False,
     help=(
-        "After flattening, delete the intermediate <out_dir>/<robot_name>/ package directory. Ignored when"
-        " --no-flatten is set."
+        "Keep the intermediate <out_dir>/<robot_name>*/ package directory after flattening. Default is to"
+        " delete it so only the self-contained .usd remains. Always kept when --no-flatten is set."
     ),
 )
 parser.add_argument(
@@ -196,7 +196,102 @@ def _anchor_chain_root_to_world(stage, root_path, joints_scope_path) -> bool:
     return added
 
 
-def _flatten_hierarchy(usd_path: str, *, drop_empty_scopes: bool = True, fix_base: bool = False) -> dict:
+def _apply_mjcf_equality(stage, root_path, joints_scope_path, mjcf_path: str) -> dict:
+    import xml.etree.ElementTree as ET
+
+    from pxr import Gf, PhysxSchema, Tf, UsdGeom, UsdPhysics
+
+    equality = ET.parse(mjcf_path).getroot().find("equality")
+    if equality is None:
+        return {"loop_joints": 0, "mimic_joints": 0}
+
+    xf_cache = UsdGeom.XformCache()
+
+    def get_link(name):
+        prim = stage.GetPrimAtPath(root_path.AppendChild(Tf.MakeValidIdentifier(name)))
+        if not prim or not prim.IsValid():
+            raise RuntimeError(f"equality: link '{name}' not found under {root_path}")
+        return prim
+
+    def get_joint(name):
+        prim = stage.GetPrimAtPath(joints_scope_path.AppendChild(Tf.MakeValidIdentifier(name)))
+        if not prim or not prim.IsValid():
+            raise RuntimeError(f"equality: joint '{name}' not found under {joints_scope_path}")
+        return prim
+
+    def world_pose(prim):
+        mat = xf_cache.GetLocalToWorldTransform(prim)
+        return mat, mat.RemoveScaleShear().ExtractRotationQuat()
+
+    def define_loop_joint(schema, name, body1, body2, anchor_in_b1):
+        joint_path = joints_scope_path.AppendChild(name)
+        if stage.GetPrimAtPath(joint_path):
+            return False
+        b1, b2 = get_link(body1), get_link(body2)
+        x1, q1 = world_pose(b1)
+        x2, q2 = world_pose(b2)
+        anchor_world = x1.Transform(anchor_in_b1)
+        joint = schema.Define(stage, joint_path)
+        joint.CreateBody0Rel().SetTargets([b1.GetPath()])
+        joint.CreateBody1Rel().SetTargets([b2.GetPath()])
+        joint.CreateLocalPos0Attr().Set(Gf.Vec3f(anchor_in_b1))
+        joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0))
+        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(x2.GetInverse().Transform(anchor_world)))
+        joint.CreateLocalRot1Attr().Set(Gf.Quatf(q2.GetInverse() * q1))
+        joint.CreateExcludeFromArticulationAttr().Set(True)
+        return True
+
+    loop_count, mimic_count = 0, 0
+    for idx, el in enumerate(equality):
+        name = Tf.MakeValidIdentifier(el.get("name") or f"eq_{el.tag}_{idx}")
+        if el.tag == "connect":
+            if not (el.get("body1") and el.get("body2") and el.get("anchor")):
+                raise RuntimeError(f"equality/connect '{name}': only the body1/body2/anchor form is supported")
+            anchor = Gf.Vec3d(*[float(v) for v in el.get("anchor").split()])
+            if define_loop_joint(UsdPhysics.SphericalJoint, name, el.get("body1"), el.get("body2"), anchor):
+                loop_count += 1
+        elif el.tag == "weld":
+            if not (el.get("body1") and el.get("body2")):
+                raise RuntimeError(f"equality/weld '{name}': only the body1/body2 form is supported")
+            anchor = Gf.Vec3d(*[float(v) for v in (el.get("anchor") or "0 0 0").split()])
+            if define_loop_joint(UsdPhysics.FixedJoint, name, el.get("body1"), el.get("body2"), anchor):
+                loop_count += 1
+        elif el.tag == "joint":
+            if not (el.get("joint1") and el.get("joint2")):
+                raise RuntimeError(f"equality/joint '{name}': both joint1 and joint2 are required")
+            coeffs = [float(v) for v in (el.get("polycoef") or "0 1 0 0 0").split()]
+            coeffs += [0.0] * (5 - len(coeffs))
+            if any(c != 0.0 for c in coeffs[2:]):
+                raise RuntimeError(
+                    f"equality/joint '{name}': non-linear polycoef {coeffs} cannot map to a PhysX mimic joint"
+                )
+            jp1, jp2 = get_joint(el.get("joint1")), get_joint(el.get("joint2"))
+            if jp1.IsA(UsdPhysics.RevoluteJoint):
+                axis_token = "rot" + (UsdPhysics.RevoluteJoint(jp1).GetAxisAttr().Get() or "X")
+            elif jp1.IsA(UsdPhysics.PrismaticJoint):
+                axis_token = "trans" + (UsdPhysics.PrismaticJoint(jp1).GetAxisAttr().Get() or "X")
+            else:
+                raise RuntimeError(f"equality/joint '{name}': joint '{el.get('joint1')}' is not revolute/prismatic")
+            if jp2.IsA(UsdPhysics.RevoluteJoint):
+                ref_axis = "rot" + (UsdPhysics.RevoluteJoint(jp2).GetAxisAttr().Get() or "X")
+            elif jp2.IsA(UsdPhysics.PrismaticJoint):
+                ref_axis = "trans" + (UsdPhysics.PrismaticJoint(jp2).GetAxisAttr().Get() or "X")
+            else:
+                raise RuntimeError(f"equality/joint '{name}': joint '{el.get('joint2')}' is not revolute/prismatic")
+            mimic = PhysxSchema.PhysxMimicJointAPI.Apply(jp1, axis_token)
+            mimic.CreateReferenceJointRel().SetTargets([jp2.GetPath()])
+            mimic.CreateReferenceJointAxisAttr().Set(ref_axis)
+            mimic.CreateGearingAttr().Set(-coeffs[1])
+            mimic.CreateOffsetAttr().Set(-coeffs[0])
+            mimic_count += 1
+        else:
+            raise RuntimeError(f"equality element <{el.tag}> is not supported by convert_mjcf.py")
+    return {"loop_joints": loop_count, "mimic_joints": mimic_count}
+
+
+def _flatten_hierarchy(
+    stage, *, drop_empty_scopes: bool = True, fix_base: bool = False, mjcf_path: str | None = None
+) -> dict:
     from pxr import Sdf, Usd, UsdGeom, UsdPhysics
 
     joint_schemas = (
@@ -218,12 +313,9 @@ def _flatten_hierarchy(usd_path: str, *, drop_empty_scopes: bool = True, fix_bas
         xf.ClearXformOpOrder()
         xf.AddTransformOp().Set(mat)
 
-    stage = Usd.Stage.Open(usd_path)
-    if stage is None:
-        raise RuntimeError(f"Could not open USD: {usd_path}")
     root_prim = stage.GetDefaultPrim()
     if not root_prim:
-        raise RuntimeError(f"USD has no defaultPrim: {usd_path}")
+        raise RuntimeError("USD has no defaultPrim")
     root_path = root_prim.GetPath()
 
     links, joints = [], []
@@ -241,17 +333,51 @@ def _flatten_hierarchy(usd_path: str, *, drop_empty_scopes: bool = True, fix_bas
     xf_cache = UsdGeom.XformCache()
     link_world_xf = {p.GetName(): xf_cache.GetLocalToWorldTransform(p) for p in links}
     link_names = {p.GetName() for p in links}
-    joint_names = [p.GetName() for p in joints]
 
     joints_scope_path = root_path.AppendChild("joints")
     already_flat = all(p.GetPath().GetParentPath() == root_path for p in links) and all(
         p.GetPath().GetParentPath() == joints_scope_path for p in joints
     )
 
+    joint_path_map = {}
+    used_joint_names = set()
+    for prim in joints:
+        old = prim.GetPath()
+        if old.GetParentPath() == joints_scope_path:
+            used_joint_names.add(old.name)
+            joint_path_map[old] = old.name
+    for prim in joints:
+        old = prim.GetPath()
+        if old in joint_path_map:
+            continue
+        new_name = old.name
+        if new_name in used_joint_names:
+            new_name = f"{old.GetParentPath().name}_{old.name}"
+        base, i = new_name, 2
+        while new_name in used_joint_names:
+            new_name = f"{base}_{i}"
+            i += 1
+        used_joint_names.add(new_name)
+        joint_path_map[old] = new_name
+    joint_names = list(joint_path_map.values())
+
     if not already_flat:
+        layer = stage.GetRootLayer()
+        missing = [p.GetPath() for p in links + joints if layer.GetPrimAtPath(p.GetPath()) is None]
+        if missing:
+            raise RuntimeError(
+                f"{len(missing)} prim spec(s) (e.g. {missing[0]}) live in referenced layers, not the root layer;"
+                " in-place flatten is only possible on a flattened stage."
+            )
         UsdGeom.Scope.Define(stage, joints_scope_path)
         edits = Sdf.BatchNamespaceEdit()
-        # Reparent deepest-first so a link's children detach before the link itself.
+        # Joints live inside link prims, so they must move first while their paths still exist;
+        # links then reparent deepest-first so a link's children detach before the link itself.
+        for prim in joints:
+            old = prim.GetPath()
+            if old.GetParentPath() == joints_scope_path:
+                continue
+            edits.Add(Sdf.NamespaceEdit.ReparentAndRename(old, joints_scope_path, joint_path_map[old], -1))
         for prim in sorted(links, key=lambda p: -len(p.GetPath().pathString.split("/"))):
             old = prim.GetPath()
             if old.GetParentPath() == root_path:
@@ -259,17 +385,7 @@ def _flatten_hierarchy(usd_path: str, *, drop_empty_scopes: bool = True, fix_bas
             if stage.GetPrimAtPath(root_path.AppendChild(old.name)):
                 raise RuntimeError(f"Name collision at {root_path.AppendChild(old.name)} while reparenting {old}.")
             edits.Add(Sdf.NamespaceEdit.Reparent(old, root_path, -1))
-        for prim in joints:
-            old = prim.GetPath()
-            if old.GetParentPath() == joints_scope_path:
-                continue
-            if stage.GetPrimAtPath(joints_scope_path.AppendChild(old.name)):
-                raise RuntimeError(
-                    f"Name collision at {joints_scope_path.AppendChild(old.name)} while reparenting {old}."
-                )
-            edits.Add(Sdf.NamespaceEdit.Reparent(old, joints_scope_path, -1))
 
-        layer = stage.GetRootLayer()
         if not layer.Apply(edits):
             raise RuntimeError("BatchNamespaceEdit failed — likely a name collision at the destination.")
 
@@ -289,6 +405,14 @@ def _flatten_hierarchy(usd_path: str, *, drop_empty_scopes: bool = True, fix_bas
                         new_targets.append(target)
                 if changed:
                     rel.SetTargets(new_targets)
+            mimic_rel = jp.GetRelationship("newton:mimicJoint")
+            if mimic_rel:
+                targets = mimic_rel.GetTargets()
+                remapped = [
+                    joints_scope_path.AppendChild(joint_path_map[t]) if t in joint_path_map else t for t in targets
+                ]
+                if remapped != list(targets):
+                    mimic_rel.SetTargets(remapped)
 
         # New parent /Robot is identity; bake each link's world xform.
         for link_name, world_xf in link_world_xf.items():
@@ -325,13 +449,14 @@ def _flatten_hierarchy(usd_path: str, *, drop_empty_scopes: bool = True, fix_bas
         if len(b0) == 1 and b0[0] == root_path and len(b1) == 1:
             joint.GetBody0Rel().SetTargets([])
 
+    joint_target_map = {old: joints_scope_path.AppendChild(new) for old, new in joint_path_map.items()}
     for rel_name in ("isaac:physics:robotJoints", "isaac:physics:robotLinks"):
         rel = root_prim.GetRelationship(rel_name)
         if not rel:
             continue
         rel.SetTargets([
-            root_path.AppendChild(t.name) if t.name in link_names
-            else joints_scope_path.AppendChild(t.name) if t.name in joint_names
+            joint_target_map[t] if t in joint_target_map
+            else root_path.AppendChild(t.name) if t.name in link_names
             else t
             for t in rel.GetTargets()
         ])
@@ -359,8 +484,11 @@ def _flatten_hierarchy(usd_path: str, *, drop_empty_scopes: bool = True, fix_bas
     if fix_base:
         _anchor_chain_root_to_world(stage, root_path, joints_scope_path)
 
-    stage.GetRootLayer().Save()
-    return {"links": len(links), "joints": len(joints), "deleted_scopes": deleted}
+    eq_summary = {"loop_joints": 0, "mimic_joints": 0}
+    if mjcf_path is not None:
+        eq_summary = _apply_mjcf_equality(stage, root_path, joints_scope_path, mjcf_path)
+
+    return {"links": len(links), "joints": len(joints), "deleted_scopes": deleted, **eq_summary}
 
 
 def main():
@@ -408,20 +536,8 @@ def main():
     produced_usda = importer.import_mjcf()
     print(f"Generated USD package: {produced_usda}")
 
-    # Flatten the importer's intermediate .usda in place so it matches the final .usd layout.
-    if not args_cli.no_flat_hierarchy:
-        try:
-            pkg_summary = _flatten_hierarchy(
-                produced_usda,
-                drop_empty_scopes=not args_cli.keep_empty_scopes,
-                fix_base=args_cli.fix_base,
-            )
-            print(
-                f"Flat-hierarchy (package .usda): links={pkg_summary['links']}"
-                f" joints={pkg_summary['joints']} scopes_deleted={pkg_summary['deleted_scopes']}"
-            )
-        except Exception as exc:
-            print(f"[WARN] could not flatten package .usda: {exc}")
+    # The package .usda keeps its prim specs in referenced sub-layers, so the flat-hierarchy
+    # pass only runs on the flattened self-contained .usd below.
 
     # Default: flatten the package into a self-contained binary .usd at dest_path.
     # --no-flatten: write a thin wrapper .usd that references the package .usda.
@@ -453,44 +569,58 @@ def main():
                     vs.SetVariantSelection("physx")
 
             flattened = pkg_stage.Flatten()
-            if os.path.exists(dest_path):
-                os.remove(dest_path)
-            flattened.Export(dest_path)
-            print(f"Flattened self-contained USD: {dest_path}")
+            flat_stage = Usd.Stage.Open(flattened)
 
             if not args_cli.no_flat_hierarchy:
                 summary = _flatten_hierarchy(
-                    dest_path,
+                    flat_stage,
                     drop_empty_scopes=not args_cli.keep_empty_scopes,
                     fix_base=args_cli.fix_base,
+                    mjcf_path=mjcf_path,
                 )
                 print(
                     f"Flat-hierarchy pass: links={summary['links']} joints={summary['joints']}"
                     f" scopes_deleted={summary['deleted_scopes']}"
+                    f" loop_joints={summary['loop_joints']} mimic_joints={summary['mimic_joints']}"
                 )
+
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+            if not flattened.Export(dest_path):
+                raise RuntimeError(f"Failed to export flattened USD to {dest_path}")
+            print(f"Flattened self-contained USD: {dest_path}")
 
             # Sanity-check counts so users can confirm collisions/articulation made it in.
-            try:
-                from pxr import UsdGeom, UsdPhysics
+            from pxr import UsdGeom, UsdPhysics
 
-                verify = Usd.Stage.Open(dest_path)
-                preds = Usd.PrimAllPrimsPredicate
-                n_mesh = sum(1 for p in verify.Traverse(preds) if p.IsA(UsdGeom.Mesh))
-                n_coll = sum(1 for p in verify.Traverse(preds) if p.HasAPI(UsdPhysics.CollisionAPI))
-                n_rb = sum(1 for p in verify.Traverse(preds) if p.HasAPI(UsdPhysics.RigidBodyAPI))
-                n_art = sum(1 for p in verify.Traverse(preds) if p.HasAPI(UsdPhysics.ArticulationRootAPI))
-                print(
-                    f"  Mesh prims: {n_mesh} | CollisionAPI: {n_coll} | RigidBodyAPI: {n_rb} |"
-                    f" ArticulationRootAPI: {n_art}"
-                )
-            except Exception as verify_exc:
-                print(f"[WARN] post-flatten verification skipped: {verify_exc}")
+            verify = Usd.Stage.Open(dest_path)
+            preds = Usd.PrimAllPrimsPredicate
+            n_mesh = sum(1 for p in verify.Traverse(preds) if p.IsA(UsdGeom.Mesh))
+            n_coll = sum(1 for p in verify.Traverse(preds) if p.HasAPI(UsdPhysics.CollisionAPI))
+            n_rb = sum(1 for p in verify.Traverse(preds) if p.HasAPI(UsdPhysics.RigidBodyAPI))
+            n_art = sum(1 for p in verify.Traverse(preds) if p.HasAPI(UsdPhysics.ArticulationRootAPI))
+            print(
+                f"  Mesh prims: {n_mesh} | CollisionAPI: {n_coll} | RigidBodyAPI: {n_rb} |"
+                f" ArticulationRootAPI: {n_art}"
+            )
+            if not args_cli.no_flat_hierarchy:
+                verify_root = verify.GetDefaultPrim().GetPath()
+                nested = [
+                    p.GetPath()
+                    for p in verify.Traverse()
+                    if p.HasAPI(UsdPhysics.RigidBodyAPI) and p.GetPath().GetParentPath() != verify_root
+                ]
+                if nested:
+                    raise RuntimeError(
+                        f"flat-hierarchy verification failed: {len(nested)} link(s) still nested,"
+                        f" e.g. {nested[0]}"
+                    )
 
-            if args_cli.remove_package:
+            if not args_cli.keep_package:
                 pkg_dir = os.path.dirname(produced_usda)
                 if os.path.isdir(pkg_dir) and os.path.dirname(pkg_dir) == out_dir and os.path.basename(
                     pkg_dir
-                ) == robot_name:
+                ).startswith(robot_name):
                     shutil.rmtree(pkg_dir, ignore_errors=True)
                     print(f"Removed intermediate package directory: {pkg_dir}")
                 else:
@@ -506,10 +636,11 @@ def main():
     livestream_gui = carb_settings_iface.get("/app/livestream/enabled")
 
     if local_gui or livestream_gui:
+        stage_to_open = produced_usda if args_cli.no_flatten else dest_path
         try:
-            sim_utils.open_stage(produced_usda)
+            sim_utils.open_stage(stage_to_open)
         except AttributeError:
-            omni.usd.get_context().open_stage(produced_usda)
+            omni.usd.get_context().open_stage(stage_to_open)
         app = omni.kit.app.get_app_interface()
         with contextlib.suppress(KeyboardInterrupt):
             while app.is_running():

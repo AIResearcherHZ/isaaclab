@@ -66,8 +66,8 @@ ln -s /home/xhz/isaacsim _isaac_sim
 
 # manipulation 场景，固定基座
 ./isaaclab.sh -p scripts/tools/convert_mjcf.py \
-  /home/xhz/桌面/assets/Semi_Taks_T1/Semi_Taks_T1.xml \
-  /home/xhz/桌面/assets/Semi_Taks_T1/Semi_Taks_T1.usd \
+  /home/xhz/桌面/assets/Semi_Taks_LV1/Semi_Taks_LV1.xml \
+  /home/xhz/桌面/assets/Semi_Taks_LV1/Semi_Taks_LV1.usd \
   --fix-base
 
 ./isaaclab.sh -p scripts/tools/convert_mjcf.py \

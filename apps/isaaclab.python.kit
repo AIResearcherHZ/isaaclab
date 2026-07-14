@@ -13,7 +13,6 @@ keywords = ["experience", "app", "usd"]
 [dependencies]
 # Isaac Sim extensions
 "isaacsim.app.about" = {}
-"isaacsim.asset.browser" = {}
 "isaacsim.core.api" = {}
 "isaacsim.core.cloner" = {}
 "isaacsim.core.nodes" = {}
@@ -32,10 +31,7 @@ keywords = ["experience", "app", "usd"]
 
 # Isaac Sim Extra
 "isaacsim.asset.importer.mjcf" = {}
-# isaacsim 5.1 ships TWO URDF importers: the broken 2.4.31+109.0.1 (USD-25.02 .so
-# vs runtime USD-25.11, undefined symbol UsdPhysicsTokens) and the working 3.2.1
-# pure-Python rewrite under isaacsim/exts/isaacsim.asset.importer.urdf/. Pin to 3.2.1.
-"isaacsim.asset.importer.urdf" = {version = "3.2.1", exact = true}
+"isaacsim.asset.importer.urdf" = {version = "3.11.2", exact = true}
 "omni.physx.bundle" = {}
 "omni.physx.tensors" = {}
 "omni.replicator.core" = {}
@@ -278,13 +274,6 @@ outDirectory = "${data}"
 
 # Extensions
 ###############################
-[settings.exts."omni.kit.registry.nucleus"]
-registries = [
-    { name = "kit/default", url = "https://ovextensionsprod.blob.core.windows.net/exts/kit/prod/107/shared" },
-    { name = "kit/sdk", url = "https://ovextensionsprod.blob.core.windows.net/exts/kit/prod/sdk/${kit_version_short}/${kit_git_hash}" },
-    { name = "kit/community", url = "https://dw290v42wisod.cloudfront.net/exts/kit/community" },
-]
-
 [settings.app.extensions]
 skipPublishVerification = false
 registryEnabled = true
