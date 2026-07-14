@@ -824,6 +824,22 @@ class AppLauncher:
         # enable sys stdout and stderr
         sys.stdout = sys.__stdout__
 
+        # physics 110.1 moved omni.physics.tensors.impl.api to omni.physics.tensors.api;
+        # alias the old import path used across Isaac Lab.
+        import importlib
+
+        try:
+            importlib.import_module("omni.physics.tensors.impl.api")
+        except ModuleNotFoundError:
+            tensors_pkg = importlib.import_module("omni.physics.tensors")
+            tensors_api = importlib.import_module("omni.physics.tensors.api")
+            if not hasattr(tensors_api, "SoftBodyView"):
+                tensors_api.SoftBodyView = tensors_api.DeformableBodyView
+            if not hasattr(tensors_api, "SoftBodyMaterialView"):
+                tensors_api.SoftBodyMaterialView = tensors_api.DeformableMaterialView
+            sys.modules["omni.physics.tensors.impl"] = tensors_pkg
+            sys.modules["omni.physics.tensors.impl.api"] = tensors_api
+
         # add Isaac Lab modules back to sys.modules
         for key, value in hacked_modules.items():
             sys.modules[key] = value

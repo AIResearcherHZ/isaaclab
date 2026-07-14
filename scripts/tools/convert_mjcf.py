@@ -431,6 +431,7 @@ def _flatten_hierarchy(
             continue
         if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
             prim.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+            prim.RemoveAppliedSchema("NewtonArticulationRootAPI")
             if PhysxSchema and prim.HasAPI(PhysxSchema.PhysxArticulationAPI):
                 prim.RemoveAPI(PhysxSchema.PhysxArticulationAPI)
                 PhysxSchema.PhysxArticulationAPI.Apply(root_prim)
